@@ -2,6 +2,42 @@
 
 Hylki (formerly Vireo) is a clean, fast, GNOME-native email client built with Rust and libadwaita for Wayland desktops. Privacy-first: no telemetry, remote content blocked by default, and credentials kept in the system keyring.
 
+## What's new in 1.44.0-beta.8
+
+New features:
+
+- A reply sent from the reading pane becomes its card in the conversation
+- Several signatures per account - (#445)
+- One sort and filter button, with more quick filters - (#441)
+- A setting to keep the search field open - (#446)
+- More of Gmail's keys - (#392)
+- Sensitivity labels shown by name - (#411)
+- Addresses in To, Cc and Bcc as pills
+- A Microsoft 365 account can suggest only its own people - (#410)
+- LDAP directories in the Contacts address book list - (#307)
+- The message list grouped by date by default - (#435)
+- A signature's HTML edited in place
+- Animations follow GNOME's Reduce Animation switch
+
+Fixes:
+
+- Reply All putting your own address back in Cc, by @Dandiccf - (#448)
+- an LDAP directory that failed going quiet after its first error - (#307)
+- keys pressed while a conversation loaded being lost - (#392)
+- an unread conversation opening with its first message read - (#392)
+- marking several conversations read marking only their first messages - (#392)
+- a personal Microsoft account asking for an organization list as you type - (#410)
+- the HTML source format named as if it were the rich text editor - (#440)
+- empty space above a message written as Markdown or HTML
+- rows staying tinted after a search was cleared
+
+Translations:
+
+- Spanish by @danielmigueltejedor
+- Greek by @yioannides
+- Catalan by @jolupa
+- French by @frenchy82
+
 ## What's new in 1.44.0-beta.7
 
 New features:

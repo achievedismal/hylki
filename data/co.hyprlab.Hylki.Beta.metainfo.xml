@@ -63,6 +63,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.44.0-beta.8" date="2026-10-15" type="development">
+      <description>
+        <p>Eighth preview of 1.44.0: a sent reply turns into its card in the conversation, several signatures per account, recipients as pills, one sort and filter button with more quick filters, more of Gmail's keys, sensitivity labels by name, LDAP directories in Contacts, updated Spanish, Greek, Catalan and French translations, and fixes for Reply All and Gmail keys.</p>
+      </description>
+    </release>
     <release version="1.44.0-beta.7" date="2026-10-13" type="development">
       <description>
         <p>Seventh preview of 1.44.0: a font and size for new messages, the list grouped by date, plain-text replies to plain-text mail, a new-mail count on the app icon, sortable and scrolling list columns, the status bar at the foot of the window, an Italian translation, and fixes for a crash at launch, Microsoft 365 and JMAP folders, LDAP directories and right-click menus on X11.</p>
