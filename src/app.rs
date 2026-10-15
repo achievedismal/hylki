@@ -168,9 +168,119 @@ const ATTACHMENT_CACHE_BUDGET: usize = 128 << 20;
 struct ListHeaderWidgets {
     revealers: Vec<gtk::Revealer>,
     overflow: gtk::Revealer,
-    unread: gtk::ToggleButton,
-    starred: gtk::ToggleButton,
+    filter: SortFilterPopover,
     sort: gtk::gio::SimpleAction,
+}
+
+/// The orders the list header offers, by their keys in `SortOrder`. The
+/// column headings can set more (#443); none of these is ticked then.
+const SORT_ORDERS: [(&str, &str); 6] = [
+    (i18n_noop("Date (Newest first)"), "date_newest"),
+    (i18n_noop("Date (Oldest first)"), "date_oldest"),
+    (i18n_noop("Sender (A–Z)"), "sender"),
+    (i18n_noop("Subject (A–Z)"), "subject"),
+    (i18n_noop("Unread first"), "unread"),
+    (i18n_noop("Starred first"), "flagged"),
+];
+
+/// The list header's sort and filter button (#441): the sort orders in one
+/// column of its popover, the quick filters in the other.
+struct SortFilterPopover {
+    button: gtk::MenuButton,
+    filters: Vec<(QuickFilter, gtk::CheckButton)>,
+    clear: gtk::Button,
+}
+
+impl SortFilterPopover {
+    /// The popover stays open as rows are clicked, so an order and several
+    /// filters can be set in one visit.
+    fn new(button: gtk::MenuButton, sort: &gtk::gio::SimpleAction, sender: &relm4::Sender<AppMsg>) -> Self {
+        let column = |title: &str| {
+            let col = gtk::Box::new(gtk::Orientation::Vertical, 0);
+            col.add_css_class("sort-filter-column");
+            let caption = gtk::Label::new(Some(title));
+            caption.set_xalign(0.0);
+            caption.add_css_class("dim-label");
+            caption.add_css_class("caption-heading");
+            col.append(&caption);
+            col
+        };
+
+        let sort_col = column(&i18n("Sort by"));
+        let mut radios: Vec<(&'static str, gtk::CheckButton)> = Vec::new();
+        for (label, key) in SORT_ORDERS {
+            let radio = gtk::CheckButton::with_label(&i18n(label));
+            if let Some((_, first)) = radios.first() {
+                radio.set_group(Some(first));
+            }
+            let action = sort.clone();
+            radio.connect_toggled(move |r| {
+                let current = action.state().and_then(|v| v.str().map(String::from));
+                if r.is_active() && current.as_deref() != Some(key) {
+                    action.activate(Some(&key.to_variant()));
+                }
+            });
+            sort_col.append(&radio);
+            radios.push((key, radio));
+        }
+        // The headings and the ⋯ menu sort through the same action, so the
+        // radios follow its state wherever the change came from.
+        let show_sort = move |key: Option<String>| {
+            let key = key.unwrap_or_default();
+            match radios.iter().find(|(k, _)| *k == key) {
+                Some((_, r)) => r.set_active(true),
+                None => radios.iter().for_each(|(_, r)| r.set_active(false)),
+            }
+        };
+        show_sort(sort.state().and_then(|v| v.str().map(String::from)));
+        sort.connect_state_notify(move |a| show_sort(a.state().and_then(|v| v.str().map(String::from))));
+
+        let filter_col = column(&i18n("Show only"));
+        let mut filters = Vec::new();
+        for f in QuickFilter::ALL {
+            let check = gtk::CheckButton::with_label(&f.label());
+            let s = sender.clone();
+            check.connect_toggled(move |c| s.emit(AppMsg::SetQuickFilter(f, c.is_active())));
+            filter_col.append(&check);
+            filters.push((f, check));
+        }
+        let clear = gtk::Button::with_label(&i18n("Clear Filters"));
+        clear.add_css_class("flat");
+        clear.set_halign(gtk::Align::Start);
+        clear.set_sensitive(false);
+        let s = sender.clone();
+        clear.connect_clicked(move |_| s.emit(AppMsg::ClearQuickFilters));
+        filter_col.append(&clear);
+
+        let columns = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        columns.add_css_class("sort-filter-popover");
+        columns.append(&sort_col);
+        columns.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+        columns.append(&filter_col);
+        let popover = gtk::Popover::new();
+        popover.set_child(Some(&columns));
+        button.set_popover(Some(&popover));
+        Self { button, filters, clear }
+    }
+
+    /// Show `filters` on the checks, and tint the button while any is on
+    /// so a narrowed list never passes for an empty folder.
+    fn sync(&self, filters: QuickFilters) {
+        for (f, check) in &self.filters {
+            if check.is_active() != filters.has(*f) {
+                check.set_active(filters.has(*f));
+            }
+        }
+        self.clear.set_sensitive(!filters.is_empty());
+        if filters.is_empty() {
+            self.button.remove_css_class("list-filter-active");
+            self.button.set_tooltip_text(Some(&i18n("Sort and filter messages")));
+        } else {
+            self.button.add_css_class("list-filter-active");
+            let names: Vec<String> = QuickFilter::ALL.iter().filter(|f| filters.has(**f)).map(|f| f.label()).collect();
+            self.button.set_tooltip_text(Some(&i18n_f("Filtered: {names}", &[("names", &names.join(", "))])));
+        }
+    }
 }
 
 struct ReaderToolbarWidgets {
@@ -237,7 +347,7 @@ use crate::ui::compose::{
     Compose, ComposeAccount, ComposeInit, ComposeInput, ComposeOutput, ComposePrefill,
 };
 use crate::ui::message_list::{
-    BulkAction, MessageList, MessageListInput, MessageListOutput, RowAction,
+    BulkAction, CheckFilter, MessageList, MessageListInput, MessageListOutput, QuickFilter, QuickFilters, RowAction,
 };
 use crate::ui::attachments_gallery::{
     AttachmentsGallery, GalleryAccount, GalleryFolder, GalleryInput, GalleryOutput, GalleryRequest,
@@ -278,6 +388,34 @@ struct ComposeHost {
     #[allow(dead_code)]
     controller: Controller<Compose>,
     window: adw::Window,
+}
+
+/// A reply on its way from the split pane into its conversation: its card,
+/// the composer it was written in, and the conversation it answers.
+struct MorphPending {
+    message: Message,
+    composer: gtk::Widget,
+    conversation: (u32, u32),
+}
+
+/// The card a reply sent from the split pane has in its conversation until
+/// its copy is read back from Sent (send_morph.rs).
+struct Provisional {
+    message: Message,
+    /// The Message-ID it answers.
+    answers: String,
+}
+
+impl Provisional {
+    /// Whether `m` is this reply's own copy: from the same account, dated
+    /// when this was sent (by this machine's clock either way), and
+    /// answering the same message.
+    fn copied_by(&self, m: &Message) -> bool {
+        m.uid != 0
+            && m.account_id == self.message.account_id
+            && m.timestamp >= self.message.timestamp - 30
+            && m.references.split_whitespace().any(|x| x == self.answers)
+    }
 }
 
 /// The reader's inline reply/forward composer. `window` is `Some` only while the
@@ -434,6 +572,9 @@ struct ReaderCompose {
     id: u32,
     controller: Controller<Compose>,
     window: Option<adw::Window>,
+    /// The message a split reply answers, by (account, id): its card in the
+    /// reader is the one the reply was opened from.
+    answering: Option<(u32, u32)>,
 }
 
 /// Files handed in from outside the app (GNOME Files' "Send with Hylki",
@@ -501,6 +642,21 @@ pub struct AppModel {
     composers: Vec<ComposeHost>,
     /// The reader's inline reply/forward composer, if open.
     reader_compose: Option<ReaderCompose>,
+    /// The stage over the reading pane that turns a sent split reply into
+    /// its card in the conversation (send_morph.rs).
+    send_morph: crate::ui::send_morph::SendMorph,
+    /// A reply just sent from the split pane, with the card it gets in the
+    /// conversation and whether it moves there: (composer id, message,
+    /// animated), until that composer closes.
+    arriving: Option<(u32, Message, bool)>,
+    /// A sent reply whose morph is under way, until the pane changes under
+    /// the stage.
+    morph_pending: Option<MorphPending>,
+    /// The app's own input, for the morph's steps that answer later.
+    self_sender: relm4::Sender<AppMsg>,
+    /// The cards standing in for replies sent from here until their copies
+    /// are read back from Sent, by (account, id).
+    provisionals: HashMap<(u32, u32), Provisional>,
     /// Superseded inline composers still finishing a save-if-dirty before closing.
     draining_composers: Vec<(u32, Controller<Compose>)>,
     /// SlideDown revealer under the reader toolbar that hosts the inline pane.
@@ -825,6 +981,8 @@ pub struct AppModel {
     list_column_scroll: bool,
     /// Date headings over a list sorted by date (#435).
     list_group_by_date: bool,
+    /// The list's search field stays open (#446).
+    list_search_open: bool,
     /// The widths columns were dragged to by their headings (#334).
     list_column_widths: std::collections::HashMap<config::ListColumn, i32>,
     /// The list pane is wide enough for one line per message, which
@@ -957,6 +1115,8 @@ pub struct AppModel {
     /// The saved contacts' addresses, for rules on whether a sender is in
     /// Contacts (PR #384).
     saved_addresses: crate::contacts::SavedAddresses,
+    /// The list header's quick filters that are on (#441).
+    quick_filters: QuickFilters,
     /// Tags (#71): a name and color per keyword.
     tags: Vec<config::Tag>,
     /// The tag view, if that is the view — alongside `unified` and
@@ -1160,6 +1320,13 @@ pub struct AppModel {
     /// Every message currently selected (list rows or reader cards), newest
     /// report wins. Lets the toolbar's Delete act on the whole multi-selection.
     list_selection: Vec<(u32, u32)>,
+    /// How many rows Gmail's x has checked, while it is checking them
+    /// (#392): they are acted on, not opened.
+    checked: Option<usize>,
+    /// A composer is waiting for the busy pointer to be drawn, and one is
+    /// being built (see `AppMsg::ComposeNow`).
+    compose_waiting: bool,
+    compose_now: bool,
     /// The list's own selection as it last reported it; `list_selection`
     /// also follows the reader's cards.
     list_heard: Vec<(u32, u32)>,
@@ -1349,6 +1516,10 @@ pub enum AppMsg {
     RefsRepaired { account_id: u32, folder_id: u32 },
     /// The list's selection changed; the reader outlines the matching cards.
     SelectionKeys(Vec<(u32, u32)>),
+    /// Gmail's x checked rows, this many, or stopped checking (#392).
+    ListChecked(Option<usize>),
+    /// A composer asked for, built now that the busy pointer is drawn.
+    ComposeNow(Box<AppMsg>),
     /// The reader's selection changed — mirror what the list can represent.
     SelectCards(Vec<(u32, u32)>),
     /// A conversation message was scrolled all the way through — mark it read on
@@ -1683,6 +1854,12 @@ pub enum AppMsg {
     /// Showcase only (HYLKI_SHOWCASE_FOLDER): switch to the first account's
     /// folder of this kind, so a capture can start from Drafts, Sent, etc.
     ShowcaseFolder { kind: FolderKind, account: Option<u32> },
+    /// Showcase only (HYLKI_SHOWCASE_SEND): write `text` in the split
+    /// reply's editor and send it, to watch the send morph.
+    ShowcaseSend(String),
+    /// Showcase only (HYLKI_SHOWCASE_COPY): the sent reply's copy is read
+    /// back, made up from its stand-in card, as a server's would be.
+    ShowcaseCopy,
     /// Showcase only (HYLKI_SHOWCASE_NOTIFY): post the new-mail notification
     /// for the active account's newest Inbox message, focus or not, so the
     /// notification, its buttons and its sound can be tried without
@@ -1697,6 +1874,9 @@ pub enum AppMsg {
     Reply,
     ReplyAll,
     Forward,
+    /// A reply, reply to all, forward or new message in a window of its
+    /// own, whatever Settings says (Gmail's Shift+R, Shift+A, Shift+F, d).
+    ComposeInWindow(WindowCompose),
     AddContactAddr(String),
     OpenMailto(String),
     /// Ctrl+C while the reader's view does not hold the keyboard.
@@ -1747,7 +1927,13 @@ pub enum AppMsg {
     ViewSource,
     /// User clicked "Load attachments" for a message whose attachments weren't
     /// pre-downloaded — fetch them from the server now.
-    SendMessage(Box<OutgoingMessage>),
+    /// A composer sent a message; `from` is that composer's id.
+    SendMessage { from: u32, out: Box<OutgoingMessage> },
+    /// Where the conversation's cards stood when a reply was sent has been
+    /// measured: the pane can change under the send morph's stage.
+    SendMorphMeasured,
+    /// The pane could not be captured for the send morph.
+    SendMorphFailed,
     SaveDraftMessage(Box<OutgoingMessage>),
     /// Save a message to the Templates folder (#360): a composer's Save as
     /// Template, or an edited template saved back.
@@ -1793,8 +1979,10 @@ pub enum AppMsg {
     PresentWindow,
     /// Open the status bar straight into console mode (button / burger menu).
     OpenConsole,
-    /// The list header's unread quick filter (#97).
-    SetUnreadFilter(bool),
+    /// Turn one of the list header's quick filters on or off (#97, #441).
+    SetQuickFilter(QuickFilter, bool),
+    /// Turn every quick filter off.
+    ClearQuickFilters,
     /// Reveal (or toggle away) the message list's search bar (#102).
     OpenListSearch,
     /// Open the reader's in-message find bar (#103).
@@ -1802,8 +1990,6 @@ pub enum AppMsg {
     /// Delay-policy read marking (#100): fires a couple of seconds after a
     /// message opened; only applies if it is still the one on screen.
     DeferredMarkRead { message: Box<Message> },
-    /// The list header's starred quick filter.
-    SetStarredFilter(bool),
     /// The list pane is this wide now (a drag of the divider, #334).
     ListPaneWidth(i32),
     /// Write the exported log straight to `path`, no chooser: the
@@ -2224,8 +2410,8 @@ impl SimpleComponent for AppModel {
                                 // message count and the sort menu (moved out of
                                 // the list's own toolbar to reclaim a row).
                                 // pack_end packs right-to-left: sort rightmost.
-                                // Quick filters (#97): unread / starred only.
-                                // Session state, like Mail.app's filter bar.
+                                // Quick filters (#97, #441): session state,
+                                // like Mail.app's filter bar.
                                 // Focus Mode: the ⋯ that stands in for the
                                 // search, filters, count and sort while they
                                 // are folded away. Rightmost, so packed first.
@@ -2243,50 +2429,23 @@ impl SimpleComponent for AppModel {
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::ListOverflowMenu),
                                     },
                                 },
-                                #[name = "lh_unread"]
+                                // The sort orders and every quick filter share
+                                // one popover (#441): a button each would crowd
+                                // the header.
+                                #[name = "lh_filter"]
                                 pack_end = &gtk::Revealer {
                                     set_transition_type: gtk::RevealerTransitionType::SlideLeft,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
-                                    gtk::ToggleButton {
-                                        set_icon_name: "mail-unread-symbolic",
-                                        set_tooltip_text: Some(i18n("Show only unread").as_str()),
+                                    #[name = "list_filter_btn"]
+                                    gtk::MenuButton {
+                                        set_icon_name: "filter-symbolic",
+                                        set_tooltip_text: Some(i18n("Sort and filter messages").as_str()),
                                         set_valign: gtk::Align::Center,
                                         add_css_class: "flat",
-                                        connect_toggled[sender] => move |btn| {
-                                            sender.input(AppMsg::SetUnreadFilter(btn.is_active()));
-                                        },
-                                    },
-                                },
-                                #[name = "lh_starred"]
-                                pack_end = &gtk::Revealer {
-                                    set_transition_type: gtk::RevealerTransitionType::SlideLeft,
-                                    set_transition_duration: FOCUS_ANIM_MS,
-                                    add_css_class: "focus-fade",
-                                    gtk::ToggleButton {
-                                        set_icon_name: "starred-symbolic",
-                                        set_tooltip_text: Some(i18n("Show only starred").as_str()),
-                                        set_valign: gtk::Align::Center,
-                                        add_css_class: "flat",
-                                        connect_toggled[sender] => move |btn| {
-                                            sender.input(AppMsg::SetStarredFilter(btn.is_active()));
-                                        },
                                     },
                                 },
 
-                                #[name = "lh_sort"]
-                                pack_end = &gtk::Revealer {
-                                    set_transition_type: gtk::RevealerTransitionType::SlideLeft,
-                                    set_transition_duration: FOCUS_ANIM_MS,
-                                    add_css_class: "focus-fade",
-                                    #[name = "list_sort_btn"]
-                                    gtk::MenuButton {
-                                        set_icon_name: "view-sort-descending-symbolic",
-                                        set_tooltip_text: Some(i18n("Sort messages").as_str()),
-                                        set_valign: gtk::Align::Center,
-                                        add_css_class: "flat",
-                                    },
-                                },
                                 #[name = "lh_count"]
                                 pack_end = &gtk::Revealer {
                                     set_transition_type: gtk::RevealerTransitionType::SlideLeft,
@@ -2500,7 +2659,7 @@ impl SimpleComponent for AppModel {
                                         set_visible: model.toolbar_visible(config::ToolbarItem::Delete),
                                         #[watch]
                                         set_sensitive: model.reply_target().is_some()
-                                            || model.list_selection.len() > 1,
+                                            || model.many_selected(),
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::Delete),
                                     },
                                 },
@@ -2564,7 +2723,7 @@ impl SimpleComponent for AppModel {
                                             set_visible: model.toolbar_visible(config::ToolbarItem::MoveTo),
                                             #[watch]
                                             set_sensitive: model.reply_target().is_some()
-                                                || model.list_selection.len() > 1,
+                                                || model.many_selected(),
                                         },
                                     },
                                 },
@@ -2855,6 +3014,10 @@ impl SimpleComponent for AppModel {
                         AppMsg::MessageSelected { message, thread, solo }
                     }
                     MessageListOutput::SelectionKeys(keys) => AppMsg::SelectionKeys(keys),
+                    MessageListOutput::Checked(count) => AppMsg::ListChecked(count),
+                    MessageListOutput::MoveMessages { account_id, dest, messages } => {
+                        AppMsg::MoveMessagesTo { account_id, dest, messages }
+                    }
                     MessageListOutput::DeleteThread { messages } => {
                         AppMsg::DeleteThread(messages)
                     }
@@ -3006,7 +3169,6 @@ impl SimpleComponent for AppModel {
                         AppMsg::DeleteContact { book_uid, uid }
                     }
                     ContactsPageOutput::ImportContacts(paths) => AppMsg::ImportContacts(paths),
-                    ContactsPageOutput::DirectoryError(text) => AppMsg::DirectoryError(text),
                     ContactsPageOutput::ShowPhoto { name, data } => {
                         // The lightbox routes by extension — a bare contact
                         // name sent the JPEG down the PDF path, where poppler
@@ -3112,6 +3274,11 @@ impl SimpleComponent for AppModel {
             accounts_seed: None,
             composers: Vec::new(),
             reader_compose: None,
+            send_morph: crate::ui::send_morph::SendMorph::new(),
+            arriving: None,
+            morph_pending: None,
+            self_sender: sender.input_sender().clone(),
+            provisionals: HashMap::new(),
             draining_composers: Vec::new(),
             reader_split_top: {
                 let r = gtk::Revealer::new();
@@ -3225,6 +3392,9 @@ impl SimpleComponent for AppModel {
             listed_thread: Vec::new(),
             reader_focus_pending: false,
             list_selection: Vec::new(),
+            checked: None,
+            compose_waiting: false,
+            compose_now: false,
             list_heard: Vec::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
@@ -3335,6 +3505,7 @@ impl SimpleComponent for AppModel {
             list_headings: config::load_privacy().list_headings,
             list_column_scroll: config::load_privacy().list_column_scroll,
             list_group_by_date: config::load_privacy().list_group_by_date,
+            list_search_open: config::load_privacy().list_search_open,
             list_column_widths: config::load_list_column_widths(),
             list_wide: config::load_list_pane_width() >= LIST_WIDE_ON,
             shortcuts_win: None,
@@ -3393,6 +3564,7 @@ impl SimpleComponent for AppModel {
             // rules, so its sidebar shows the Tags and Filtered Folders
             // sections; a staged tags.toml / filters.toml still wins.
             saved_addresses: crate::contacts::SavedAddresses::default(),
+            quick_filters: QuickFilters::default(),
             filters: {
                 let filters = config::load_filters();
                 if filters.is_empty() && demo_data { demo_filters() } else { filters }
@@ -3629,6 +3801,7 @@ impl SimpleComponent for AppModel {
         model.message_list.emit(MessageListInput::SetColumns(model.list_columns.clone()));
         model.message_list.emit(MessageListInput::SetHeadings(model.list_headings));
         model.message_list.emit(MessageListInput::SetColumnScroll(model.list_column_scroll));
+        model.message_list.emit(MessageListInput::SetSearchPinned(model.list_search_open));
         model.message_list.emit(MessageListInput::SetColumnWidths(model.list_column_widths.clone()));
         model.sidebars_emit(SidebarInput::SetFocus {
             hide_accounts: model.focus.active(config::FocusPart::HideAccounts),
@@ -3687,6 +3860,7 @@ impl SimpleComponent for AppModel {
         // The app-wide theme choice must be in force before the first frame.
         apply_app_theme(model.app_theme);
         crate::text_scale::apply(model.text_scale);
+        follow_motion_setting();
         let reader_tag_btn = model.reader_tag_btn.clone();
         let reader_move_btn = model.reader_move_btn.clone();
         let widgets = view_output!();
@@ -3887,6 +4061,8 @@ impl SimpleComponent for AppModel {
             let overlay = gtk::Overlay::new();
             overlay.set_child(Some(split));
             overlay.add_overlay(&model.reader_compose_revealer);
+            // Over everything: the send morph's stage covers the whole pane.
+            overlay.add_overlay(&model.send_morph);
             widgets.reader_bin.set_child(Some(&overlay));
         }
         // The attachments gallery is the content stack's second page. Wrap it in a
@@ -5053,11 +5229,38 @@ impl SimpleComponent for AppModel {
                         });
                     }
                 }
+                // HYLKI_SHOWCASE_SEND=<seconds>[:<text>|:@<file>] writes in the
+                // reply's editor and sends it at that moment, for the send
+                // morph.
+                if let Ok(v) = std::env::var("HYLKI_SHOWCASE_SEND") {
+                    let (at, text) = v.split_once(':').unwrap_or((v.as_str(), "Sounds good, ship it.\nJason"));
+                    let at = at.parse::<f64>().unwrap_or(9.0);
+                    // `@<path>` reads the text from a file.
+                    let text = match text.strip_prefix('@') {
+                        Some(path) => std::fs::read_to_string(path).unwrap_or_default(),
+                        None => text.replace("\\n", "\n"),
+                    };
+                    let s = sender.clone();
+                    gtk::glib::timeout_add_local_once(std::time::Duration::from_millis((at * 1000.0) as u64), move || {
+                        s.input(AppMsg::ShowcaseSend(text));
+                    });
+                }
+                // HYLKI_SHOWCASE_COPY=<seconds> has the sent reply's copy
+                // read back then, so its stand-in card can be seen to give
+                // way to it.
+                if let Some(at) = std::env::var("HYLKI_SHOWCASE_COPY").ok().and_then(|v| v.parse::<f64>().ok()) {
+                    let s = sender.clone();
+                    gtk::glib::timeout_add_local_once(std::time::Duration::from_millis((at * 1000.0) as u64), move || {
+                        s.input(AppMsg::ShowcaseCopy);
+                    });
+                }
                 // Two seconds on, it logs where focus landed (#266).
-                if std::env::var("HYLKI_SHOWCASE_REPLY").is_ok() {
+                if let Ok(v) = std::env::var("HYLKI_SHOWCASE_REPLY") {
+                    // A number is the moment, in seconds (4 otherwise).
+                    let at = v.parse::<u32>().unwrap_or(4);
                     let s = sender.clone();
                     let window = root.clone();
-                    gtk::glib::timeout_add_seconds_local_once(4, move || {
+                    gtk::glib::timeout_add_seconds_local_once(at, move || {
                         s.input(AppMsg::Reply);
                         // After the split's slide, which focus waits for.
                         gtk::glib::timeout_add_seconds_local_once(2, move || showcase_log_focus(&window));
@@ -5316,10 +5519,11 @@ impl SimpleComponent for AppModel {
                         }
                     });
                 }
-                // HYLKI_SHOWCASE_CONTACTS=list|new|search:<text> opens
+                // HYLKI_SHOWCASE_CONTACTS=list|new|search:<text>[@<n>] opens
                 // Contacts at 3s, and with "new" its editor for a new contact
                 // at 5s, or with "search:" types the text into its search
-                // then, so the directories are asked too (#307).
+                // then, so the directories are asked too (#307), and with
+                // "@<n>" picks entry n of the book filter at 6s.
                 if let Ok(which) = std::env::var("HYLKI_SHOWCASE_CONTACTS") {
                     let s = sender.clone();
                     gtk::glib::timeout_add_seconds_local_once(3, move || s.input(AppMsg::OpenContacts));
@@ -5328,10 +5532,20 @@ impl SimpleComponent for AppModel {
                         gtk::glib::timeout_add_seconds_local_once(5, move || {
                             let _ = page.send(ContactsPageInput::NewContact);
                         });
-                    } else if let Some(text) = which.strip_prefix("search:").map(str::to_string) {
+                    } else if let Some(spec) = which.strip_prefix("search:") {
+                        let (text, book) = match spec.rsplit_once('@') {
+                            Some((t, n)) if n.parse::<u32>().is_ok() => (t.to_string(), n.parse::<u32>().ok()),
+                            _ => (spec.to_string(), None),
+                        };
+                        let p = page.clone();
                         gtk::glib::timeout_add_seconds_local_once(5, move || {
-                            let _ = page.send(ContactsPageInput::SetSearch(text));
+                            let _ = p.send(ContactsPageInput::SetSearch(text));
                         });
+                        if let Some(n) = book {
+                            gtk::glib::timeout_add_seconds_local_once(6, move || {
+                                let _ = page.send(ContactsPageInput::PickBook(n));
+                            });
+                        }
                     }
                 }
                 // HYLKI_SHOWCASE_SETTINGS=accounts|prefs opens the Settings
@@ -5447,32 +5661,16 @@ impl SimpleComponent for AppModel {
                 }
             });
             sort_group.add_action(&sort_action);
-            widgets.list_sort_btn.insert_action_group("sortmenu", Some(&sort_group));
-
-            let menu = gtk::gio::Menu::new();
-            for (label, key) in [
-                (i18n_noop("Date (Newest first)"), "date_newest"),
-                (i18n_noop("Date (Oldest first)"), "date_oldest"),
-                (i18n_noop("Sender (A–Z)"), "sender"),
-                (i18n_noop("Subject (A–Z)"), "subject"),
-                (i18n_noop("Unread first"), "unread"),
-                (i18n_noop("Starred first"), "flagged"),
-            ] {
-                menu.append(Some(&i18n(label)), Some(&format!("sortmenu.order::{key}")));
-            }
-            widgets.list_sort_btn.set_menu_model(Some(&menu));
+            widgets.list_filter_btn.insert_action_group("sortmenu", Some(&sort_group));
 
             let _ = model.list_header_widgets.set(ListHeaderWidgets {
                 revealers: vec![
                     widgets.lh_search.clone(),
-                    widgets.lh_unread.clone(),
-                    widgets.lh_starred.clone(),
-                    widgets.lh_sort.clone(),
+                    widgets.lh_filter.clone(),
                     widgets.lh_count.clone(),
                 ],
                 overflow: widgets.lh_overflow.clone(),
-                unread: widgets.lh_unread.child().and_downcast::<gtk::ToggleButton>().expect("unread toggle"),
-                starred: widgets.lh_starred.child().and_downcast::<gtk::ToggleButton>().expect("starred toggle"),
+                filter: SortFilterPopover::new(widgets.list_filter_btn.clone(), &sort_action, sender.input_sender()),
                 sort: sort_action,
             });
             // Focus Mode's chrome as saved: nothing is mapped yet, so the
@@ -6520,6 +6718,12 @@ impl SimpleComponent for AppModel {
                 // Navigating away releases any inline reply (save-if-dirty, or keep
                 // it as an independent window if it was popped out).
                 self.release_reader_compose();
+                // A sent reply still on its way into the conversation left
+                // behind: the reader shows the new message at once.
+                let elsewhere = self.current.as_ref().is_some_and(|c| (c.account_id, c.id) != (m.account_id, m.id));
+                if elsewhere && self.send_morph.running() {
+                    self.send_morph.finish();
+                }
                 // A queued message reads like any other, straight from the bytes
                 // already on disk — no folder, no UID, nothing to ask the server.
                 if let Some(item) = self.outbox_item(m.account_id, m.id) {
@@ -6557,7 +6761,12 @@ impl SimpleComponent for AppModel {
                 };
                 let needs_body = cached_body.is_none();
 
-                if m.unread {
+                // A conversation's row is not one message read: its cards are
+                // marked as the reader shows them, the first one included.
+                // Marking that one outright left it read, and folded, every
+                // time an unread conversation was opened again (#392).
+                let conversation = thread.len() > 1;
+                if m.unread && !conversation {
                     match self.read_mark {
                         config::ReadMark::Shown => self.mark_opened_read(&m),
                         config::ReadMark::Delay => {
@@ -6576,7 +6785,9 @@ impl SimpleComponent for AppModel {
                 }
 
                 let mut current = m.clone();
-                current.unread = false;
+                if !conversation {
+                    current.unread = false;
+                }
                 if let Some(body) = cached_body {
                     current.body = body;
                 }
@@ -6623,11 +6834,11 @@ impl SimpleComponent for AppModel {
                     );
                     if let Some(cached) = self.thread_cache.get(&body_key(&m)).cloned() {
                         self.current_thread = cached;
-                        // The message just opened is read, whatever the stored
-                        // copy said when it was put away.
+                        // The row's message as the list has it now, whatever
+                        // the stored copy said when it was put away.
                         for tm in self.current_thread.iter_mut() {
                             if tm.id == m.id && tm.account_id == account_id {
-                                tm.unread = false;
+                                tm.unread = current.unread;
                                 tm.body = current.body.clone();
                             }
                         }
@@ -6644,11 +6855,10 @@ impl SimpleComponent for AppModel {
                         let mut conv: Vec<Message> = Vec::with_capacity(thread.len());
                         for tm in &thread {
                             let mut tm = tm.clone();
-                            // The others keep their real unread state: each is marked
-                            // in the reader until it is scrolled through. Only the one
-                            // just opened is read outright.
+                            // Each keeps its real unread state, the row's own
+                            // message too: the reader marks them as it shows them.
                             if tm.id == m.id && tm.account_id == account_id {
-                                tm.unread = false;
+                                tm.unread = current.unread;
                                 tm.body = current.body.clone();
                             } else if tm.body.is_empty() {
                                 if let Some(b) = self.body_cache.get(&body_key(&tm)) {
@@ -6938,7 +7148,7 @@ impl SimpleComponent for AppModel {
             }
 
             AppMsg::Archive => {
-                if self.list_selection.len() > 1 {
+                if self.many_selected() {
                     self.message_list.emit(MessageListInput::Bulk(BulkAction::Archive));
                     return;
                 }
@@ -6957,9 +7167,15 @@ impl SimpleComponent for AppModel {
             }
             AppMsg::Delete => {
                 // More than one message selected: the trash button deletes the
-                // whole selection, exactly as the bulk bar's Delete would.
-                if self.list_selection.len() > 1 {
-                    self.message_list.emit(MessageListInput::Bulk(BulkAction::Delete));
+                // whole selection, exactly as the bulk bar's Delete would. One
+                // row checked with Gmail's x is a lone row, whose conversation
+                // asks first as an open one does (#392).
+                if self.many_selected() {
+                    self.message_list.emit(if self.list_selection.len() == 1 {
+                        MessageListInput::ResolveDelete
+                    } else {
+                        MessageListInput::Bulk(BulkAction::Delete)
+                    });
                     return;
                 }
                 // A lone list-row selection over an open conversation may be
@@ -7056,10 +7272,10 @@ impl SimpleComponent for AppModel {
                         self.open_reply(m.account_id, self.reply_context(&m, reply_prefill(&m)), (m.account_id, m.id), &sender);
                     }
                     RowAction::ReplyAll => {
-                        let self_email = self.email_of(m.account_id).unwrap_or_default();
+                        let own = self.own_identities(m.account_id);
                         self.open_reply(
                             m.account_id,
-                            self.reply_context(&m, reply_all_prefill(&m, &self_email)),
+                            self.reply_context(&m, reply_all_prefill(&m, &own)),
                             (m.account_id, m.id),
                             &sender,
                         );
@@ -7085,6 +7301,12 @@ impl SimpleComponent for AppModel {
             }
 
             AppMsg::ToggleReadCurrent => {
+                // Rows selected in the list: the list marks every message
+                // of the conversations they stand for (#392).
+                if self.rows_selected() {
+                    self.message_list.emit(MessageListInput::BulkToggleRead);
+                    return;
+                }
                 // Several selected: any unread one makes them all read,
                 // otherwise they all go back to unread (#313).
                 let many = self.multi_selection();
@@ -7133,10 +7355,10 @@ impl SimpleComponent for AppModel {
                     RowAction::ReplyAll => {
                         let m = self.newest_to_answer(&conversation, m);
                         let m = self.with_cached_body(m);
-                        let self_email = self.email_of(m.account_id).unwrap_or_default();
+                        let own = self.own_identities(m.account_id);
                         self.open_compose(
                             m.account_id,
-                            self.reply_context(&m, reply_all_prefill(&m, &self_email)),
+                            self.reply_context(&m, reply_all_prefill(&m, &own)),
                             &sender,
                         );
                     }
@@ -7330,6 +7552,33 @@ impl SimpleComponent for AppModel {
                 }
             }
 
+            // Building a composer holds the window a moment, longest the
+            // first time in a session: the pointer turns busy, and that is
+            // drawn before the build starts, so the key or click is seen to
+            // have landed (#392). Another press meanwhile is dropped.
+            asked @ (AppMsg::Compose
+            | AppMsg::Reply
+            | AppMsg::ReplyAll
+            | AppMsg::Forward
+            | AppMsg::ComposeInWindow(_))
+                if !self.compose_now =>
+            {
+                if !std::mem::replace(&mut self.compose_waiting, true) {
+                    self.window.set_cursor_from_name(Some("progress"));
+                    let s = sender.clone();
+                    self.after_paint(move || s.input(AppMsg::ComposeNow(Box::new(asked))));
+                }
+            }
+            AppMsg::ComposeNow(asked) => {
+                self.compose_waiting = false;
+                self.compose_now = true;
+                <Self as SimpleComponent>::update(self, *asked, sender.clone());
+                self.compose_now = false;
+                // Back once the composer's first frame, the slow one, is drawn.
+                let window = self.window.clone();
+                self.after_paint(move || window.set_cursor(None::<&gtk::gdk::Cursor>));
+            }
+
             AppMsg::Compose => {
                 let (account, prefill) =
                     self.new_message_from(self.active_account(), ComposePrefill::default());
@@ -7351,10 +7600,10 @@ impl SimpleComponent for AppModel {
 
             AppMsg::ReplyAll => {
                 if let Some(m) = self.compose_target() {
-                    let self_email = self.email_of(m.account_id).unwrap_or_default();
+                    let own = self.own_identities(m.account_id);
                     self.open_reply(
                         m.account_id,
-                        self.reply_context(&m, reply_all_prefill(&m, &self_email)),
+                        self.reply_context(&m, reply_all_prefill(&m, &own)),
                         (m.account_id, m.id),
                         &sender,
                     );
@@ -7366,6 +7615,29 @@ impl SimpleComponent for AppModel {
                     self.forward(m, true, &sender);
                 }
             }
+
+            AppMsg::ComposeInWindow(what) => match what {
+                WindowCompose::New => {
+                    let (account, prefill) =
+                        self.new_message_from(self.active_account(), ComposePrefill::default());
+                    self.open_compose(account, prefill, &sender);
+                }
+                WindowCompose::Forward => {
+                    if let Some(m) = self.compose_target() {
+                        self.forward(m, false, &sender);
+                    }
+                }
+                WindowCompose::Reply | WindowCompose::ReplyAll => {
+                    if let Some(m) = self.compose_target() {
+                        let prefill = if what == WindowCompose::Reply {
+                            reply_prefill(&m)
+                        } else {
+                            reply_all_prefill(&m, &self.own_identities(m.account_id))
+                        };
+                        self.open_compose(m.account_id, self.reply_context(&m, prefill), &sender);
+                    }
+                }
+            },
 
             AppMsg::AddContactAddr(addr) => {
                 // From an address's right-click menu: only the address is
@@ -7484,7 +7756,7 @@ impl SimpleComponent for AppModel {
             AppMsg::MarkSpam => {
                 // In Junk the same button, shortcut and menu entry mean the
                 // reverse (#168); for a selection the list makes that swap.
-                if self.list_selection.len() > 1 {
+                if self.many_selected() {
                     self.message_list.emit(MessageListInput::Bulk(BulkAction::Spam));
                     return;
                 }
@@ -8007,6 +8279,11 @@ impl SimpleComponent for AppModel {
             AppMsg::Pref(PrefOutput::SetListColumnScroll(on)) => {
                 if pref!(self.list_column_scroll = on) {
                     self.message_list.emit(MessageListInput::SetColumnScroll(on));
+                }
+            }
+            AppMsg::Pref(PrefOutput::SetListSearchOpen(on)) => {
+                if pref!(self.list_search_open = on) {
+                    self.message_list.emit(MessageListInput::SetSearchPinned(on));
                 }
             }
             AppMsg::Pref(PrefOutput::SetGroupByDate(on)) => {
@@ -9206,7 +9483,18 @@ impl SimpleComponent for AppModel {
                 }
             }
 
-            AppMsg::SendMessage(out) => {
+            AppMsg::SendMessage { from, out } => {
+                // A reply sent from the split pane becomes its own card in
+                // the conversation, instead of sliding away (send_morph.rs):
+                // its card is built now, for the composer's close to carry
+                // the editor to.
+                self.arriving = None;
+                if self.reply_joins(from, &out) {
+                    match self.provisional_message(&out) {
+                        Some(m) => self.arriving = Some((from, m, motion_wanted())),
+                        None => tracing::info!(target: "hylki::morph", "no send morph: the reply's card could not be built"),
+                    }
+                }
                 let account_id = out.from_account_id;
                 // Remember who this went to, now, whatever route it takes
                 // from here (straight out, the Outbox, Send Later): the next
@@ -9232,10 +9520,10 @@ impl SimpleComponent for AppModel {
                     .collect();
                 if !fresh.is_empty() {
                     for host in &self.composers {
-                        host.controller.emit(ComposeInput::AddSuggestions(fresh.clone()));
+                        host.controller.emit(ComposeInput::AddSuggestions { account_id, new: fresh.clone() });
                     }
                     if let Some(rc) = &self.reader_compose {
-                        rc.controller.emit(ComposeInput::AddSuggestions(fresh.clone()));
+                        rc.controller.emit(ComposeInput::AddSuggestions { account_id, new: fresh.clone() });
                     }
                 }
                 let sent_path = self.sent_copy_path(account_id);
@@ -9360,6 +9648,87 @@ impl SimpleComponent for AppModel {
                     r.controller.emit(ComposeInput::Cancel);
                 }
             }
+            AppMsg::SendMorphMeasured => self.send_morph_swap(),
+            AppMsg::SendMorphFailed => self.send_morph_failed(),
+
+            AppMsg::ShowcaseCopy => {
+                let Some(current) = self.current.clone() else { return };
+                let Some(p) = self.provisionals.values().next() else { return };
+                let mut copy = p.message.clone();
+                copy.uid = 9_999;
+                copy.message_id = "showcase-copy@hylki.local".into();
+                tracing::info!(target: "hylki::morph", "showcase: the copy of {} arrives", p.message.id);
+                self.merge_related(current.account_id, current.id, vec![copy]);
+                self.show_thread();
+                // The window once the copy has painted, beside the morph's
+                // own last frame, to hold the two against each other.
+                if let Some(dir) = std::env::var_os("HYLKI_MORPH_FRAMES") {
+                    let window: gtk::Widget = self.window.clone().upcast();
+                    gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(1200), move || {
+                        crate::ui::send_morph::capture_next_frame(&window.clone(), move |still| {
+                            if let Some((tex, _)) = still {
+                                let _ = tex.save_to_png(std::path::Path::new(&dir).join("zz-copy.png"));
+                            }
+                        });
+                    });
+                }
+            }
+
+            AppMsg::ShowcaseSend(text) => {
+                // Every frame interval for a second and a half, to compare
+                // the send morph with the slide it replaces.
+                if let Some(clock) = self.window.frame_clock() {
+                    let last = std::rc::Rc::new(std::cell::Cell::new(0i64));
+                    let id = clock.connect_after_paint(move |c| {
+                        let now = c.frame_time();
+                        if last.get() > 0 {
+                            tracing::debug!(target: "hylki::frames", "frame {} ms", (now - last.get()) / 1000);
+                        }
+                        last.set(now);
+                    });
+                    let c2 = clock.clone();
+                    let cell = std::rc::Rc::new(std::cell::Cell::new(Some(id)));
+                    gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(2500), move || {
+                        if let Some(id) = cell.take() {
+                            c2.disconnect(id);
+                        }
+                    });
+                }
+                let Some(rc) = self.reader_compose.as_ref().map(|r| &r.controller) else { return };
+                let editor = crate::ui::send_morph::find_widget(rc.widget().upcast_ref(), &|w| {
+                    w.is::<webkit6::WebView>()
+                })
+                .and_downcast::<webkit6::WebView>();
+                let Some(editor) = editor else { return };
+                let js = format!(
+                    "document.body.focus();{}",
+                    text.split('\n')
+                        .map(|l| format!("document.execCommand('insertText',false,{});", serde_json::to_string(l).unwrap_or_default()))
+                        .collect::<Vec<_>>()
+                        .join("document.execCommand('insertParagraph');")
+                );
+                webkit6::prelude::WebViewExt::evaluate_javascript(&editor, &js, None, None, None::<&gtk::gio::Cancellable>, |_| {});
+                let c = rc.sender().clone();
+                gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(600), move || {
+                    c.emit(ComposeInput::Send);
+                });
+                // The whole window every quarter second for six seconds from
+                // Send, to see what the reader does while the message goes.
+                if let Some(dir) = std::env::var_os("HYLKI_MORPH_FRAMES") {
+                    let window: gtk::Widget = self.window.clone().upcast();
+                    for i in 0..24u64 {
+                        let (dir, window) = (dir.clone(), window.clone());
+                        gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(600 + i * 250), move || {
+                            crate::ui::send_morph::capture_next_frame(&window.clone(), move |still| {
+                                if let Some((tex, _)) = still {
+                                    let _ = tex.save_to_png(std::path::Path::new(&dir).join(format!("win-{:05}.png", i * 250)));
+                                }
+                            });
+                        });
+                    }
+                }
+            }
+
             AppMsg::ComposeClosed(id) => {
                 self.close_compose(id);
                 self.message_list.emit(MessageListInput::ReclaimFocus);
@@ -9404,7 +9773,10 @@ impl SimpleComponent for AppModel {
                 self.reload_related(account_id);
             }
 
-            AppMsg::Unsent { account_id, message } => self.compose_unsent(account_id, *message, &sender),
+            AppMsg::Unsent { account_id, message } => {
+                self.drop_provisional(&message.in_reply_to);
+                self.compose_unsent(account_id, *message, &sender);
+            }
 
             AppMsg::OpenAccounts => self.open_settings_window(&sender, true, false),
 
@@ -9795,7 +10167,7 @@ impl SimpleComponent for AppModel {
             }
 
             AppMsg::MoveToInbox => {
-                if self.list_selection.len() > 1 {
+                if self.many_selected() {
                     self.message_list.emit(MessageListInput::Bulk(BulkAction::MoveToInbox));
                     return;
                 }
@@ -9847,7 +10219,7 @@ impl SimpleComponent for AppModel {
                 // account (the move reports anything from another account);
                 // otherwise the target's. The picker leaves out the folder
                 // the mail already sits in.
-                let (account_id, exclude) = if self.list_selection.len() > 1 {
+                let (account_id, exclude) = if self.many_selected() {
                     (self.list_selection[0].0, None)
                 } else {
                     match self.reply_target() {
@@ -9861,7 +10233,7 @@ impl SimpleComponent for AppModel {
                 }
                 // The reading pane shows a conversation (its row was opened,
                 // not one reply of it): offer to move the whole of it.
-                let conversation = (self.list_selection.len() <= 1
+                let conversation = (!self.many_selected()
                     && self.current_thread.len() > 1)
                     .then_some(self.current_thread.len());
                 // Anchored to the toolbar button, or to the overflow button
@@ -9937,7 +10309,10 @@ impl SimpleComponent for AppModel {
                         .map(|m| (m.account_id, m.folder_id, m.uid, m.id))
                         .collect();
                     self.drop_move(account_id, dest, items);
-                } else if self.list_selection.len() > 1 {
+                } else if self.rows_selected() {
+                    // The list knows the conversations its rows stand for.
+                    self.message_list.emit(MessageListInput::MoveSelectedTo { account_id, dest });
+                } else if self.many_selected() {
                     // The same path a drag onto the sidebar takes: grouped by
                     // source folder, undoable, foreign accounts reported.
                     let items: Vec<(u32, u32, u32, u32)> = self
@@ -9972,9 +10347,9 @@ impl SimpleComponent for AppModel {
                 self.message_view.emit(MessageViewInput::OpenFind);
             }
 
-            AppMsg::SetUnreadFilter(on) => {
-                self.message_list.emit(MessageListInput::SetUnreadOnly(on));
-            }
+            AppMsg::SetQuickFilter(f, on) => self.set_quick_filters(self.quick_filters.with(f, on)),
+
+            AppMsg::ClearQuickFilters => self.set_quick_filters(QuickFilters::default()),
 
             AppMsg::DeferredMarkRead { message } => {
                 let still_current = self
@@ -9990,10 +10365,6 @@ impl SimpleComponent for AppModel {
                 if pref!(self.read_mark = policy) {
                     self.message_view.emit(MessageViewInput::SetReadMark(policy));
                 }
-            }
-
-            AppMsg::SetStarredFilter(on) => {
-                self.message_list.emit(MessageListInput::SetStarredOnly(on));
             }
 
             AppMsg::Pref(PrefOutput::ExportSettings) => {
@@ -11281,6 +11652,19 @@ impl SimpleComponent for AppModel {
                 self.message_view.emit(MessageViewInput::SetSelectedCards(keys));
             }
 
+            AppMsg::ListChecked(count) => {
+                self.checked = count;
+                // Checked rows are not read: whatever was open closes, and
+                // the empty pane counts them.
+                if count.is_some() && self.current.is_some() {
+                    sender.input(AppMsg::ClearReader);
+                }
+                self.message_view.emit(MessageViewInput::SetChecked {
+                    count: count.unwrap_or(0),
+                    conversations: self.threading,
+                });
+            }
+
             AppMsg::SelectCards(keys) => {
                 self.list_selection = keys.clone();
                 self.selection_from_cards = !keys.is_empty();
@@ -11319,6 +11703,9 @@ impl SimpleComponent for AppModel {
                         (m.uid, m.folder_id)
                     });
                 let Some((uid, folder_id)) = target else { return };
+                if let Some(c) = self.current.as_mut().filter(|c| (c.account_id, c.id) == (account_id, id)) {
+                    c.unread = false;
+                }
                 if let Some(path) = self.folder_path(account_id, folder_id) {
                     self.pending_seen
                         .insert((account_id, path.clone(), uid), (true, std::time::Instant::now()));
@@ -12065,6 +12452,8 @@ impl AppModel {
             list_headings: self.list_headings,
             list_column_scroll: self.list_column_scroll,
             list_group_by_date: self.list_group_by_date,
+            date_groups_default_applied: true,
+            list_search_open: self.list_search_open,
             list_column_widths: config::list_column_widths_to(&self.list_column_widths),
             single_key_shortcuts: self.single_key.get(),
             gmail_keys: self.gmail_keys.get(),
@@ -12111,11 +12500,30 @@ impl AppModel {
 
     /// Carry out a single-key shortcut.
     fn run_shortcut(&mut self, action: Shortcut, sender: &ComponentSender<Self>) {
+        // Checking rows with none checked: say why the key did nothing
+        // (#392).
+        if self.checked == Some(0) && action.acts_on_selection() {
+            self.notifications.emit(NotifyInput::Push {
+                text: i18n("Select a conversation first."),
+                error: false,
+                connectivity: false,
+            });
+            return;
+        }
         match action {
             Shortcut::NextMessage => self.message_list.emit(MessageListInput::MoveSelection(1)),
             Shortcut::PrevMessage => self.message_list.emit(MessageListInput::MoveSelection(-1)),
             Shortcut::ToggleSelect => self.message_list.emit(MessageListInput::ToggleSelection),
-            Shortcut::BackToList => self.message_list.emit(MessageListInput::FocusList),
+            Shortcut::BackToList => {
+                // Gmail's u and Esc close the conversation, back to the list
+                // with nothing open (#392); the classic keys only move the
+                // keyboard there. A draft being written in the reader stays.
+                if self.gmail_on() && self.reader_compose.is_none() {
+                    self.message_list.emit(MessageListInput::CloseOpen);
+                } else {
+                    self.message_list.emit(MessageListInput::FocusList);
+                }
+            }
             Shortcut::Search => self.message_list.emit(MessageListInput::FocusSearch),
             // The open message's own view, not the reader's first page,
             // which is the "No message selected" one and takes no focus.
@@ -12131,6 +12539,14 @@ impl AppModel {
             }
             Shortcut::OpenCursor => self.message_list.emit(MessageListInput::OpenCursor),
             Shortcut::MarkRead(read) => {
+                if self.rows_selected() {
+                    self.message_list.emit(MessageListInput::Bulk(if read {
+                        BulkAction::MarkRead
+                    } else {
+                        BulkAction::MarkUnread
+                    }));
+                    return;
+                }
                 let mut targets = self.multi_selection();
                 if targets.is_empty() && self.acts_on_conversation(self.gmail_keys.get()) {
                     // The whole conversation, as Gmail marks it (#392).
@@ -12146,12 +12562,32 @@ impl AppModel {
                 if !targets.is_empty() {
                     self.user_set_flags(read_label(read), &targets, FlagKind::Read, read);
                 }
+                // Gmail's Shift+U puts the conversation back in the list,
+                // unread, rather than leave it open to be read again.
+                if !read {
+                    self.close_after_unread();
+                }
             }
             Shortcut::Undo => sender.input(AppMsg::Undo),
             Shortcut::MoveTo => sender.input(AppMsg::MoveToMenu),
             Shortcut::Label => sender.input(AppMsg::ReaderTagMenu),
             Shortcut::SelectAll => self.message_list.emit(MessageListInput::SelectAllShown),
             Shortcut::SelectNone => self.message_list.emit(MessageListInput::ClearSelection),
+            Shortcut::SelectWhere(filter) => self.message_list.emit(MessageListInput::SelectWhere(filter)),
+            Shortcut::ArchiveAndStep(delta) => {
+                // The list goes on to the neighbour once the conversation's
+                // row leaves it. On Gmail, from a label, archiving leaves the
+                // row where it is, so the step is taken here instead.
+                let stays = self.current.as_ref().is_some_and(|m| self.archives_in_place(m));
+                self.message_list.emit(if stays {
+                    MessageListInput::StepConversation(delta)
+                } else {
+                    MessageListInput::SetNavDirection(delta)
+                });
+                self.run_shortcut(Shortcut::Archive, sender);
+            }
+            Shortcut::InWindow(what) => sender.input(AppMsg::ComposeInWindow(what)),
+            Shortcut::Refresh => sender.input(AppMsg::Refresh),
             Shortcut::GoTo(GoTarget::Contacts) => sender.input(AppMsg::OpenContacts),
             Shortcut::GoTo(GoTarget::Kind(kind)) => {
                 // The merged view when the sidebar lists one, else the
@@ -12184,7 +12620,10 @@ impl AppModel {
                 }
                 sender.input(AppMsg::Archive);
             }
-            Shortcut::MarkUnreadFrom => self.mark_unread_from(),
+            Shortcut::MarkUnreadFrom => {
+                self.mark_unread_from();
+                self.close_after_unread();
+            }
             Shortcut::FoldAll(folded) => {
                 if self.current_thread.len() > 1 {
                     self.message_view.emit(MessageViewInput::FoldAll(folded));
@@ -12194,7 +12633,7 @@ impl AppModel {
             Shortcut::Spam => sender.input(AppMsg::MarkSpam),
             Shortcut::Star => sender.input(AppMsg::ToggleStar),
             Shortcut::ToggleRead => {
-                if self.list_selection.len() > 1 {
+                if self.many_selected() {
                     sender.input(AppMsg::ToggleReadCurrent);
                 } else if let Some(m) = self.current.clone() {
                     let read = m.unread;
@@ -12216,7 +12655,7 @@ impl AppModel {
                 // Every selected message loses them when several are
                 // selected (#313). Re-read the message between removals,
                 // since set_tag patches the copy the next call will read.
-                let targets = if self.list_selection.len() > 1 {
+                let targets = if self.many_selected() {
                     self.multi_selection()
                 } else {
                     self.reply_target().into_iter().collect()
@@ -13580,10 +14019,24 @@ impl AppModel {
         }
     }
 
+    /// Whether actions mean a selection of rows rather than the message
+    /// open: several selected, or any checked with Gmail's x, which opens
+    /// none of them (#392).
+    fn many_selected(&self) -> bool {
+        self.list_selection.len() > 1 || (self.checked.is_some() && !self.list_selection.is_empty())
+    }
+
+    /// The selection is the list's rows, not cards of the open
+    /// conversation: the list resolves it, a conversation's row bringing
+    /// all of it (#392).
+    fn rows_selected(&self) -> bool {
+        self.many_selected() && !self.selection_from_cards
+    }
+
     /// Whether the toolbar's per-message actions have something to act on:
     /// the reply target, or a selection of several (#313).
     fn acts_on_selection(&self) -> bool {
-        self.reply_target().is_some() || self.list_selection.len() > 1
+        self.reply_target().is_some() || self.many_selected()
     }
 
     /// Every message of a selection of more than one, list rows or cards of
@@ -13592,7 +14045,7 @@ impl AppModel {
     /// what an action means. A row the cache no longer holds is left out, as
     /// a move of the selection leaves it out.
     fn multi_selection(&self) -> Vec<Message> {
-        if self.list_selection.len() < 2 {
+        if !self.many_selected() {
             return Vec::new();
         }
         self.list_selection
@@ -13657,10 +14110,7 @@ impl AppModel {
         if thread.len() <= 1 {
             return fallback;
         }
-        let mut own = self.own_identities(fallback.account_id);
-        if own.is_empty() {
-            own.extend(self.email_of(fallback.account_id));
-        }
+        let own = self.own_identities(fallback.account_id);
         let newest = |from_others: bool| {
             thread
                 .iter()
@@ -13765,7 +14215,7 @@ impl AppModel {
     /// the reader is, and e or Shift+I still act on the conversation.
     fn acts_on_conversation(&self, cards_too: bool) -> bool {
         self.current_thread.len() > 1
-            && self.list_selection.len() <= 1
+            && !self.many_selected()
             && (cards_too || !self.selection_from_cards)
     }
 
@@ -13791,12 +14241,37 @@ impl AppModel {
             .collect()
     }
 
+    /// Run `f` once the window has drawn its next frame.
+    fn after_paint(&self, f: impl FnOnce() + 'static) {
+        match self.window.frame_clock() {
+            Some(clock) => {
+                clock.request_phase(gtk::gdk::FrameClockPhase::PAINT);
+                crate::ui::message_list::after_next_paint(&clock, f);
+            }
+            None => f(),
+        }
+    }
+
+    /// Whether Gmail's keys are what the keyboard does.
+    fn gmail_on(&self) -> bool {
+        self.gmail_keys.get() && self.single_key.get()
+    }
+
+    /// After Gmail's Shift+U or _ on the open conversation, close it: the
+    /// keyboard goes back to its row, which stays unread (#392). Checked
+    /// rows stay as they are.
+    fn close_after_unread(&self) {
+        if self.gmail_on() && self.current.is_some() && !self.many_selected() && self.reader_compose.is_none() {
+            self.message_list.emit(MessageListInput::CloseOpen);
+        }
+    }
+
     /// Gmail's `_` (#392): mark unread from the message being read onward,
     /// that message and the later ones of its conversation. The message is
     /// the picked card, or with none picked the conversation's newest, which
     /// is where Gmail's own cursor sits in an open conversation.
     fn mark_unread_from(&mut self) {
-        if self.list_selection.len() > 1 {
+        if self.many_selected() {
             let targets = self.multi_selection();
             self.user_set_flags(read_label(false), &targets, FlagKind::Read, false);
             return;
@@ -13858,7 +14333,7 @@ impl AppModel {
     /// aliases (#34). Lower-cased comparison is the caller's job.
     fn own_identities(&self, account_id: u32) -> Vec<String> {
         let Some(cfg) = self.effective_config().get(account_id.saturating_sub(1) as usize) else {
-            return Vec::new();
+            return self.email_of(account_id).into_iter().collect();
         };
         std::iter::once(cfg.email.clone())
             .chain(cfg.aliases.iter().map(|al| config::split_identity(&al.identity).1))
@@ -14433,10 +14908,7 @@ impl AppModel {
                     .filters
                     .iter()
                     .any(|r| r.account_email.eq_ignore_ascii_case(&account.email));
-                let gmail = self.config.get(account.id.saturating_sub(1) as usize).is_some_and(|c| {
-                    c.protocol == config::Protocol::Imap
-                        && crate::worker::has_gmail_labels(c, self.folders.get(&account.id).map(Vec::as_slice).unwrap_or(&[]))
-                });
+                let gmail = self.gmail_labels(account.id);
                 Some(SectionData {
                     gmail,
                     in_unified: self.in_unified(account.id),
@@ -14586,7 +15058,7 @@ impl AppModel {
             // unless Focus Mode folded that group too.
             let mut sections = Vec::new();
             if focus {
-                let many = has_current || self.list_selection.len() > 1;
+                let many = has_current || self.many_selected();
                 sections.push(vec![
                     entry!(i18n("Edit this message"), "document-edit", AppMsg::EditCurrentOutbox, has_current),
                     entry!(i18n("Try to send this message now"), "mail-send", AppMsg::SendCurrentOutbox, has_current),
@@ -14605,7 +15077,7 @@ impl AppModel {
             use config::ToolbarItem as T;
             let target = self.reply_target();
             let acts = target.is_some();
-            let many = acts || self.list_selection.len() > 1;
+            let many = acts || self.many_selected();
             let starred = target.as_ref().is_some_and(|m| m.starred);
             let target_unread = target.as_ref().is_some_and(|m| m.unread);
             let restorable = target.as_ref().is_some_and(|m| {
@@ -14686,6 +15158,16 @@ impl AppModel {
     /// the ⋯ in its header offers while Focus Mode has them folded away.
     /// The toggles are flipped through their own buttons, so the filtering
     /// happens where it always does.
+    /// Narrow the list to `filters`, and show them on the header's popover.
+    fn set_quick_filters(&mut self, filters: QuickFilters) {
+        self.quick_filters = filters;
+        let contacts = if filters.has(QuickFilter::Contacts) { self.saved_addresses.get() } else { None };
+        self.message_list.emit(MessageListInput::SetQuickFilters { filters, contacts });
+        if let Some(lh) = self.list_header_widgets.get() {
+            lh.filter.sync(filters);
+        }
+    }
+
     fn show_list_overflow_menu(&self, sender: &ComponentSender<Self>) {
         use crate::ui::context_menu::{show_context_menu_with_header, MenuEntry};
         let Some(lh) = self.list_header_widgets.get() else {
@@ -14696,30 +15178,21 @@ impl AppModel {
             let _ = s.send(AppMsg::OpenListSearch);
         })
         .icon("system-search-symbolic");
-        let unread = lh.unread.clone();
-        let unread_on = unread.is_active();
-        let unread_entry = MenuEntry::new(i18n("Show only unread"), move || {
-            unread.set_active(!unread.is_active());
-        })
-        .icon("mail-unread-symbolic")
-        .selected(unread_on);
-        let starred = lh.starred.clone();
-        let starred_on = starred.is_active();
-        let starred_entry = MenuEntry::new(i18n("Show only starred"), move || {
-            starred.set_active(!starred.is_active());
-        })
-        .icon("starred-symbolic")
-        .selected(starred_on);
+        let filters: Vec<MenuEntry> = QuickFilter::ALL
+            .into_iter()
+            .map(|f| {
+                let on = self.quick_filters.has(f);
+                let s = sender.input_sender().clone();
+                MenuEntry::new(f.label(), move || s.emit(AppMsg::SetQuickFilter(f, !on))).icon(f.icon()).selected(on)
+            })
+            .collect();
+        let s = sender.input_sender().clone();
+        let clear = MenuEntry::new(i18n("Clear Filters"), move || s.emit(AppMsg::ClearQuickFilters))
+            .enabled(!self.quick_filters.is_empty());
+        let filter = MenuEntry::submenu(i18n("Filter"), vec![filters, vec![clear]]).icon("filter-symbolic");
         let current = lh.sort.state().and_then(|v| v.str().map(String::from)).unwrap_or_default();
-        let orders: Vec<MenuEntry> = [
-            (i18n_noop("Date (Newest first)"), "date_newest"),
-            (i18n_noop("Date (Oldest first)"), "date_oldest"),
-            (i18n_noop("Sender (A–Z)"), "sender"),
-            (i18n_noop("Subject (A–Z)"), "subject"),
-            (i18n_noop("Unread first"), "unread"),
-            (i18n_noop("Starred first"), "flagged"),
-        ]
-        .into_iter()
+        let orders: Vec<MenuEntry> = SORT_ORDERS
+            .into_iter()
         .map(|(label, key)| {
             let action = lh.sort.clone();
             // The same route the sort menu takes, so the list and the
@@ -14729,7 +15202,7 @@ impl AppModel {
         .collect();
         let sort = MenuEntry::submenu(i18n("Sort"), vec![orders])
             .icon("view-sort-descending-symbolic");
-        let sections = vec![vec![search], vec![unread_entry, starred_entry], vec![sort]];
+        let sections = vec![vec![search], vec![filter, sort]];
         // The message count heads the menu, where the header showed it.
         let header = (!self.list_count.is_empty()).then(|| self.list_count.clone());
         let btn = lh.overflow.clone();
@@ -16706,13 +17179,15 @@ impl AppModel {
                     format!("{} <{}>", cfg.name, cfg.email)
                 };
                 let cfg = Some(cfg);
-                let signature = cfg.and_then(|c| c.signature.clone()).unwrap_or_default();
+                let (signatures, default) = cfg.map(|c| c.signature_set()).unwrap_or_default();
+                let signature = default.map(|i| signatures[i].html.clone()).unwrap_or_default();
                 let pgp_key = cfg.and_then(|c| c.pgp_key.clone());
                 let sign_default = cfg.is_some_and(|c| c.sign_by_default);
                 let mut identities = vec![ComposeAccount {
                     id,
                     label,
                     signature: signature.clone(),
+                    signatures: signatures.clone(),
                     email: email.clone(),
                     pgp_key: pgp_key.clone(),
                     sign_default,
@@ -16732,6 +17207,7 @@ impl AppModel {
                         id,
                         label: display.clone(),
                         signature: signature.clone(),
+                        signatures: signatures.clone(),
                         email: addr,
                         pgp_key: pgp_key.clone(),
                         sign_default,
@@ -16754,6 +17230,7 @@ impl AppModel {
                         id,
                         label: display.clone(),
                         signature: signature.clone(),
+                        signatures: signatures.clone(),
                         email: addr.clone(),
                         pgp_key: pgp_key.clone(),
                         sign_default,
@@ -16855,7 +17332,7 @@ impl AppModel {
         Compose::builder()
             .launch(init)
             .forward(sender.input_sender(), |out| match out {
-                ComposeOutput::Send(msg) => AppMsg::SendMessage(msg),
+                ComposeOutput::Send { id, message } => AppMsg::SendMessage { from: id, out: message },
                 ComposeOutput::SaveDraft(msg) => AppMsg::SaveDraftMessage(msg),
                 ComposeOutput::SaveTemplate(msg) => AppMsg::SaveTemplateMessage(msg),
                 ComposeOutput::AutoSave { id, message } => AppMsg::AutoSaveDraft { id, message },
@@ -17494,6 +17971,255 @@ impl AppModel {
         anim.play();
     }
 
+    /// Whether a message the composer `from` just sent becomes its own card
+    /// in the conversation: a reply to the conversation on screen, sent now
+    /// from the split pane beside it.
+    fn reply_joins(&self, from: u32, out: &OutgoingMessage) -> bool {
+        let skip = |why: &str| {
+            tracing::info!(target: "hylki::morph", "no send morph: {why}");
+            false
+        };
+        let Some(r) = self.reader_compose.as_ref().filter(|r| r.id == from) else { return false };
+        if r.window.is_some() || self.showing_contacts || self.live_split().is_none() {
+            return skip("not sent from the split beside the reader");
+        }
+        // A message sent later is not in Sent yet; one that starts a
+        // conversation does not join this one.
+        if out.send_at.is_some() {
+            return skip("sent later");
+        }
+        let Some(current) = self.current.as_ref() else { return skip("nothing open in the reader") };
+        // The reply answers a card of the conversation on screen: the one
+        // the split was opened from, or failing that, by its Message-ID.
+        let joins = std::iter::once(current).chain(self.current_thread.iter()).any(|m| {
+            r.answering == Some((m.account_id, m.id))
+                || (!out.in_reply_to.is_empty() && m.message_id == out.in_reply_to)
+        });
+        if !joins {
+            return skip("answers a message not in the conversation on screen");
+        }
+        true
+    }
+
+    /// The card a sent reply has in the conversation until its copy is read
+    /// back from Sent: the same body that copy will have, filed where it
+    /// will be filed.
+    fn provisional_message(&mut self, out: &OutgoingMessage) -> Option<Message> {
+        let account_id = out.from_account_id;
+        let account = self.effective_config().get(account_id.checked_sub(1)? as usize)?;
+        // The body its copy will have; failing that, what was written.
+        let body = worker::sent_body_preview(account, out).unwrap_or_else(|| {
+            tracing::info!(target: "hylki::morph", "the reply's card shows the text as written");
+            worker::wrap_plain(&out.body)
+        });
+        let (from_name, from_addr) = out
+            .from_alias
+            .as_deref()
+            .and_then(|a| worker::parse_recipients(a).into_iter().next())
+            .unwrap_or_else(|| (account.name.clone(), account.email.clone()));
+        let folder_id = self
+            .sent_copy_path(account_id)
+            .and_then(|p| self.folders.get(&account_id)?.iter().find(|f| f.path == p).map(|f| f.id))
+            .or_else(|| self.folder_of_kind(account_id, FolderKind::Sent).map(|f| f.id))
+            .or_else(|| self.current.as_ref().map(|m| m.folder_id))?;
+        self.related_id_seq = self.related_id_seq.saturating_sub(1);
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs() as i64);
+        Some(Message {
+            id: self.related_id_seq,
+            account_id,
+            folder_id,
+            uid: 0,
+            from_name,
+            from_addr,
+            reply_to: out.reply_to.clone(),
+            to: out.to.clone(),
+            cc: out.cc.clone(),
+            subject: out.subject.clone(),
+            preview: out.body.chars().take(200).collect(),
+            body,
+            date: String::new(),
+            timestamp,
+            unread: false,
+            starred: false,
+            keywords: Vec::new(),
+            has_attachment: !out.attachments.is_empty(),
+            message_id: String::new(),
+            references: format!("{} {}", out.references, out.in_reply_to).trim().to_string(),
+            importance: Default::default(),
+            due: 0,
+            labels: Vec::new(),
+        })
+    }
+
+    /// Start turning the sent split reply into its card (send_morph.rs).
+    /// The composer stays on screen until a still of the pane has been
+    /// taken and the conversation's cards measured; then the pane changes
+    /// under the stage ([`Self::send_morph_swap`]). False when there is no
+    /// split to morph from; the composer then slides away as it always has.
+    fn begin_send_morph(&mut self, message: Message, composer: &gtk::Widget) -> bool {
+        use crate::ui::send_morph::{find_widget, Pieces};
+        let Some((slot, _, _)) = self.live_split() else { return false };
+        let reader = self.reader_split_lower.start_child();
+        let view = self.reader_web_view();
+        let editor = find_widget(composer, &|w| w.has_css_class("compose-editor-card"));
+        let (Some(reader), Some(view), Some(editor)) = (reader, view, editor) else {
+            tracing::info!(target: "hylki::morph", "no send morph: the pane's parts were not found");
+            return false;
+        };
+        if self.send_morph.parent().is_none() {
+            return false;
+        }
+        let Some(conversation) = self.current.as_ref().map(|c| (c.account_id, c.id)) else { return false };
+        tracing::info!(target: "hylki::morph", "send morph: starting");
+        self.morph_pending = Some(MorphPending { message, composer: composer.clone(), conversation });
+        let header = self.reader_header.get().map(|h| h.clone().upcast::<gtk::Widget>());
+        let header_shown = header
+            .as_ref()
+            .and_then(|h| h.ancestor(adw::ToolbarView::static_type()))
+            .and_downcast::<adw::ToolbarView>()
+            .is_some_and(|tv| tv.reveals_top_bars());
+        let editor_view = find_widget(&editor, &|w| w.is::<webkit6::WebView>()).and_downcast::<webkit6::WebView>();
+        let pieces = Pieces {
+            root: self.reader_split.clone().upcast(),
+            composer: slot.upcast(),
+            editor,
+            reader,
+            view,
+            header,
+            header_shown,
+            editor_view,
+        };
+        let s = self.self_sender.clone();
+        crate::ui::send_morph::start(&self.send_morph, pieces, move |ok| {
+            s.emit(if ok { AppMsg::SendMorphMeasured } else { AppMsg::SendMorphFailed });
+        });
+        true
+    }
+
+    /// The pane could not be captured for the send morph: the composer
+    /// slides away instead, and the reply joins its conversation plainly.
+    fn send_morph_failed(&mut self) {
+        let Some(pending) = self.morph_pending.take() else { return };
+        // The reply never leaves the pane: the composer goes at once and
+        // the card is in the conversation in the same moment.
+        if self.composer_in_split(&pending.composer) {
+            self.reveal_reader_header_at_once();
+            self.clear_compose_slots();
+        }
+        self.join_conversation(pending.message, pending.conversation, true);
+    }
+
+    /// The pane changes under the send morph's stage: the split goes at
+    /// once, the reader has its header back, and the reply joins the
+    /// conversation pinned in view. Once its card has settled the stage
+    /// carries the editor to it. A morph ended early (another message
+    /// opened, a new reply begun) leaves only the reply joining.
+    fn send_morph_swap(&mut self) {
+        let Some(pending) = self.morph_pending.take() else { return };
+        let morphing = self.send_morph.running();
+        if morphing {
+            self.send_morph.show();
+            self.reveal_reader_header_at_once();
+        }
+        // Only the composer that sent it: a new reply may hold the slot now.
+        if self.composer_in_split(&pending.composer) {
+            if !morphing {
+                self.reveal_reader_header_at_once();
+            }
+            self.clear_compose_slots();
+        }
+        let (account_id, id) = (pending.message.account_id, pending.message.id);
+        let joined = self.join_conversation(pending.message, pending.conversation, true);
+        if !morphing {
+            return;
+        }
+        let root: gtk::Widget = self.reader_split.clone().upcast();
+        match (self.reader_split_lower.start_child(), self.reader_web_view()) {
+            (Some(reader), Some(view)) if joined => {
+                let header = self.reader_header.get().map(|h| h.clone().upcast::<gtk::Widget>());
+                crate::ui::send_morph::await_arrival(&self.send_morph, &root, &reader, &view, header, format!("{account_id}:{id}"));
+            }
+            _ => self.send_morph.abort(),
+        }
+    }
+
+    /// The reader's web view, which shows the conversation.
+    fn reader_web_view(&self) -> Option<webkit6::WebView> {
+        crate::ui::send_morph::find_widget(self.message_view.widget().upcast_ref(), &|w| w.is::<webkit6::WebView>())
+            .and_downcast::<webkit6::WebView>()
+    }
+
+    /// Whether `composer` is still the one in the split slot.
+    fn composer_in_split(&self, composer: &gtk::Widget) -> bool {
+        self.live_split().is_some_and(|(slot, _, _)| composer.is_ancestor(&slot))
+    }
+
+    /// Put a sent reply's card in the conversation it answers, if that is
+    /// the one on screen, pinned in view when `pin`; either way it stands in
+    /// until the copy is read back from Sent. True when it went on screen.
+    fn join_conversation(&mut self, message: Message, conversation: (u32, u32), pin: bool) -> bool {
+        let (account_id, id) = (message.account_id, message.id);
+        let answers = message.references.split_whitespace().last().unwrap_or_default().to_string();
+        self.provisionals.insert((account_id, id), Provisional { message: message.clone(), answers });
+        let Some(current) = self.current.clone().filter(|c| (c.account_id, c.id) == conversation) else {
+            return false;
+        };
+        if self.current_thread.is_empty() {
+            self.current_thread.push(current);
+        }
+        self.current_thread.push(message);
+        // A document is on screen already: the next one replaces it in
+        // place, never behind the spinner.
+        self.thread_painted = true;
+        if pin {
+            self.message_view.emit(MessageViewInput::PinArrival { account_id, id });
+        }
+        self.show_thread();
+        true
+    }
+
+    /// Take a sent reply's stand-in card out of the conversation: its send
+    /// was refused, and the composer is back.
+    fn drop_provisional(&mut self, in_reply_to: &str) {
+        let refused: Vec<(u32, u32)> =
+            self.provisionals.iter().filter(|(_, p)| p.answers == in_reply_to).map(|(k, _)| *k).collect();
+        if refused.is_empty() {
+            return;
+        }
+        for k in &refused {
+            self.provisionals.remove(k);
+        }
+        let before = self.current_thread.len();
+        self.current_thread.retain(|m| !refused.contains(&(m.account_id, m.id)));
+        if self.current_thread.len() != before {
+            self.show_thread();
+        }
+    }
+
+    /// Put the reader's header bar back without its slide: the send morph's
+    /// stage is drawing the pane meanwhile, and needs the header where it
+    /// ends up, now.
+    fn reveal_reader_header_at_once(&self) {
+        self.message_view.emit(MessageViewInput::SetUnderSplit(false));
+        let Some(header) = self.reader_header.get() else { return };
+        header.set_opacity(1.0);
+        let tv = header
+            .ancestor(adw::ToolbarView::static_type())
+            .and_downcast::<adw::ToolbarView>();
+        if let Some(tv) = tv {
+            if !tv.reveals_top_bars() {
+                // libadwaita skips the slide of an unmapped toolbar view and
+                // simply shows the bar; hidden and shown again in one turn,
+                // nothing of it reaches the screen.
+                tv.set_visible(false);
+                tv.set_reveal_top_bars(true);
+                tv.set_visible(true);
+            }
+        }
+    }
+
     /// Slide the reader's header bar in or out of its toolbar view, fading
     /// its icons with it. The toolbar view animates the bar's height (its
     /// reveal-top-bars transition), so the content below slides rather than
@@ -17603,6 +18329,9 @@ impl AppModel {
         sender: &ComponentSender<Self>,
     ) {
         let contextual = focus.is_some();
+        // A sent reply still settling into the conversation lands at once:
+        // the new composer opens over the pane as it really is.
+        self.send_morph.finish();
         // Supersede any composer already in the reader slot first.
         self.release_reader_compose();
         let (id, mut init) = self.build_compose_init(account_id, prefill, false, true);
@@ -17726,7 +18455,7 @@ impl AppModel {
             gtk::glib::idle_add_local_once(move || s.set_reveal_child(true));
             controller.emit(ComposeInput::FocusInitial);
         }
-        self.reader_compose = Some(ReaderCompose { id, controller, window: None });
+        self.reader_compose = Some(ReaderCompose { id, controller, window: None, answering: focus });
         // A fresh composer has nothing to take back yet; the last one's
         // labels must not carry over into its menu.
         self.compose_history = (None, None);
@@ -17821,12 +18550,27 @@ impl AppModel {
                     window.destroy();
                 }
                 None => {
-                    // Cancel/send on either inline composer: slide it out,
-                    // not blink it.
-                    if self.live_split().is_some() {
-                        self.animate_split_close();
-                    } else {
-                        self.animate_cover_close();
+                    // A sent split reply turns into its card; cancel, and
+                    // a send that cannot, slide it out rather than blink it.
+                    match self.arriving.take().filter(|(cid, _, _)| *cid == id) {
+                        Some((_, m, animated)) => {
+                            if !animated {
+                                tracing::info!(target: "hylki::morph", "no send morph: animations are off");
+                            }
+                            if !(animated && self.begin_send_morph(m.clone(), r.controller.widget().upcast_ref())) {
+                                // No morph, but the reply still never
+                                // leaves the pane: the composer goes at once
+                                // and the card is in the conversation.
+                                let conversation = self.current.as_ref().map(|c| (c.account_id, c.id));
+                                self.reveal_reader_header_at_once();
+                                self.clear_compose_slots();
+                                if let Some(conversation) = conversation {
+                                    self.join_conversation(m, conversation, true);
+                                }
+                            }
+                        }
+                        None if self.live_split().is_some() => self.animate_split_close(),
+                        None => self.animate_cover_close(),
                     }
                     self.reader_overflow_btn.set_visible(self.reader_overflow_wanted());
                 }
@@ -17895,19 +18639,56 @@ impl AppModel {
             self.current_thread.clone()
         };
         let messages = dedupe_label_copies(messages, &conv, current.folder_id);
+        // A reply sent from here, read back from Sent, takes over the card
+        // that stood in for it, and that card's id, so the card stays where
+        // it is. Its body, until its own is loaded, is the stand-in's: the
+        // same bytes, built the same way.
+        let mut stood_in: HashMap<(u32, u32, u32), String> = HashMap::new();
+        for r in &messages {
+            let took_over = self.provisionals.iter().find(|(_, p)| p.copied_by(r)).map(|(k, _)| *k);
+            if let Some(key) = took_over {
+                let p = self.provisionals.remove(&key).expect("found above");
+                self.related_ids.insert((r.account_id, r.folder_id, r.uid), key.1);
+                conv.retain(|m| (m.account_id, m.id) != key);
+                stood_in.insert((r.account_id, r.folder_id, r.uid), p.message.body);
+            }
+        }
+        // A copy already in the conversation (listed with it) retires its
+        // stand-in too.
+        let retired: Vec<(u32, u32)> = self
+            .provisionals
+            .iter()
+            .filter(|(k, p)| conv.iter().any(|m| (m.account_id, m.id) != **k && p.copied_by(m)))
+            .map(|(k, _)| *k)
+            .collect();
+        for k in &retired {
+            self.provisionals.remove(k);
+            conv.retain(|m| (m.account_id, m.id) != *k);
+        }
         let mut added = Vec::new();
         for mut r in messages {
             if conv.iter().any(|m| m.folder_id == r.folder_id && m.uid == r.uid) {
                 continue; // already in the conversation, from this folder's own index
             }
+            let body = stood_in.remove(&(r.account_id, r.folder_id, r.uid));
             r.id = self.related_id(&r);
             r.unread = false;
             if let Some(b) = self.body_cache.get(&body_key(&r)) {
                 r.body = b.clone();
+            } else if let Some(b) = body {
+                r.body = b;
             }
             added.push(r);
         }
-        if added.is_empty() {
+        // A reply sent from here whose copy is not back yet keeps its card
+        // in the conversation it answers, however the conversation was put
+        // together again.
+        for (k, p) in &self.provisionals {
+            if !conv.iter().any(|m| (m.account_id, m.id) == *k) && conv.iter().any(|m| m.message_id == p.answers) {
+                added.push(p.message.clone());
+            }
+        }
+        if added.is_empty() && retired.is_empty() {
             return;
         }
         conv.extend(added);
@@ -18100,6 +18881,10 @@ impl AppModel {
     }
 
     fn move_to(&mut self, m: Message, kind: FolderKind) {
+        if kind == FolderKind::Archive && self.archives_in_place(&m) {
+            self.apply_bulk_move(BulkAction::Archive, vec![m]);
+            return;
+        }
         let Some(dest) = self.folder_path_for(m.account_id, kind) else {
             self.notifications.emit(NotifyInput::Push {
                 text: i18n_f("No {v1} folder available", &[("v1", &(kind_label(kind)).to_string())]),
@@ -20034,6 +20819,7 @@ impl AppModel {
             list_headings: self.list_headings,
             list_column_scroll: self.list_column_scroll,
             list_group_by_date: self.list_group_by_date,
+            list_search_open: self.list_search_open,
             single_key_shortcuts: self.single_key.get(),
             gmail_keys: self.gmail_keys.get(),
             keep_downloads_days: self.keep_downloads_days,
@@ -20776,6 +21562,18 @@ impl AppModel {
     /// updated once (`RemoveMany`); the spinner clears when every group's worker
     /// reports `BulkComplete`.
     fn apply_bulk_move(&mut self, action: BulkAction, messages: Vec<Message>) {
+        // On Gmail what leaves for the archive from a label is the Inbox
+        // copy; the mail stays where it is being looked at (#392).
+        let messages: Vec<Message> = if action == BulkAction::Archive {
+            let mut seen = HashSet::new();
+            messages
+                .into_iter()
+                .filter_map(|m| if self.archives_in_place(&m) { self.inbox_copy(&m) } else { Some(m) })
+                .filter(|m| seen.insert((m.account_id, m.id)))
+                .collect()
+        } else {
+            messages
+        };
         let kind = match action {
             BulkAction::Archive => FolderKind::Archive,
             BulkAction::Delete => FolderKind::Trash,
@@ -20842,6 +21640,43 @@ impl AppModel {
         self.update_busy_indicator();
         self.message_list.emit(MessageListInput::RemoveMany(removed_ids));
         self.push_unread_counts();
+    }
+
+    /// Whether the account is Gmail, where every folder but the Inbox, Trash
+    /// and Spam is a label.
+    fn gmail_labels(&self, account_id: u32) -> bool {
+        self.config.get(account_id.saturating_sub(1) as usize).is_some_and(|c| {
+            c.protocol == config::Protocol::Imap
+                && crate::worker::has_gmail_labels(c, self.folders.get(&account_id).map(Vec::as_slice).unwrap_or(&[]))
+        })
+    }
+
+    /// Whether archiving `m` takes it out of the Inbox rather than out of
+    /// the folder it is listed in: on Gmail, from a label, Starred, Sent or
+    /// All Mail, as Gmail's own Archive does (#392). Moving it from a label
+    /// to All Mail took the label off and hid it.
+    fn archives_in_place(&self, m: &Message) -> bool {
+        self.gmail_labels(m.account_id)
+            && matches!(
+                self.folder_kind(m.account_id, m.folder_id),
+                Some(FolderKind::Starred | FolderKind::Sent | FolderKind::Archive | FolderKind::Custom)
+            )
+    }
+
+    /// The Inbox's copy of a Gmail message listed under another label, if
+    /// the Inbox holds it.
+    fn inbox_copy(&self, m: &Message) -> Option<Message> {
+        if m.message_id.is_empty() {
+            return None;
+        }
+        let key = (m.account_id, self.inbox_of(m.account_id)?.id);
+        self.message_cache
+            .get(&key)
+            .into_iter()
+            .chain(self.unified_slices.get(&key))
+            .flatten()
+            .find(|x| x.message_id == m.message_id)
+            .cloned()
     }
 
     /// Optimistic local cleanup when a message leaves the current folder: close its
@@ -22703,6 +23538,46 @@ pub enum Shortcut {
     /// Gmail's * then a or n.
     SelectAll,
     SelectNone,
+    /// Gmail's * then r, u, s or t.
+    SelectWhere(CheckFilter),
+    /// Gmail's ] and } (1) and [ and { (-1): archive the conversation and
+    /// open the older or newer one.
+    ArchiveAndStep(i32),
+    /// Gmail's Shift+R, Shift+A, Shift+F and d.
+    InWindow(WindowCompose),
+    /// Gmail's Shift+N.
+    Refresh,
+}
+
+/// What Gmail's window keys write, in a composer window whatever Settings
+/// says about inline composers (#392).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WindowCompose {
+    Reply,
+    ReplyAll,
+    Forward,
+    New,
+}
+
+impl Shortcut {
+    /// Whether the key acts on the selection, so it needs one (#392).
+    fn acts_on_selection(self) -> bool {
+        matches!(
+            self,
+            Shortcut::Archive
+                | Shortcut::ArchiveAndStep(_)
+                | Shortcut::Delete
+                | Shortcut::Spam
+                | Shortcut::Star
+                | Shortcut::ToggleRead
+                | Shortcut::MarkRead(_)
+                | Shortcut::MarkUnreadFrom
+                | Shortcut::MoveTo
+                | Shortcut::Label
+                | Shortcut::Tag(_)
+                | Shortcut::ClearTags
+        )
+    }
 }
 
 /// Where Gmail's g sequences go (#392).
@@ -22744,6 +23619,13 @@ fn gmail_shortcut_for(key: gtk::gdk::Key, shift: bool) -> Option<Shortcut> {
         Key::z => Shortcut::Undo,
         Key::v => Shortcut::MoveTo,
         Key::l => Shortcut::Label,
+        Key::bracketright | Key::braceright => Shortcut::ArchiveAndStep(1),
+        Key::bracketleft | Key::braceleft => Shortcut::ArchiveAndStep(-1),
+        Key::R => Shortcut::InWindow(WindowCompose::Reply),
+        Key::A => Shortcut::InWindow(WindowCompose::ReplyAll),
+        Key::F => Shortcut::InWindow(WindowCompose::Forward),
+        Key::d => Shortcut::InWindow(WindowCompose::New),
+        Key::N => Shortcut::Refresh,
         Key::Down => Shortcut::NextMessage,
         Key::Up => Shortcut::PrevMessage,
         _ => return shortcut_for(key, shift).filter(|s| matches!(s, Shortcut::Tag(_) | Shortcut::ClearTags)),
@@ -22763,6 +23645,10 @@ fn gmail_sequence(first: char, key: gtk::gdk::Key) -> Option<Shortcut> {
         ('g', Key::c) => Some(Shortcut::GoTo(GoTarget::Contacts)),
         ('*', Key::a) => Some(Shortcut::SelectAll),
         ('*', Key::n) => Some(Shortcut::SelectNone),
+        ('*', Key::r) => Some(Shortcut::SelectWhere(CheckFilter::Read)),
+        ('*', Key::u) => Some(Shortcut::SelectWhere(CheckFilter::Unread)),
+        ('*', Key::s) => Some(Shortcut::SelectWhere(CheckFilter::Starred)),
+        ('*', Key::t) => Some(Shortcut::SelectWhere(CheckFilter::Unstarred)),
         _ => None,
     }
 }
@@ -22869,7 +23755,7 @@ const GMAIL_HELP: &[(&str, &[(&str, &str)])] = &[
         &[
             ("j  /  k", i18n_noop("Move down or up the list without opening; while reading, open the next or previous conversation")),
             ("o  or  Enter", i18n_noop("Open the message the cursor is on")),
-            ("u  or  Esc", i18n_noop("Back to the message list")),
+            ("u  or  Esc", i18n_noop("Close the conversation, back to the list")),
             ("n  /  p", i18n_noop("Next or previous message in the conversation")),
             (";  /  :", i18n_noop("Expand or collapse every message of the conversation")),
             ("g  i", i18n_noop("Go to Inbox")),
@@ -22888,19 +23774,27 @@ const GMAIL_HELP: &[(&str, &[(&str, &str)])] = &[
             ("a", i18n_noop("Reply to all")),
             ("f", i18n_noop("Forward")),
             ("e", i18n_noop("Archive the conversation")),
+            ("]  or  }", i18n_noop("Archive the conversation and open the older one")),
+            ("[  or  {", i18n_noop("Archive the conversation and open the newer one")),
             ("#", i18n_noop("Delete")),
             ("!", i18n_noop("Mark as spam")),
             ("s", i18n_noop("Star or unstar")),
             ("Shift+I", i18n_noop("Mark the conversation as read")),
-            ("Shift+U", i18n_noop("Mark the conversation as unread")),
-            ("_", i18n_noop("Mark as unread from this message on")),
-            ("x", i18n_noop("Select this row (for a bulk action)")),
+            ("Shift+U", i18n_noop("Mark the conversation as unread and close it")),
+            ("_", i18n_noop("Mark as unread from this message on and close it")),
+            ("x", i18n_noop("Select this row without opening it")),
             ("*  a  /  *  n", i18n_noop("Select every row, or none")),
+            ("*  r  /  *  u", i18n_noop("Select the read or the unread conversations")),
+            ("*  s  /  *  t", i18n_noop("Select the starred or the unstarred conversations")),
             ("v", i18n_noop("Move to a folder")),
             ("l", i18n_noop("Tags")),
             ("z", i18n_noop("Undo the last action")),
             ("1 … 9", i18n_noop("Add or remove a tag (the first nine, in Settings order)")),
+            ("Shift+R  /  Shift+A", i18n_noop("Reply, or reply to all, in a window")),
+            ("Shift+F", i18n_noop("Forward in a window")),
             ("c", i18n_noop("Compose")),
+            ("d", i18n_noop("Compose in a window")),
+            ("Shift+N", i18n_noop("Check for new mail")),
         ],
     ),
 ];
@@ -23062,6 +23956,8 @@ fn display_only_change(old: &AccountConfig, new: &AccountConfig) -> bool {
     let mut probe = new.clone();
     probe.signature = old.signature.clone();
     probe.signature_html = old.signature_html;
+    probe.signatures = old.signatures.clone();
+    probe.default_signature = old.default_signature;
     probe.color = old.color.clone();
     probe.emoji = old.emoji.clone();
     probe.avatar = old.avatar.clone();
@@ -23135,6 +24031,8 @@ fn demo_account_configs() -> Vec<AccountConfig> {
         gravatar: false,
         signature: None,
         signature_html: false,
+        signatures: Vec::new(),
+        default_signature: None,
         label: None,
         aliases: Vec::new(),
         enabled: true,
@@ -23158,6 +24056,8 @@ fn demo_account_configs() -> Vec<AccountConfig> {
         folder_sort: None,
         sign_by_default: false,
         graph_directory: false,
+        graph_directory_only: false,
+        graph_label_names: false,
     };
     vec![
         mk("Jason M.", "jason@hylki.hyprlab.co", "#3584e4", Some("🚀")),
@@ -23221,6 +24121,32 @@ fn read_label(read: bool) -> String {
 fn sender_label(message: &Message) -> String {
     let name = message.from_name.trim();
     if name.is_empty() { message.from_addr.clone() } else { name.to_string() }
+}
+
+/// GNOME Shell turns animations off in every app while a remote desktop
+/// session is on, to spare the connection; that is not the person asking
+/// for less motion. Where the app can read GNOME's own Reduce Animation
+/// switch (through dconf, which the Flatpak has no access to), Hylki's
+/// animations follow that switch instead, now and whenever it changes.
+fn follow_motion_setting() {
+    use gtk::gio;
+    if gio::SettingsBackend::default().type_().name() != "DConfSettingsBackend" {
+        return;
+    }
+    let readable = gio::SettingsSchemaSource::default()
+        .and_then(|s| s.lookup("org.gnome.desktop.interface", true))
+        .is_some_and(|s| s.has_key("enable-animations"));
+    let Some(gtk_settings) = gtk::Settings::default().filter(|_| readable) else { return };
+    // The binding holds the settings object for as long as GTK's lives.
+    gio::Settings::new("org.gnome.desktop.interface")
+        .bind("enable-animations", &gtk_settings, "gtk-enable-animations")
+        .flags(gio::SettingsBindFlags::GET)
+        .build();
+}
+
+/// Whether things on screen should move (see [`follow_motion_setting`]).
+fn motion_wanted() -> bool {
+    gtk::Settings::default().is_some_and(|s| s.is_gtk_enable_animations())
 }
 
 fn demo_mode() -> bool {
@@ -24497,27 +25423,76 @@ fn thread_chain(m: &Message) -> String {
     chain.join(" ")
 }
 
-/// Reply-all: To = original sender; Cc = every other recipient (original To +
-/// Cc) minus the sender and our own address, de-duplicated.
-fn reply_all_prefill(m: &Message, self_email: &str) -> ComposePrefill {
+/// The address in a recipient as written ("Ana <ana@x.org>" or the bare
+/// address), lowercased.
+fn bare_address(recipient: &str) -> String {
+    let r = recipient.trim();
+    let addr = match (r.rfind('<'), r.rfind('>')) {
+        (Some(a), Some(b)) if a < b => &r[a + 1..b],
+        _ => r,
+    };
+    addr.trim().trim_matches('"').to_lowercase()
+}
+
+/// Whether `recipient` is one of `own` (the account's address and its
+/// send-as aliases), a `+tag` form of one included.
+fn is_own_address(recipient: &str, own: &[String]) -> bool {
+    let addr = bare_address(recipient);
+    if addr.is_empty() {
+        return false;
+    }
+    let untagged = match (addr.split_once('@'), addr.find('+')) {
+        (Some((local, domain)), Some(_)) => format!("{}@{domain}", local.split('+').next().unwrap_or(local)),
+        _ => addr.clone(),
+    };
+    own.iter().map(|o| bare_address(o)).any(|o| !o.is_empty() && (o == addr || o == untagged))
+}
+
+/// Reply-all: To = the original sender (or their Reply-To); Cc = every other
+/// recipient of the original, de-duplicated, without the sender and without
+/// any of `own`, the account's addresses (#448). An answer to a message the
+/// account sent goes to that message's recipients instead, as other mail
+/// programs do: answering yourself is never what Reply All means.
+fn reply_all_prefill(m: &Message, own: &[String]) -> ComposePrefill {
     let mut prefill = reply_prefill(m);
-    let self_l = self_email.to_lowercase();
-    let from_l = m.from_addr.to_lowercase();
-    // Whoever is already in To (the Reply-To address when one exists) must not
-    // be repeated in Cc.
-    let to_l = prefill.to.to_lowercase();
+    let split = |list: &str| -> Vec<String> {
+        list.split(',').map(str::trim).filter(|a| !a.is_empty()).map(str::to_string).collect()
+    };
+    let mut to: Vec<String> = Vec::new();
     let mut cc: Vec<String> = Vec::new();
-    for list in [m.to.as_str(), m.cc.as_str()] {
-        for addr in list.split(',') {
-            let a = addr.trim();
-            let al = a.to_lowercase();
-            if a.is_empty() || al == self_l || al == from_l || to_l.contains(&al) {
-                continue;
-            }
-            if !cc.iter().any(|x| x.eq_ignore_ascii_case(a)) {
-                cc.push(a.to_string());
+    let push = |list: &mut Vec<String>, a: &str, taken: &[String]| {
+        let b = bare_address(a);
+        if !taken.iter().chain(list.iter()).any(|x| bare_address(x) == b) {
+            list.push(a.to_string());
+        }
+    };
+    if is_own_address(&m.from_addr, own) {
+        for a in split(&m.to) {
+            if !is_own_address(&a, own) {
+                push(&mut to, &a, &[]);
             }
         }
+        for a in split(&m.cc) {
+            if !is_own_address(&a, own) {
+                push(&mut cc, &a, &to);
+            }
+        }
+        if !to.is_empty() {
+            prefill.to = to.join(", ");
+        } else if !cc.is_empty() {
+            prefill.to = cc.remove(0);
+        }
+        prefill.cc = cc.join(", ");
+        return prefill;
+    }
+    // Whoever is already in To (the Reply-To address when one exists) must not
+    // be repeated in Cc.
+    let to_now = split(&prefill.to);
+    for a in split(&m.to).into_iter().chain(split(&m.cc)) {
+        if is_own_address(&a, own) || bare_address(&a) == bare_address(&m.from_addr) {
+            continue;
+        }
+        push(&mut cc, &a, &to_now);
     }
     prefill.cc = cc.join(", ");
     prefill
@@ -25091,7 +26066,10 @@ mod tests {
     fn display_only_account_edits() {
         let old = super::demo_account_configs().remove(0);
         let mut new = old.clone();
-        new.signature = Some("Jason".into());
+        new.set_signatures(
+            vec![crate::config::NamedSignature { name: "Short".into(), html: "Jason".into() }],
+            None,
+        );
         new.color = Some("#ff0000".into());
         new.in_unified = !old.in_unified;
         // The editor hands the secret back; the same one is no change.
@@ -25442,7 +26420,7 @@ mod tests {
         m.subject = "Hi".into();
         m.body = crate::worker::extract_body(b"Content-Type: text/plain\r\n\r\nHello\r\n");
         assert!(super::reply_prefill(&m).original_plain);
-        assert!(super::reply_all_prefill(&m, "me@example.com").original_plain);
+        assert!(super::reply_all_prefill(&m, &["me@example.com".to_string()]).original_plain);
         assert!(super::forward_prefill(&m).original_plain);
         m.body = "<html><body><p>Hello</p></body></html>".into();
         assert!(!super::reply_prefill(&m).original_plain);
@@ -25719,12 +26697,20 @@ mod tests {
         assert_eq!(gmail_shortcut_for(Key::I, true), Some(Shortcut::MarkRead(true)));
         assert_eq!(gmail_shortcut_for(Key::n, false), Some(Shortcut::NextInThread));
         assert_eq!(gmail_shortcut_for(Key::_3, false), Some(Shortcut::Tag(3)));
+        assert_eq!(gmail_shortcut_for(Key::bracketright, false), Some(Shortcut::ArchiveAndStep(1)));
+        assert_eq!(gmail_shortcut_for(Key::braceleft, true), Some(Shortcut::ArchiveAndStep(-1)));
+        assert_eq!(gmail_shortcut_for(Key::R, true), Some(Shortcut::InWindow(WindowCompose::Reply)));
+        assert_eq!(gmail_shortcut_for(Key::N, true), Some(Shortcut::Refresh));
+        // d is Gmail's compose in a window, not Hylki's delete.
+        assert_eq!(gmail_shortcut_for(Key::d, false), Some(Shortcut::InWindow(WindowCompose::New)));
         // Hylki's own keys that Gmail does not have stay off.
-        assert_eq!(gmail_shortcut_for(Key::d, false), None);
         assert_eq!(gmail_shortcut_for(Key::w, false), None);
+        assert_eq!(gmail_shortcut_for(Key::h, false), None);
         assert_eq!(gmail_sequence('g', Key::i), Some(Shortcut::GoTo(GoTarget::Kind(FolderKind::Inbox))));
         assert_eq!(gmail_sequence('g', Key::t), Some(Shortcut::GoTo(GoTarget::Kind(FolderKind::Sent))));
         assert_eq!(gmail_sequence('*', Key::a), Some(Shortcut::SelectAll));
+        assert_eq!(gmail_sequence('*', Key::u), Some(Shortcut::SelectWhere(CheckFilter::Unread)));
+        assert_eq!(gmail_sequence('*', Key::t), Some(Shortcut::SelectWhere(CheckFilter::Unstarred)));
         assert_eq!(gmail_sequence('g', Key::q), None);
         // The reader keeps what scrolls it, and only that.
         assert!(reader_keeps(Key::space) && reader_keeps(Key::Down));
@@ -25907,9 +26893,42 @@ mod tests {
         let r = reply_prefill(&m);
         assert_eq!(r.to, "editor@example.com");
 
-        let ra = reply_all_prefill(&m, "me@example.com");
+        let ra = reply_all_prefill(&m, &["me@example.com".to_string()]);
         assert_eq!(ra.to, "editor@example.com");
         assert_eq!(ra.cc, "other@example.com", "no sender, no self, no repeat of To");
+    }
+
+    /// Reply All leaves out every address of the account (#448): an alias,
+    /// a "Name <address>" form, a +tag form and another spelling alike.
+    #[test]
+    fn reply_all_leaves_out_every_own_address() {
+        let own = vec!["me@example.com".to_string(), "Me Alias <alias@example.org>".to_string()];
+        let mut m = msg(1, 1, 10);
+        m.from_addr = "ada@example.com".into();
+        m.to = "Me <ME@example.com>, alias@example.org, bob@example.com".into();
+        m.cc = "me+lists@example.com, carol@example.com, Bob <bob@example.com>".into();
+        let ra = reply_all_prefill(&m, &own);
+        assert_eq!(ra.to, "ada@example.com");
+        assert_eq!(ra.cc, "bob@example.com, carol@example.com");
+    }
+
+    /// Reply All to a message the account sent answers its recipients, not
+    /// the account itself.
+    #[test]
+    fn reply_all_to_your_own_message_answers_its_recipients() {
+        let own = vec!["me@example.com".to_string()];
+        let mut m = msg(1, 1, 10);
+        m.from_addr = "me@example.com".into();
+        m.to = "ada@example.com, me@example.com".into();
+        m.cc = "bob@example.com".into();
+        let ra = reply_all_prefill(&m, &own);
+        assert_eq!(ra.to, "ada@example.com");
+        assert_eq!(ra.cc, "bob@example.com");
+        // Sent only to Cc: the first of them takes To.
+        m.to = String::new();
+        m.cc = "bob@example.com, carol@example.com".into();
+        let ra = reply_all_prefill(&m, &own);
+        assert_eq!((ra.to.as_str(), ra.cc.as_str()), ("bob@example.com", "carol@example.com"));
     }
 
     /// Without a Reply-To the sender's own address is still the reply target.

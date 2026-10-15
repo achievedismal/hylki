@@ -4723,6 +4723,19 @@ fn build_email(account: &AccountConfig, msg: &OutgoingMessage) -> Result<LettreM
     build_message(account, msg, false)
 }
 
+/// The body the reader will show for `msg` once its copy is read back from
+/// Sent: the bytes a send builds, through the same extraction, so the card a
+/// sent reply gets at once is the card its copy draws later. Attachments
+/// and OpenPGP are left out; neither changes the body shown.
+pub(crate) fn sent_body_preview(account: &AccountConfig, msg: &OutgoingMessage) -> Option<String> {
+    let mut msg = msg.clone();
+    msg.attachments.clear();
+    msg.sign = false;
+    msg.encrypt = false;
+    let email = build_email(account, &msg).ok()?;
+    Some(extract_body(&email.formatted()))
+}
+
 /// Build the same bytes for the Drafts folder. A draft is often saved before
 /// any address is typed (the composer saves on the way out whenever the body
 /// was edited), and lettre refuses to build a message whose envelope has no
@@ -10820,7 +10833,7 @@ fn consume_url(text: &str, start: usize) -> usize {
 /// light/dark theme — and no padding is baked in: the reader injects the
 /// default inset at render time, so it stays tunable without invalidating
 /// every cached body (bodies are stored rendered; see cache SCHEMA_VERSION).
-fn wrap_plain(text: &str) -> String {
+pub(crate) fn wrap_plain(text: &str) -> String {
     let escaped = linkify(text);
     format!(
         "<!doctype html><html><head><meta charset=\"utf-8\"><style>\
@@ -10969,6 +10982,8 @@ pub(super) fn sample_account() -> AccountConfig {
         folder_sort: None,
         sign_by_default: false,
         graph_directory: false,
+        graph_directory_only: false,
+        graph_label_names: false,
         push: None,
         name: String::new(),
         email: "me@example.com".into(),
@@ -10992,6 +11007,8 @@ pub(super) fn sample_account() -> AccountConfig {
         gravatar: false,
         signature: None,
         signature_html: false,
+        signatures: Vec::new(),
+        default_signature: None,
         label: None,
         aliases: Vec::new(),
         enabled: true,

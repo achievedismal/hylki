@@ -485,12 +485,23 @@ pub struct AccountConfig {
     /// default (the separate Privacy switch covers other people's mail).
     #[serde(default)]
     pub gravatar: bool,
-    /// Composition signature appended to new messages from this account.
+    /// The signature put in new messages from this account: the default
+    /// one of `signatures`, written here too so an older Hylki still finds
+    /// it. A config from before #445 has only this.
     #[serde(default)]
     pub signature: Option<String>,
     /// Whether `signature` is HTML (vs. plain text).
     #[serde(default)]
     pub signature_html: bool,
+    /// Every signature the account has (#445), in the order the composer
+    /// offers them. Read through [`AccountConfig::signature_set`], which
+    /// also covers a config that has only `signature`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub signatures: Vec<NamedSignature>,
+    /// Which of `signatures` new messages start with. None: they start
+    /// without one, and the composer's signature button puts one in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_signature: Option<usize>,
     /// How this account is labelled in the UI (e.g. the All Inboxes view).
     /// When unset, the email address is shown.
     #[serde(default)]
@@ -602,6 +613,17 @@ pub struct AccountConfig {
     /// be given them.
     #[serde(default, skip_serializing_if = "is_false")]
     pub graph_directory: bool,
+    /// Writing from this account, the suggestions are its directory's and
+    /// its own mail's only (#410): a work account then offers no one from
+    /// GNOME Contacts, an LDAP directory or another account's mail.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub graph_directory_only: bool,
+    /// A message's sensitivity label whose name the message leaves out is
+    /// named from the organization's list of labels, read through
+    /// Microsoft Graph (#411). Like `graph_directory`, only for an account
+    /// signed in within Hylki, with its scope asked for when turned on.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub graph_label_names: bool,
 }
 
 fn is_zero(v: &u32) -> bool {
@@ -610,6 +632,15 @@ fn is_zero(v: &u32) -> bool {
 
 fn is_true(b: &bool) -> bool {
     *b
+}
+
+/// One of an account's signatures (#445), named so the composer can offer
+/// it beside the others.
+#[derive(Debug, Clone, Default, PartialEq, Deserialize, Serialize)]
+pub struct NamedSignature {
+    pub name: String,
+    /// The signature as HTML.
+    pub html: String,
 }
 
 /// A send-as alias (#34): an extra From identity the composer offers. By
@@ -716,6 +747,33 @@ pub struct OAuthSettings {
 
 
 impl AccountConfig {
+    /// The account's signatures and the one new messages start with. A
+    /// config written before #445 holds a single `signature`, which is
+    /// both.
+    pub fn signature_set(&self) -> (Vec<NamedSignature>, Option<usize>) {
+        if self.signatures.is_empty() {
+            return match self.signature.as_deref().filter(|s| !s.trim().is_empty()) {
+                Some(html) => (
+                    vec![NamedSignature { name: crate::i18n::i18n("Signature"), html: html.to_string() }],
+                    Some(0),
+                ),
+                None => (Vec::new(), None),
+            };
+        }
+        let default = self.default_signature.filter(|i| *i < self.signatures.len());
+        (self.signatures.clone(), default)
+    }
+
+    /// Store `signatures`, with `default` the one new messages start with,
+    /// and keep `signature` in step for an older Hylki.
+    pub fn set_signatures(&mut self, signatures: Vec<NamedSignature>, default: Option<usize>) {
+        let default = default.filter(|i| *i < signatures.len());
+        self.signature = default.map(|i| signatures[i].html.clone());
+        self.signature_html = true;
+        self.default_signature = default;
+        self.signatures = signatures;
+    }
+
     /// The account's UI label: the custom label, or the email address.
     pub fn display_label(&self) -> String {
         match self.label.as_deref() {
@@ -1498,9 +1556,20 @@ pub(crate) struct PrivacyFile {
     #[serde(default)]
     pub(crate) list_column_scroll: bool,
     /// A list sorted by date is divided under Today, Yesterday, Last 7 days,
-    /// Last 14 days and Older (#435). Off by default.
-    #[serde(default)]
+    /// Last 14 days and Older (#435). On by default since 1.44, for
+    /// existing installs too (see `date_groups_default_applied`).
+    #[serde(default = "default_on")]
     pub(crate) list_group_by_date: bool,
+    /// Grouping by date was turned on once for an install from before it
+    /// became the default: every save writes every key, so those files
+    /// carry the old `false` without anyone having chosen it. A new
+    /// install starts with this set, so switching grouping off sticks.
+    #[serde(default)]
+    pub(crate) date_groups_default_applied: bool,
+    /// The search field stays above the list instead of hiding behind the
+    /// search button (#446). Off by default.
+    #[serde(default)]
+    pub(crate) list_search_open: bool,
     /// The widths columns were dragged to, in pixels, by column name.
     #[serde(default)]
     pub(crate) list_column_widths: std::collections::BTreeMap<String, i32>,
@@ -1806,7 +1875,9 @@ impl Default for PrivacyFile {
             list_columns: default_list_columns(),
             list_headings: false,
             list_column_scroll: false,
-            list_group_by_date: false,
+            list_group_by_date: true,
+            date_groups_default_applied: true,
+            list_search_open: false,
             list_column_widths: Default::default(),
             single_key_shortcuts: false,
             gmail_keys: false,
@@ -1835,18 +1906,33 @@ pub(crate) fn load_privacy() -> PrivacyFile {
         return PrivacyFile::default();
     };
     let mut file = toml::from_str::<PrivacyFile>(&text).unwrap_or_default();
-    // The inset card for a lone message became the default on 2026-08-31
-    // for new installs only: every save writes every key, so an install
-    // from before then stayed on the full-bleed view without ever choosing
-    // it (#153). Apply the default once and remember that it was.
-    if !file.single_card_default_applied {
-        file.single_card_default_applied = true;
-        file.single_message_card = true;
+    if apply_new_defaults(&mut file) {
         if let Ok(toml) = toml::to_string_pretty(&file) {
             let _ = write_private(&path, &toml);
         }
     }
     file
+}
+
+/// Bring a file from before a default changed up to it, once: every save
+/// writes every key, so an older install carries the old value without
+/// anyone having chosen it. Whether anything changed.
+fn apply_new_defaults(file: &mut PrivacyFile) -> bool {
+    let mut changed = false;
+    // The inset card for a lone message became the default on 2026-08-31
+    // (#153).
+    if !file.single_card_default_applied {
+        file.single_card_default_applied = true;
+        file.single_message_card = true;
+        changed = true;
+    }
+    // Grouping the list by date, the default since 1.44 (#435).
+    if !file.date_groups_default_applied {
+        file.date_groups_default_applied = true;
+        file.list_group_by_date = true;
+        changed = true;
+    }
+    changed
 }
 
 
@@ -5214,6 +5300,61 @@ dest_path = "Lists"
         assert!(!text.contains("any"), "{text}");
     }
 
+    /// Grouping by date is on for a new install and for one whose file
+    /// predates it, once; switched off afterwards, it stays off.
+    #[test]
+    fn date_groups_default_reaches_existing_installs_once() {
+        let mut old: PrivacyFile = toml::from_str("list_group_by_date = false\n").unwrap();
+        assert!(apply_new_defaults(&mut old));
+        assert!(old.list_group_by_date);
+        old.list_group_by_date = false;
+        let mut again: PrivacyFile = toml::from_str(&toml::to_string_pretty(&old).unwrap()).unwrap();
+        assert!(!apply_new_defaults(&mut again));
+        assert!(!again.list_group_by_date);
+        let mut fresh = PrivacyFile::default();
+        assert!(fresh.list_group_by_date);
+        fresh.list_group_by_date = false;
+        apply_new_defaults(&mut fresh);
+        assert!(!fresh.list_group_by_date);
+    }
+
+    /// An account from before #445 has one `signature`, which reads as a
+    /// list of one that new messages start with; a list written now keeps
+    /// `signature` on its default for an older Hylki, and no default
+    /// leaves it empty.
+    #[test]
+    fn signatures_read_old_configs_and_write_for_them() {
+        let old: AccountConfig = toml::from_str(
+            "name = \"A\"\nemail = \"a@b.c\"\nimap_host = \"h\"\nusername = \"a\"\n\
+             signature = \"<b>Ada</b>\"\nsignature_html = true\n",
+        )
+        .unwrap();
+        let (list, default) = old.signature_set();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].html, "<b>Ada</b>");
+        assert_eq!(default, Some(0));
+
+        let mut acc = old.clone();
+        let two = vec![
+            NamedSignature { name: "English".into(), html: "Regards".into() },
+            NamedSignature { name: "Deutsch".into(), html: "Grüße".into() },
+        ];
+        acc.set_signatures(two.clone(), Some(1));
+        assert_eq!(acc.signature.as_deref(), Some("Grüße"));
+        let back: AccountConfig = toml::from_str(&toml::to_string(&acc).unwrap()).unwrap();
+        assert_eq!(back.signature_set(), (two.clone(), Some(1)));
+
+        acc.set_signatures(two.clone(), None);
+        assert!(acc.signature.is_none());
+        let text = toml::to_string(&acc).unwrap();
+        assert!(!text.contains("default_signature"), "{text}");
+        let back: AccountConfig = toml::from_str(&text).unwrap();
+        assert_eq!(back.signature_set(), (two, None));
+
+        acc.set_signatures(Vec::new(), None);
+        assert!(!toml::to_string(&acc).unwrap().contains("signatures"));
+    }
+
     #[test]
     fn settings_bundle_roundtrip_parses() {
         // Parse-and-serialize only (no disk, no keyring): the wire format
@@ -5241,6 +5382,8 @@ dest_path = "Lists"
             gravatar: false,
             signature: None,
             signature_html: false,
+            signatures: Vec::new(),
+            default_signature: None,
             label: None,
             aliases: Vec::new(),
             enabled: true,
@@ -5264,6 +5407,8 @@ dest_path = "Lists"
             folder_sort: None,
             sign_by_default: false,
             graph_directory: false,
+            graph_directory_only: false,
+            graph_label_names: false,
         };
         acc.aliases = Vec::new();
         let bundle = SettingsBundle {

@@ -4,6 +4,129 @@
 
 The seventh beta previewing 1.44.0.
 
+- **Changed: a reply sent from the reading pane becomes its card in the
+  conversation.** The editor lifts out of the composer and moves to where
+  the reply now sits in the conversation, turning into its card on the
+  way, instead of the composer sliding away and the reply turning up once
+  its copy is read back from Sent. The card stays in the conversation
+  until that copy arrives, and goes again if the server refuses the
+  message.
+- **Changed: animations follow GNOME's own Reduce Animation switch.**
+  GNOME Shell turns animations off in every app while a remote desktop
+  session is connected; Hylki now keeps them unless the switch itself is
+  off. The Flatpak cannot read the switch and goes on as before.
+
+- **Changed: the list is grouped by date by default** (#435), on installs
+  that had the switch off too, since it was never asked. **Settings →
+  Message List → Group by date** turns it off, and that sticks.
+
+- **Added: several signatures per account** (#445, requested by rhuhxx).
+  **Add Signature** in an account's settings starts another; each has a
+  name, and **Start messages with this signature** marks the one new
+  messages, replies and forwards open with, or none. With more than one,
+  the composer's signature button lists them by name, with **No
+  Signature**: the one picked replaces the signature in the message.
+- **Changed: a signature's HTML is edited in place.** **Edit HTML** at the
+  end of the signature editor's toolbar shows the source in the editor,
+  and **Preview** turns it back, instead of a separate window. The text
+  area keeps its height when the toolbar is expanded.
+
+- **Fixed: empty space above a message written as Markdown or HTML.** The
+  formatting tools, hidden while a message is written as source, still
+  took their rows of the toolbar, most with the toolbar expanded.
+
+- **Fixed: an LDAP directory that failed went quiet** (#307, reported by
+  3v1n0). It said why once, in the status bar, and every search after
+  that came back empty with no reason. Contacts now lists the failure under
+  **In Directories** at every search, each composer says it once, and the
+  log records what each directory answered.
+- **Added: LDAP directories in the Contacts address book list** (#307).
+  Each directory switched on is listed by name after the address books;
+  picking it shows the people the search finds in it.
+
+- **Fixed: Reply All put your own address back in Cc** (#448, reported by
+  3v1n0, fixed by Christian Dandachi). Only the account's main address was
+  left out, and only written exactly as it is in the account, so a send-as
+  alias, a "Name <address>" form or a +tag address stayed. Every address of
+  the account is now left out, and Reply All to a message you sent answers
+  its recipients instead of you.
+
+- **Changed: the HTML composing format is called HTML source** (#440,
+  reported by erenoglu). It is where a message's HTML is written by hand;
+  the WYSIWYG editor is **Rich text**, which is sent as HTML too, and its
+  description in the format menu and in **Settings → Composing** now says so.
+
+- **Added: more quick filters** (#441). One sort and filter button above
+  the list replaces the sort menu and the unread and starred toggles. Its
+  popover has the sort orders in one column and, in the other, **Unread**,
+  **Starred**, **Has Attachments**, **Addressed to Me**, **From Contacts**,
+  **High Importance**, **Tagged** and **Today**, which combine, with **Clear
+  Filters**. The button turns the accent color while a filter is on.
+
+- **Added: the search field can stay open** (#446, reported by
+  samuel-edlmeier). With **Settings → Message List → Keep the search field
+  open** on, it shows above the list all the time, and **Esc** clears it
+  without hiding it.
+- **Fixed: rows stayed tinted by account after a search was cleared.**
+  Clearing a search with **Esc** left a folder's rows tinted as search
+  results are, and clearing it by **Esc** or a folder change kept a copy of
+  every folder's messages in memory, until the next search.
+
+- **Added: more of Gmail's keys** (#392, reported by 3v1n0). With Gmail keys
+  on, `]` and `}` archive the conversation and open the older one, `[` and
+  `{` the newer one; `* r`, `* u`, `* s` and `* t` select the read, unread,
+  starred or unstarred conversations; **Shift+R**, **Shift+A**, **Shift+F**
+  and **d** reply, reply to all, forward or write in a composer window; and
+  **Shift+N** checks for new mail.
+
+- **Added: sensitivity labels by name** (#411, reported by erenoglu). A
+  Purview label that a message carries only as an ID showed as **Labeled**.
+  With **Show sensitivity label names** on in a Microsoft 365 account's
+  settings, Hylki reads the organization's labels through Microsoft Graph
+  and shows the label's name, its color on the tag icon and the
+  organization's description in the tooltip.
+- **Changed: a Microsoft 365 account's Graph switches are together**, in a
+  Microsoft 365 group of its settings: the directory search, suggesting only
+  from the account, and the sensitivity label names.
+
+- **Fixed: keys pressed while a conversation loaded were lost** (#392,
+  reported by 3v1n0). Opening a conversation from the keyboard gave the
+  reading pane's web view the keyboard while its page was still being
+  replaced, and it dropped what it was given, so `#` did nothing. The
+  loading page holds the keyboard until the conversation is shown.
+- **Changed: replying and writing show they have started** (#392). The
+  pointer turns busy as soon as **r**, **a**, **f** or **c** is pressed or
+  the button clicked, before the composer is built, and the editor shows a
+  spinner until it is ready. A second press meanwhile is ignored.
+
+- **Fixed: an unread conversation opened with its first message read**
+  (#392, reported by 3v1n0). Opening a conversation marked the message its
+  row is filed under read at once, so after **Shift+U** or `_` that message
+  came back read, and folded. It is now marked as the reader shows it, like
+  every other message of the conversation, and a message read while the
+  conversation is open no longer folds under you.
+- **Fixed: marking several conversations read marked only their first
+  messages** (#392). A conversation's row in a selection stands for all of
+  it, from the keys, the toolbar, the bar above the list and its menu, and
+  archive, delete and spam take the whole conversation too.
+- **Changed: Gmail keys close the conversation** (#392). **u** and **Esc**
+  close it and leave the cursor on its row, as do **Shift+U** and `_` once
+  they have marked it. **n** and **p** start from the first message unread or
+  open, not from the conversation's first.
+- **Changed: Gmail's x selects without opening** (#392). The reading pane
+  counts the selected conversations and the bar above the list acts on them;
+  **o**, **Enter** or a click opens a row and ends the selection. An action
+  key pressed with nothing selected says a selection is needed.
+- **Changed: Archive on Gmail leaves mail under its label** (#392). From a
+  label, Starred, Sent or All Mail, archiving takes the conversation out of
+  the Inbox, as Gmail does, instead of moving it to All Mail, which took the
+  label off.
+
+- **Added: addresses in To, Cc and Bcc are pills.** A space after a whole
+  address, Return or a comma makes one, and the field never ends in a comma.
+  Backspace on an empty field turns the last pill back into text to edit; a
+  double click edits any pill and its × removes it. An address that cannot
+  be sent to shows red.
 - **Fixed: Hylki closed at launch when the session's locale was missing
   from the Flatpak runtime** (#437, reported by Bohne13). The app now runs
   in C.UTF-8 in that case, so its reading pane starts.
@@ -22,6 +145,14 @@ The seventh beta previewing 1.44.0.
   (#443), which opens Settings at Message List → Columns.
 - **Changed: swipe actions are for the card layout** (#443). A single line
   no longer swipes; sideways is how it scrolls.
+- **Added: a Microsoft 365 account can suggest only its own people** (#410,
+  suggested by erenoglu). With **Suggest only from this account** on, under
+  **Search the organization directory** in the account's settings, a message
+  written from it is offered the organization's directory and the people in
+  its own mail, not GNOME Contacts, LDAP directories or other accounts.
+- **Fixed: a personal Microsoft account asked for an organization list on
+  every pause in the typing** (#410). Microsoft has no such list for it, and
+  its refusal now stops the asking for the session, as a work account's does.
 - **Fixed: single-line columns after Tags fell out of line** (#443) on
   rows without tags. Tags is a column of fixed width now, resized from its
   heading like the names.

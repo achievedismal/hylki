@@ -12,6 +12,7 @@ use crate::i18n::{i18n, i18n_f, i18n_noop};
 use crate::ui::context_menu::{show_context_menu, MenuEntry};
 use crate::ui::drop_zones::{DropChoice, DropContext, DropZones};
 use crate::ui::fade_label::FadeLabel;
+use crate::ui::recipient_row::RecipientRow;
 
 /// Which recipient field a suggestion is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,7 +76,7 @@ fn format_label(format: ComposeFormat) -> String {
     match format {
         ComposeFormat::Rich => i18n("Rich text"),
         ComposeFormat::Markdown => i18n("Markdown"),
-        ComposeFormat::Html => i18n("HTML"),
+        ComposeFormat::Html => i18n("HTML source"),
         ComposeFormat::Plain => i18n("Plain text"),
     }
 }
@@ -83,7 +84,7 @@ fn format_label(format: ComposeFormat) -> String {
 /// The one-line explanation under each format in the menu.
 fn format_hint(format: ComposeFormat) -> String {
     match format {
-        ComposeFormat::Rich => i18n("Format as you type, with the toolbar"),
+        ComposeFormat::Rich => i18n("Format as you type; it is sent as HTML"),
         ComposeFormat::Markdown => i18n("Write Markdown; it is sent as formatted mail"),
         ComposeFormat::Html => i18n("Write the message's HTML by hand"),
         ComposeFormat::Plain => i18n("No formatting at all"),
@@ -157,14 +158,9 @@ fn set_toggle_icon(btn: &gtk::Button, windowed: bool) {
     }
 }
 
-/// Replace the recipient currently being typed (after the last comma) with the
-/// chosen suggestion, leaving a trailing ", " ready for the next recipient.
-fn complete_field(row: &adw::EntryRow, sug: &Suggestion) {
-    let text = row.text().to_string();
-    let prefix_len = text.rfind(',').map(|i| i + 1).unwrap_or(0);
-    let prefix = &text[..prefix_len];
-    row.set_text(&format!("{}{}, ", prefix, sug.display()));
-    row.set_position(-1);
+/// Replace the recipient being typed with the chosen suggestion, as a pill.
+fn complete_field(row: &RecipientRow, sug: &Suggestion) {
+    row.complete(&sug.display());
 }
 
 /// One selectable "from" account in the compose window.
@@ -172,8 +168,12 @@ fn complete_field(row: &adw::EntryRow, sug: &Suggestion) {
 pub struct ComposeAccount {
     pub id: u32,
     pub label: String,
-    /// Signature text appended to the body when this account is selected.
+    /// Signature text appended to the body when this account is selected:
+    /// its default one, or empty when new messages start without.
     pub signature: String,
+    /// Every signature of the account (#445), offered by the signature
+    /// button.
+    pub signatures: Vec<crate::config::NamedSignature>,
     /// The identity's sending address (the account's own, or an alias's).
     pub email: String,
     /// The account's chosen OpenPGP key (fingerprint), if any (#133).
@@ -277,6 +277,17 @@ pub struct ComposeInit {
     pub signature_position: SignaturePosition,
 }
 
+/// An account that suggests only from its directory and its own mail
+/// (#410): what its directory is asked with, and the addresses in its mail.
+#[derive(Debug)]
+pub struct OwnOnly {
+    account: crate::config::AccountConfig,
+    addresses: std::collections::HashSet<String>,
+}
+
+/// Those accounts by id, as the From row knows them.
+pub type OwnMail = std::collections::HashMap<u32, OwnOnly>;
+
 pub struct Compose {
     accounts: Vec<ComposeAccount>,
     /// The rich-text (HTML) body editor.
@@ -307,11 +318,21 @@ pub struct Compose {
     /// not: one switched on in Evolution while the composer is open counts
     /// as well (#307), and [`crate::directory::search`] keeps the list.
     graph_directories: std::sync::Arc<Vec<crate::config::AccountConfig>>,
+    /// The accounts that suggest only from their directory and their own
+    /// mail (#410), with the addresses in that mail.
+    own_mail: OwnMail,
+    /// The account the From row has picked, which decides whether
+    /// `own_mail` narrows the suggestions.
+    from_account: u32,
     /// What the directories answered for the recipient being typed.
     directory_matches: Vec<Suggestion>,
     /// Bumped on every keystroke, so a slow directory's answer to an
     /// earlier fragment is dropped.
     directory_generation: u64,
+    /// The directory failures this composer has put in the status bar. A
+    /// directory that keeps failing says so once here, not at every pause
+    /// in the typing, and still once in the next composer (#307).
+    directory_errors_shown: std::collections::HashSet<String>,
     /// Shared autocomplete popover and which field it's currently attached to.
     completion: gtk::Popover,
     completion_field: Option<Field>,
@@ -379,8 +400,8 @@ pub struct Compose {
     /// shown only with a translation service set up.
     translate_btn: gtk::Button,
     /// Insert Signature (#385), beside Translate: Edit as New leaves the
-    /// signature out, and this puts it back by hand. Shown only while the
-    /// From account has one.
+    /// signature out, and this puts it back by hand. With several (#445)
+    /// it lists them. Shown only while the From account has one.
     signature_btn: gtk::Button,
     /// A translation is out: the button waits and the body is locked.
     translating: bool,
@@ -549,6 +570,12 @@ pub enum ComposeInput {
     InsertSignature(SigPlace),
     /// The Insert Signature button was right-clicked.
     SignatureMenu,
+    /// The Insert Signature button was clicked: one signature goes in at
+    /// the caret, several are listed (#445).
+    SignatureClicked,
+    /// One of the From account's signatures (#445), by index, in place of
+    /// the one in the message; `None` takes it out.
+    UseSignature(Option<usize>),
     /// The editor content came back — finish saving the draft, or the copy
     /// kept as a template.
     SaveDraftBody { html: String, text: String, to: String, cc: String, bcc: String, reply_to: String, subject: String, from_account_id: u32, from_alias: Option<String>, as_template: bool },
@@ -591,15 +618,22 @@ pub enum ComposeInput {
     OpenContacts,
     /// The given recipient field changed — refresh autocomplete.
     Suggest(Field),
-    /// The accounts whose organization directory is searched (#410).
-    DirectoriesKnown { graph: Vec<crate::config::AccountConfig> },
+    /// The accounts whose organization directory is searched (#410), and
+    /// the addresses in the mail of those that suggest only their own.
+    DirectoriesKnown { graph: Vec<crate::config::AccountConfig>, own_mail: OwnMail },
     /// The typing paused: ask the directories, unless it went on since.
     DirectoryLookup { field: Field, token: String, generation: u64 },
     /// What the directories answered, and the failures not shown before.
-    DirectoryResults { field: Field, token: String, generation: u64, matches: Vec<Suggestion>, errors: Vec<String> },
+    DirectoryResults {
+        field: Field,
+        token: String,
+        generation: u64,
+        matches: Vec<Suggestion>,
+        failed: Vec<crate::directory::DirectoryFailure>,
+    },
     /// Addresses just sent to from another composer: into this one's
     /// suggestions at once, without waiting for a reopen.
-    AddSuggestions(Vec<Suggestion>),
+    AddSuggestions { account_id: u32, new: Vec<Suggestion> },
     /// Arrow-key move of the autocomplete highlight (+1 down, -1 up).
     CompletionMove(i32),
     /// Accept the highlighted suggestion into the active field.
@@ -622,7 +656,9 @@ pub enum ComposeInput {
 
 #[derive(Debug)]
 pub enum ComposeOutput {
-    Send(Box<OutgoingMessage>),
+    /// Send the message. Carries the composer's id, so the app knows which
+    /// pane it came from.
+    Send { id: u32, message: Box<OutgoingMessage> },
     /// Save the message to the Drafts folder (no send).
     SaveDraft(Box<OutgoingMessage>),
     /// Save the message to the Templates folder (#360), replacing the
@@ -651,7 +687,8 @@ pub enum ComposeOutput {
     /// menu (#365): the whole new setting, saved app-wide like the
     /// Settings switches.
     SetSpellcheckLangs(String),
-    /// A directory could not be asked (#307): for the status bar, once.
+    /// A directory could not be asked (#307): for the status bar, once per
+    /// composer.
     DirectoryError(String),
 }
 
@@ -1000,17 +1037,17 @@ impl Component for Compose {
                                 set_visible: false,
                             },
                             #[name = "to_row"]
-                            adw::EntryRow {
+                            RecipientRow {
                                 set_title: &i18n("To"),
                                 set_input_purpose: gtk::InputPurpose::Email,
                             },
                             #[name = "cc_row"]
-                            adw::EntryRow {
+                            RecipientRow {
                                 set_title: &i18n("Cc"),
                                 set_input_purpose: gtk::InputPurpose::Email,
                             },
                             #[name = "bcc_row"]
-                            adw::EntryRow {
+                            RecipientRow {
                                 set_title: &i18n("Bcc"),
                                 set_input_purpose: gtk::InputPurpose::Email,
                             },
@@ -1120,7 +1157,8 @@ impl Component for Compose {
         let remote_images = prefill.block_remote_images.then(|| {
             accounts
                 .iter()
-                .flat_map(|a| super::rich_editor::remote_image_urls(&a.signature))
+                .flat_map(|a| a.signatures.iter())
+                .flat_map(|sig| super::rich_editor::remote_image_urls(&sig.html))
                 .collect::<Vec<_>>()
         });
         let editor = RichEditor::new(&content, remote_images.as_deref(), format == ComposeFormat::Plain);
@@ -1199,11 +1237,11 @@ impl Component for Compose {
         signature_btn.set_tooltip_text(Some(i18n("Insert Signature").as_str()));
         signature_btn.add_css_class("flat");
         signature_btn.set_can_focus(false);
-        signature_btn.set_visible(!current_sig.is_empty());
+        signature_btn.set_visible(accounts.get(selected).is_some_and(|a| !a.signatures.is_empty()));
         {
             let s = sender.input_sender().clone();
             signature_btn.connect_clicked(move |_| {
-                let _ = s.send(ComposeInput::InsertSignature(SigPlace::Cursor));
+                let _ = s.send(ComposeInput::SignatureClicked);
             });
             let s = sender.input_sender().clone();
             let right = gtk::GestureClick::new();
@@ -1254,8 +1292,11 @@ impl Component for Compose {
             attach_thumbs: Default::default(),
             suggestions,
             graph_directories: Default::default(),
+            own_mail: Default::default(),
+            from_account: 0,
             directory_matches: Vec::new(),
             directory_generation: 0,
+            directory_errors_shown: std::collections::HashSet::new(),
             completion,
             completion_field: None,
             completion_list: None,
@@ -1311,6 +1352,7 @@ impl Component for Compose {
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
         };
+        model.from_account = model.accounts.get(selected).map(|a| a.id).unwrap_or_default();
         let widgets = view_output!();
         if prefill_encrypt && crate::pgp::available() {
             // Through the buttons, so the toggles and the model agree.
@@ -1591,7 +1633,22 @@ impl Component for Compose {
             let s = sender.input_sender().clone();
             std::thread::spawn(move || {
                 let graph = crate::graph_directory::accounts();
-                let _ = s.send(ComposeInput::DirectoriesKnown { graph });
+                // An account's id is its place in the file, from 1.
+                let narrowed: Vec<(u32, crate::config::AccountConfig)> = crate::config::load()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(_, a)| a.graph_directory_only && crate::graph_directory::usable(a))
+                    .map(|(i, a)| (i as u32 + 1, a))
+                    .collect();
+                let own_mail = match crate::cache::Cache::open() {
+                    Ok(cache) if !narrowed.is_empty() => narrowed
+                        .into_iter()
+                        .map(|(id, account)| (id, OwnOnly { addresses: cache.account_addresses(id), account }))
+                        .collect(),
+                    _ => OwnMail::new(),
+                };
+                let _ = s.send(ComposeInput::DirectoriesKnown { graph, own_mail });
             });
         }
 
@@ -2134,19 +2191,7 @@ impl Component for Compose {
                 };
                 let to_row = widgets.to_row.clone();
                 crate::ui::contacts_browser::present(&win, move |contact| {
-                    let display =
-                        crate::worker::format_recipient(&contact.name, &contact.email);
-                    let cur = to_row.text().to_string();
-                    let trimmed = cur.trim_end();
-                    let sep = if trimmed.is_empty() {
-                        ""
-                    } else if trimmed.ends_with(',') {
-                        " "
-                    } else {
-                        ", "
-                    };
-                    to_row.set_text(&format!("{cur}{sep}{display}, "));
-                    to_row.set_position(-1);
+                    to_row.add_recipient(&crate::worker::format_recipient(&contact.name, &contact.email));
                 });
             }
 
@@ -2246,11 +2291,25 @@ impl Component for Compose {
 
             ComposeInput::AccountChanged => {
                 self.follow_account_signing(widgets);
-                // Swap the editor's signature block for the new account's.
                 let idx = widgets.from_row.selected() as usize;
-                let new_sig = self.accounts.get(idx).map(|a| a.signature.clone()).unwrap_or_default();
-                self.signature_btn.set_visible(!new_sig.is_empty());
-                if new_sig == self.current_sig {
+                // Another account may suggest from elsewhere: what a
+                // directory answered for the last one is not kept.
+                let account_changed =
+                    self.accounts.get(idx).is_some_and(|a| a.id != self.from_account);
+                if let Some(id) = self.accounts.get(idx).map(|a| a.id).filter(|id| *id != self.from_account) {
+                    self.from_account = id;
+                    self.directory_generation = self.directory_generation.wrapping_add(1);
+                    self.directory_matches.clear();
+                }
+                // Swap the editor's signature block for the new account's.
+                // An alias or another identity of the same account shares
+                // its signatures, so the one picked from them stays.
+                let Some(account) = self.accounts.get(idx) else {
+                    break 'handle;
+                };
+                self.signature_btn.set_visible(!account.signatures.is_empty());
+                let new_sig = account.signature.clone();
+                if !account_changed || new_sig == self.current_sig {
                     break 'handle;
                 }
                 self.put_signature(new_sig);
@@ -2258,8 +2317,51 @@ impl Component for Compose {
 
             ComposeInput::InsertSignature(place) => {
                 let idx = widgets.from_row.selected() as usize;
-                let sig = self.accounts.get(idx).map(|a| a.signature.clone()).unwrap_or_default();
+                let sig = self.accounts.get(idx).map(|a| self.chosen_signature(a)).unwrap_or_default();
                 self.insert_signature(sig, place);
+            }
+
+            ComposeInput::SignatureClicked => {
+                let idx = widgets.from_row.selected() as usize;
+                let Some(account) = self.accounts.get(idx) else {
+                    break 'handle;
+                };
+                if account.signatures.len() < 2 {
+                    sender.input(ComposeInput::InsertSignature(SigPlace::Cursor));
+                    break 'handle;
+                }
+                // The one in the message is drawn as chosen; a body that
+                // started without one (Edit as New, a draft) may still
+                // carry the default's text, which is no harm to show.
+                let list: Vec<MenuEntry> = account
+                    .signatures
+                    .iter()
+                    .enumerate()
+                    .map(|(i, sig)| {
+                        let s = sender.clone();
+                        MenuEntry::new(&sig.name, move || s.input(ComposeInput::UseSignature(Some(i))))
+                            .selected(!self.current_sig.is_empty() && sig.html == self.current_sig)
+                    })
+                    .collect();
+                let s = sender.clone();
+                let none = MenuEntry::new(i18n("No Signature"), move || s.input(ComposeInput::UseSignature(None)))
+                    .selected(self.current_sig.is_empty());
+                let btn = &self.signature_btn;
+                show_context_menu(btn, (btn.width() / 2) as f64, btn.height() as f64, vec![list, vec![none]]);
+            }
+
+            ComposeInput::UseSignature(choice) => {
+                let idx = widgets.from_row.selected() as usize;
+                let sig = match choice {
+                    Some(i) => match self.accounts.get(idx).and_then(|a| a.signatures.get(i)) {
+                        Some(sig) => sig.html.clone(),
+                        None => break 'handle,
+                    },
+                    None => String::new(),
+                };
+                if sig != self.current_sig {
+                    self.put_signature(sig);
+                }
             }
 
             ComposeInput::SignatureMenu => {
@@ -2299,36 +2401,56 @@ impl Component for Compose {
                 self.show_completion(field, row);
             }
 
-            ComposeInput::DirectoriesKnown { graph } => {
+            ComposeInput::DirectoriesKnown { graph, own_mail } => {
                 self.graph_directories = std::sync::Arc::new(graph);
+                self.own_mail = own_mail;
             }
 
             ComposeInput::DirectoryLookup { field, token, generation } => {
                 if generation == self.directory_generation {
                     let s = sender.input_sender().clone();
-                    let graph = self.graph_directories.clone();
+                    // An account that suggests only its own asks its
+                    // directory alone, no LDAP and no other tenant.
+                    let own = self.own_mail.get(&self.from_account);
+                    let narrowed = own.is_some();
+                    if let Some(own) = own {
+                        tracing::debug!(
+                            target: "hylki::graph",
+                            "suggestions narrowed to {}: its directory and {} addresses from its mail",
+                            own.account.email,
+                            own.addresses.len()
+                        );
+                    }
+                    let graph = match own {
+                        Some(own) => std::sync::Arc::new(vec![own.account.clone()]),
+                        None => self.graph_directories.clone(),
+                    };
                     std::thread::spawn(move || {
                         // Both at once: the slower decides when the list
                         // grows, not the two one after the other.
-                        let (matches, errors) = std::thread::scope(|scope| {
+                        let (matches, failed) = std::thread::scope(|scope| {
                             let org = (!graph.is_empty())
                                 .then(|| scope.spawn(|| crate::graph_directory::search(&token, &graph)));
-                            let (mut matches, errors) = crate::directory::search(&token);
+                            let (mut matches, failed) =
+                                if narrowed { Default::default() } else { crate::directory::search(&token) };
                             if let Some(found) = org.and_then(|h| h.join().ok()) {
                                 matches.extend(found);
                             }
-                            (matches, errors)
+                            (matches, failed)
                         });
-                        let _ = s.send(ComposeInput::DirectoryResults { field, token, generation, matches, errors });
+                        let _ = s.send(ComposeInput::DirectoryResults { field, token, generation, matches, failed });
                     });
                 }
             }
 
-            ComposeInput::DirectoryResults { field, token, generation, matches, errors } => {
+            ComposeInput::DirectoryResults { field, token, generation, matches, failed } => {
                 // A directory that cannot be asked says so once, whatever
                 // came of the typing meanwhile.
-                for e in errors {
-                    let _ = sender.output(ComposeOutput::DirectoryError(e));
+                for f in failed {
+                    let text = f.text();
+                    if self.directory_errors_shown.insert(text.clone()) {
+                        let _ = sender.output(ComposeOutput::DirectoryError(text));
+                    }
                 }
                 let row = match field {
                     Field::To => &widgets.to_row,
@@ -2343,9 +2465,12 @@ impl Component for Compose {
                 }
             }
 
-            ComposeInput::AddSuggestions(new) => {
+            ComposeInput::AddSuggestions { account_id, new } => {
                 for n in new {
                     let key = n.email.to_lowercase();
+                    if let Some(own) = self.own_mail.get_mut(&account_id) {
+                        own.addresses.insert(key.clone());
+                    }
                     match self.suggestions.iter_mut().find(|s| s.email.to_lowercase() == key) {
                         Some(s) => {
                             s.score += 1;
@@ -2379,8 +2504,7 @@ impl Component for Compose {
                     Some(Field::Bcc) => &widgets.bcc_row,
                     None => break 'handle,
                 };
-                let text = row.text().to_string();
-                let token = text.rsplit(',').next().unwrap_or("").trim().to_string();
+                let token = row.typed();
                 if !token.is_empty() {
                     let chosen = self.ranked_matches(&token).into_iter().nth(self.completion_selected);
                     if let Some(sug) = chosen {
@@ -2781,15 +2905,23 @@ impl Component for Compose {
                 // cannot go to is caught here, while it can still be fixed
                 // (#368). Invisible characters pasted along with an address
                 // are taken out first, where the user can see the result.
-                let rows = [&widgets.to_row, &widgets.cc_row, &widgets.bcc_row, &widgets.reply_to_row];
-                for row in rows {
+                for row in [&widgets.to_row, &widgets.cc_row, &widgets.bcc_row] {
                     if let Some(clean) = crate::worker::clean_recipient_field(&row.text()) {
                         row.set_text(&clean);
                     }
                 }
+                if let Some(clean) = crate::worker::clean_recipient_field(&widgets.reply_to_row.text()) {
+                    widgets.reply_to_row.set_text(&clean);
+                }
+                let rows: [(&gtk::Widget, String); 4] = [
+                    (widgets.to_row.upcast_ref(), widgets.to_row.text()),
+                    (widgets.cc_row.upcast_ref(), widgets.cc_row.text()),
+                    (widgets.bcc_row.upcast_ref(), widgets.bcc_row.text()),
+                    (widgets.reply_to_row.upcast_ref(), widgets.reply_to_row.text().to_string()),
+                ];
                 if let Some((row, addr)) = rows
-                    .into_iter()
-                    .find_map(|row| crate::worker::invalid_recipient(&row.text()).map(|addr| (row, addr)))
+                    .iter()
+                    .find_map(|(row, text)| crate::worker::invalid_recipient(text).map(|addr| (row, addr)))
                 {
                     row.add_css_class("error");
                     let parent = widgets.to_row.root().and_downcast::<gtk::Window>();
@@ -2903,7 +3035,7 @@ impl Component for Compose {
                 if self.template {
                     out.draft_origin = None;
                 }
-                let _ = sender.output(ComposeOutput::Send(Box::new(out)));
+                let _ = sender.output(ComposeOutput::Send { id: self.compose_id, message: Box::new(out) });
                 let _ = sender.output(ComposeOutput::Close(self.compose_id));
             }
 
@@ -3114,6 +3246,18 @@ impl Compose {
     /// Put Sign where the From account's default has it (#267), until the
     /// user has set it by hand. While encrypting it stays on: encrypted
     /// mail is always signed.
+    /// The signature Insert Signature puts in: the one the message last
+    /// had, if it is one of `account`'s, else its default, else its first.
+    fn chosen_signature(&self, account: &ComposeAccount) -> String {
+        if account.signatures.iter().any(|s| s.html == self.current_sig) {
+            return self.current_sig.clone();
+        }
+        if !account.signature.is_empty() {
+            return account.signature.clone();
+        }
+        account.signatures.first().map(|s| s.html.clone()).unwrap_or_default()
+    }
+
     /// Put `new_sig` in the editor in place of the current signature block,
     /// or where the setting puts a signature when there is none.
     fn put_signature(&mut self, new_sig: String) {
@@ -3158,7 +3302,8 @@ impl Compose {
             // above the quoted original or at the end (#237).
             let anchor = self.rich_sig_anchor();
             let js = format!(
-                "(function(){{var s=document.querySelector('.hylki-sig');\
+                "(function(){{var s=[].filter.call(document.querySelectorAll('.hylki-sig'),\
+                 function(x){{return !x.closest('blockquote');}})[0];\
                  var h='{}';\
                  if(s){{if(h){{s.outerHTML=h;}}else{{s.remove();}}}}\
                  else if(h){{{anchor}}}\
@@ -3426,10 +3571,21 @@ window.__hylkiDirty=true;})()"#
 
     /// Suggestions matching `token`, ranked best-first (prefix match, then most
     /// frequently used), capped to a handful.
+    /// The addresses in the From account's mail, when that account
+    /// suggests only from its directory and its own mail (#410).
+    fn narrowed(&self) -> Option<&std::collections::HashSet<String>> {
+        self.own_mail.get(&self.from_account).map(|own| &own.addresses)
+    }
+
     fn ranked_matches(&self, token: &str) -> Vec<Suggestion> {
         let q = token.to_lowercase();
-        let mut matches: Vec<Suggestion> =
-            self.suggestions.iter().filter(|s| s.matches(token)).cloned().collect();
+        let narrowed = self.narrowed();
+        let mut matches: Vec<Suggestion> = self
+            .suggestions
+            .iter()
+            .filter(|s| s.matches(token) && narrowed.is_none_or(|own| own.contains(&s.email.to_lowercase())))
+            .cloned()
+            .collect();
         // A directory matched on attributes the entry may not show (a
         // surname under a display name), so its answers are not filtered
         // again; one already known from Contacts or mail is not repeated.
@@ -3456,10 +3612,8 @@ window.__hylkiDirty=true;})()"#
 
     /// Filter suggestions by the recipient fragment being typed and show them in
     /// a popover under the field; clicking one completes that recipient.
-    fn show_completion(&mut self, field: Field, row: &adw::EntryRow) {
-        let text = row.text().to_string();
-        // The recipient currently being typed is the part after the last comma.
-        let token = text.rsplit(',').next().unwrap_or("").trim().to_string();
+    fn show_completion(&mut self, field: Field, row: &RecipientRow) {
+        let token = row.typed();
         if token.is_empty() {
             self.completion_open.set(false);
             self.completion.popdown();
@@ -3980,14 +4134,14 @@ fn cloud_upload_dialog(
 
 /// The GtkText embedded somewhere inside a composite row — where Pango
 /// attributes (the spell-check underlines) actually live.
-/// The recipient being typed: the part of the field after the last comma.
-fn recipient_token(row: &adw::EntryRow) -> String {
-    row.text().rsplit(',').next().unwrap_or("").trim().to_string()
+/// The recipient being typed, after the field's pills.
+fn recipient_token(row: &RecipientRow) -> String {
+    row.typed()
 }
 
-/// Whether the field has the keyboard. An EntryRow holds its focus in the
+/// Whether the field has the keyboard. The row holds its focus in the
 /// GtkText inside it, so the row's own has_focus() is never true.
-fn recipient_focused(row: &adw::EntryRow) -> bool {
+fn recipient_focused(row: &RecipientRow) -> bool {
     row.root()
         .and_downcast::<gtk::Window>()
         .and_then(|w| gtk::prelude::GtkWindowExt::focus(&w))

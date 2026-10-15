@@ -169,6 +169,7 @@ pub struct PrefInit {
     pub list_headings: bool,
     pub list_column_scroll: bool,
     pub list_group_by_date: bool,
+    pub list_search_open: bool,
     pub single_key_shortcuts: bool,
     pub gmail_keys: bool,
     pub keep_downloads_days: u32,
@@ -1310,6 +1311,8 @@ pub enum PrefOutput {
     SetListColumnScroll(bool),
     /// Date headings over a list sorted by date (#435).
     SetGroupByDate(bool),
+    /// Keep the list's search field open (#446).
+    SetListSearchOpen(bool),
     /// Every column back to its own width (#334).
     ResetColumnWidths,
     SetSingleKey(bool),
@@ -2905,6 +2908,16 @@ impl Component for Preferences {
                                         },
                                     },
 
+                                    #[name = "list_search_open_row"]
+                                    adw::SwitchRow {
+                                        set_title: &i18n("Keep the search field open"),
+                                        set_subtitle: &i18n("Shows the search field above the list at all times, \
+                                                       instead of behind the search button."),
+                                        connect_active_notify[sender] => move |row| {
+                                            let _ = sender.output(PrefOutput::SetListSearchOpen(row.is_active()));
+                                        },
+                                    },
+
                                     #[name = "tag_row_tint_row"]
                                     adw::SwitchRow {
                                         set_title: &i18n("Tint tagged messages"),
@@ -3493,8 +3506,9 @@ impl Component for Preferences {
                                     adw::ComboRow {
                                         set_title: &i18n("Write messages in"),
                                         set_subtitle: &i18n("What new messages, replies and forwards start \
-                                                       as. Markdown and HTML are written as source and \
-                                                       sent as formatted mail; plain text is sent without \
+                                                       as. Rich text is formatted as you type and sent as \
+                                                       HTML. Markdown and HTML source are written as source \
+                                                       and sent as formatted mail; plain text is sent without \
                                                        formatting. The composer's format button switches \
                                                        any one message."),
                                         connect_selected_notify[sender] => move |row| {
@@ -4291,6 +4305,7 @@ impl Component for Preferences {
         widgets.list_headings_row.set_active(init.list_headings);
         widgets.list_fit_row.set_active(!init.list_column_scroll);
         widgets.group_by_date_row.set_active(init.list_group_by_date);
+        widgets.list_search_open_row.set_active(init.list_search_open);
         widgets.list_layout_row.set_selected(match init.list_layout {
             crate::config::ListLayout::Cards => 0,
             crate::config::ListLayout::SingleLine => 1,
@@ -4588,7 +4603,7 @@ impl Component for Preferences {
         widgets.compose_format_row.set_model(Some(&gtk::StringList::new(&[
             &i18n("Rich text"),
             &i18n("Markdown"),
-            &i18n("HTML"),
+            &i18n("HTML source"),
             &i18n("Plain text"),
         ])));
         no_truncate(&widgets.compose_format_row);

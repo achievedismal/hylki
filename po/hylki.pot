@@ -10,6 +10,39 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+msgid "Date (Newest first)"
+msgstr ""
+
+msgid "Date (Oldest first)"
+msgstr ""
+
+msgid "Sender (A–Z)"
+msgstr ""
+
+msgid "Subject (A–Z)"
+msgstr ""
+
+msgid "Unread first"
+msgstr ""
+
+msgid "Starred first"
+msgstr ""
+
+msgid "Sort by"
+msgstr ""
+
+msgid "Show only"
+msgstr ""
+
+msgid "Clear Filters"
+msgstr ""
+
+msgid "Sort and filter messages"
+msgstr ""
+
+msgid "Filtered: {names}"
+msgstr ""
+
 msgid "Refresh or long-press for Status Bar"
 msgstr ""
 
@@ -26,15 +59,6 @@ msgid "Search messages (Ctrl+F)"
 msgstr ""
 
 msgid "Search, filters and sort"
-msgstr ""
-
-msgid "Show only unread"
-msgstr ""
-
-msgid "Show only starred"
-msgstr ""
-
-msgid "Sort messages"
 msgstr ""
 
 msgid "Edit this message"
@@ -122,24 +146,6 @@ msgid "Toggle sidebar"
 msgstr ""
 
 msgid "Keyboard Shortcuts"
-msgstr ""
-
-msgid "Date (Newest first)"
-msgstr ""
-
-msgid "Date (Oldest first)"
-msgstr ""
-
-msgid "Sender (A–Z)"
-msgstr ""
-
-msgid "Subject (A–Z)"
-msgstr ""
-
-msgid "Unread first"
-msgstr ""
-
-msgid "Starred first"
 msgstr ""
 
 msgid "Create Folder"
@@ -301,6 +307,9 @@ msgstr ""
 msgid "About"
 msgstr ""
 
+msgid "Select a conversation first."
+msgstr ""
+
 msgid "Remove Tags"
 msgstr ""
 
@@ -435,6 +444,9 @@ msgid "Move to Inbox"
 msgstr ""
 
 msgid "Search Messages…"
+msgstr ""
+
+msgid "Filter"
 msgstr ""
 
 msgid "Sort"
@@ -913,7 +925,7 @@ msgstr ""
 msgid "Open the message the cursor is on"
 msgstr ""
 
-msgid "Back to the message list"
+msgid "Close the conversation, back to the list"
 msgstr ""
 
 msgid "Next or previous message in the conversation"
@@ -952,6 +964,12 @@ msgstr ""
 msgid "Archive the conversation"
 msgstr ""
 
+msgid "Archive the conversation and open the older one"
+msgstr ""
+
+msgid "Archive the conversation and open the newer one"
+msgstr ""
+
 msgid "Mark as spam"
 msgstr ""
 
@@ -961,16 +979,22 @@ msgstr ""
 msgid "Mark the conversation as read"
 msgstr ""
 
-msgid "Mark the conversation as unread"
+msgid "Mark the conversation as unread and close it"
 msgstr ""
 
-msgid "Mark as unread from this message on"
+msgid "Mark as unread from this message on and close it"
 msgstr ""
 
-msgid "Select this row (for a bulk action)"
+msgid "Select this row without opening it"
 msgstr ""
 
 msgid "Select every row, or none"
+msgstr ""
+
+msgid "Select the read or the unread conversations"
+msgstr ""
+
+msgid "Select the starred or the unstarred conversations"
 msgstr ""
 
 msgid "Move to a folder"
@@ -982,7 +1006,19 @@ msgstr ""
 msgid "Add or remove a tag (the first nine, in Settings order)"
 msgstr ""
 
+msgid "Reply, or reply to all, in a window"
+msgstr ""
+
+msgid "Forward in a window"
+msgstr ""
+
 msgid "Compose"
+msgstr ""
+
+msgid "Compose in a window"
+msgstr ""
+
+msgid "Check for new mail"
 msgstr ""
 
 msgid "Next message"
@@ -994,6 +1030,9 @@ msgstr ""
 msgid "Open the selected message"
 msgstr ""
 
+msgid "Back to the message list"
+msgstr ""
+
 msgid "Next message in the conversation"
 msgstr ""
 
@@ -1001,6 +1040,9 @@ msgid "Previous message in the conversation"
 msgstr ""
 
 msgid "Mark read or unread"
+msgstr ""
+
+msgid "Select this row (for a bulk action)"
 msgstr ""
 
 msgid "Remove every tag"
@@ -1143,6 +1185,9 @@ msgid "{n} unread message"
 msgid_plural "{n} unread messages"
 msgstr[0] ""
 msgstr[1] ""
+
+msgid "Signature"
+msgstr ""
 
 msgid "Custom Order"
 msgstr ""
@@ -1542,8 +1587,10 @@ msgid "The sender marked this message “{label}”."
 msgstr ""
 
 msgid ""
-"The sender's organization labeled this message, without saying the label's "
-"name. Hylki shows the label but does not apply its rules."
+"The sender's organization labeled this message without naming the label in "
+"it. For a Microsoft 365 account, turning on “Show sensitivity label names” "
+"in its settings shows the name. Hylki shows the label but does not apply its "
+"rules."
 msgstr ""
 
 msgid ""
@@ -1907,16 +1954,24 @@ msgstr ""
 msgid "Add Alias…"
 msgstr ""
 
-msgid "Signature"
+msgid "Signatures"
 msgstr ""
 
-msgid "Appended to new messages sent from this account."
+msgid ""
+"Put in messages sent from this account. With more than one, the composer's "
+"signature button lists them."
 msgstr ""
 
-msgid "Edit HTML…"
+msgid "Add Signature"
 msgstr ""
 
 msgid "Import File…"
+msgstr ""
+
+msgid "Delete Signature"
+msgstr ""
+
+msgid "Start messages with this signature"
 msgstr ""
 
 msgid "Syncing"
@@ -1949,7 +2004,29 @@ msgid ""
 "link) older than this, unless starred. Checked at each sync."
 msgstr ""
 
+msgid "Microsoft 365"
+msgstr ""
+
 msgid "Search the organization directory"
+msgstr ""
+
+msgid "Suggest people from your organization as you type a recipient."
+msgstr ""
+
+msgid "Suggest only from this account"
+msgstr ""
+
+msgid ""
+"Writing from this account, suggest people from the directory and from its "
+"own mail, not from Contacts, LDAP directories or other accounts."
+msgstr ""
+
+msgid "Show sensitivity label names"
+msgstr ""
+
+msgid ""
+"Name a message's label from your organization's list when the message gives "
+"only its ID."
 msgstr ""
 
 msgid "Folder Order"
@@ -1958,9 +2035,6 @@ msgstr ""
 msgid ""
 "How this account's folders are sorted in the sidebar. Also in the right-"
 "click menu of its Folders heading."
-msgstr ""
-
-msgid "Sort by"
 msgstr ""
 
 msgid "Special Folders"
@@ -2036,6 +2110,12 @@ msgid ""
 "plain text on disk."
 msgstr ""
 
+msgid "Edit HTML"
+msgstr ""
+
+msgid "Edit the signature's HTML source"
+msgstr ""
+
 msgid "Follow Settings"
 msgstr ""
 
@@ -2066,15 +2146,10 @@ msgstr ""
 msgid "Approve access to the directory in the window that opened."
 msgstr ""
 
-msgid "Signature HTML"
+msgid "Opening browser… approve access to the sensitivity labels there."
 msgstr ""
 
-msgid ""
-"Paste or edit the signature's HTML. Scripts and style sheets are removed; "
-"inline styles, tables and images are kept."
-msgstr ""
-
-msgid "Apply"
+msgid "Approve access to the sensitivity labels in the window that opened."
 msgstr ""
 
 msgid "Import Signature"
@@ -2087,6 +2162,9 @@ msgid "Could Not Read the File"
 msgstr ""
 
 msgid "OK"
+msgstr ""
+
+msgid "Signature {n}"
 msgstr ""
 
 msgid "Enter a client ID and sign in before saving"
@@ -2103,19 +2181,27 @@ msgstr ""
 msgid "Sign-in failed: {e}"
 msgstr ""
 
-msgid "Signed in as {address}, not {email}."
-msgstr ""
-
 msgid "Access to the directory approved. Save the account to finish."
 msgstr ""
 
 msgid "Access to the directory was not approved: {e}"
 msgstr ""
 
+msgid "Access to the sensitivity labels approved. Save the account to finish."
+msgstr ""
+
+msgid "Access to the sensitivity labels was not approved: {e}"
+msgstr ""
+
 msgid "✓ SMTP: connected"
 msgstr ""
 
 msgid "✗ SMTP: {e}"
+msgstr ""
+
+#. The one label on the row goes when there is no width for it, the
+#. same trade the header makes when it folds.
+msgid "Preview"
 msgstr ""
 
 msgid "Show"
@@ -2208,15 +2294,17 @@ msgid "Use this account in Hylki"
 msgstr ""
 
 msgid ""
-"Only for an account signed in within Hylki. To use it, add this account with "
-"Microsoft 365 / Outlook as the provider, instead of from GNOME Online "
+"Only for an account signed in within Hylki. To use these, add this account "
+"with Microsoft 365 / Outlook as the provider, instead of from GNOME Online "
 "Accounts."
 msgstr ""
 
 msgid ""
-"Suggest people from your organization as you type a recipient. Turning this "
-"on asks Microsoft for access to the directory; some organizations need an "
-"administrator to approve it."
+"Turning one of these on asks Microsoft for access; some organizations need "
+"an administrator to approve it."
+msgstr ""
+
+msgid "Signed in as {address}, not {email}."
 msgstr ""
 
 msgid "Never"
@@ -3011,13 +3099,13 @@ msgstr ""
 msgid "Markdown"
 msgstr ""
 
-msgid "HTML"
+msgid "HTML source"
 msgstr ""
 
 msgid "Plain text"
 msgstr ""
 
-msgid "Format as you type, with the toolbar"
+msgid "Format as you type; it is sent as HTML"
 msgstr ""
 
 msgid "Write Markdown; it is sent as formatted mail"
@@ -3131,11 +3219,6 @@ msgstr ""
 msgid "Writing in {format}"
 msgstr ""
 
-#. The one label on the row goes when there is no width for it, the
-#. same trade the header makes when it folds.
-msgid "Preview"
-msgstr ""
-
 msgid "Show the message as it will be sent"
 msgstr ""
 
@@ -3181,6 +3264,9 @@ msgid "Remove {name}"
 msgstr ""
 
 msgid "Typing"
+msgstr ""
+
+msgid "No Signature"
 msgstr ""
 
 msgid "Insert Before the Text"
@@ -3373,6 +3459,12 @@ msgid "Edit"
 msgstr ""
 
 msgid "Delete…"
+msgstr ""
+
+msgid "Type three letters or more to search the directory."
+msgstr ""
+
+msgid "Nobody in the directory matches."
 msgstr ""
 
 msgid "View photo"
@@ -3621,6 +3713,21 @@ msgstr ""
 msgid "me"
 msgstr ""
 
+msgid "Has Attachments"
+msgstr ""
+
+msgid "Addressed to Me"
+msgstr ""
+
+msgid "From Contacts"
+msgstr ""
+
+msgid "High Importance"
+msgstr ""
+
+msgid "Today"
+msgstr ""
+
 msgid "Choose which folders to search"
 msgstr ""
 
@@ -3636,7 +3743,13 @@ msgstr ""
 msgid "No Messages"
 msgstr ""
 
+msgid "No Matching Messages"
+msgstr ""
+
 msgid "There's nothing here right now."
+msgstr ""
+
+msgid "No message here passes the filters."
 msgstr ""
 
 msgid "Customize Columns…"
@@ -3658,9 +3771,6 @@ msgid "Search all folders"
 msgstr ""
 
 msgid "Search this folder"
-msgstr ""
-
-msgid "Today"
 msgstr ""
 
 msgid "Yesterday"
@@ -3768,6 +3878,22 @@ msgid "This message is in {language}."
 msgstr ""
 
 msgid "Translate"
+msgstr ""
+
+msgid "{n} conversation selected"
+msgid_plural "{n} conversations selected"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "{n} message selected"
+msgid_plural "{n} messages selected"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "No draft selected"
+msgstr ""
+
+msgid "No message selected"
 msgstr ""
 
 msgid "Received"
@@ -3901,10 +4027,7 @@ msgstr ""
 msgid "Save…"
 msgstr ""
 
-msgid "No draft selected"
-msgstr ""
-
-msgid "No message selected"
+msgid "The actions above the list apply to all of them."
 msgstr ""
 
 msgid "Choose a draft from the list to edit it here."
@@ -4554,9 +4677,6 @@ msgid ""
 "when it is made."
 msgstr ""
 
-msgid "Check for new mail"
-msgstr ""
-
 msgid ""
 "Receives messages the moment they arrive. Microsoft 365 accounts check at "
 "the interval above."
@@ -4979,6 +5099,14 @@ msgid ""
 "Last 14 days and Older."
 msgstr ""
 
+msgid "Keep the search field open"
+msgstr ""
+
+msgid ""
+"Shows the search field above the list at all times, instead of behind the "
+"search button."
+msgstr ""
+
 msgid "Tint tagged messages"
 msgstr ""
 
@@ -5349,9 +5477,10 @@ msgid "Write messages in"
 msgstr ""
 
 msgid ""
-"What new messages, replies and forwards start as. Markdown and HTML are "
-"written as source and sent as formatted mail; plain text is sent without "
-"formatting. The composer's format button switches any one message."
+"What new messages, replies and forwards start as. Rich text is formatted as "
+"you type and sent as HTML. Markdown and HTML source are written as source "
+"and sent as formatted mail; plain text is sent without formatting. The "
+"composer's format button switches any one message."
 msgstr ""
 
 msgid "Font"

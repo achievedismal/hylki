@@ -14,6 +14,43 @@ msgstr ""
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 "X-Generator: Poedit 3.9\n"
 
+msgid "Date (Newest first)"
+msgstr "Дата (сначала новые)"
+
+msgid "Date (Oldest first)"
+msgstr "Дата (сначала старые)"
+
+msgid "Sender (A–Z)"
+msgstr "Отправитель (A–Я)"
+
+msgid "Subject (A–Z)"
+msgstr "Тема (А–Я)"
+
+msgid "Unread first"
+msgstr "Сначала непрочитанные"
+
+msgid "Starred first"
+msgstr "Сначала отмеченные"
+
+msgid "Sort by"
+msgstr "Сортировать по"
+
+#, fuzzy
+msgid "Show only"
+msgstr "Только непрочитанные"
+
+#, fuzzy
+msgid "Clear Filters"
+msgstr "Поиск фильтров"
+
+#, fuzzy
+msgid "Sort and filter messages"
+msgstr "{n} сообщений"
+
+#, fuzzy
+msgid "Filtered: {names}"
+msgstr "Отфильтрованные папки"
+
 msgid "Refresh or long-press for Status Bar"
 msgstr "Обновите или удерживайте для строки состояния"
 
@@ -31,15 +68,6 @@ msgstr "Поиск сообщений (Ctrl+F)"
 
 msgid "Search, filters and sort"
 msgstr "Поиск, фильтры и сортировка"
-
-msgid "Show only unread"
-msgstr "Только непрочитанные"
-
-msgid "Show only starred"
-msgstr "Только отмеченные"
-
-msgid "Sort messages"
-msgstr "Сортировка сообщений"
 
 msgid "Edit this message"
 msgstr "Редактировать сообщение"
@@ -127,24 +155,6 @@ msgstr "Показать/скрыть боковую панель"
 
 msgid "Keyboard Shortcuts"
 msgstr "Сочетания клавиш"
-
-msgid "Date (Newest first)"
-msgstr "Дата (сначала новые)"
-
-msgid "Date (Oldest first)"
-msgstr "Дата (сначала старые)"
-
-msgid "Sender (A–Z)"
-msgstr "Отправитель (A–Я)"
-
-msgid "Subject (A–Z)"
-msgstr "Тема (А–Я)"
-
-msgid "Unread first"
-msgstr "Сначала непрочитанные"
-
-msgid "Starred first"
-msgstr "Сначала отмеченные"
 
 msgid "Create Folder"
 msgstr "Создать папку"
@@ -323,6 +333,10 @@ msgstr "Консоль"
 msgid "About"
 msgstr "О программе"
 
+#, fuzzy
+msgid "Select a conversation first."
+msgstr "Удалить переписку"
+
 msgid "Remove Tags"
 msgstr "Удалить теги"
 
@@ -482,6 +496,10 @@ msgstr "Переместить во «Входящие»"
 
 msgid "Search Messages…"
 msgstr "Поиск сообщений…"
+
+#, fuzzy
+msgid "Filter"
+msgstr "Фильтры"
 
 msgid "Sort"
 msgstr "Сортировать"
@@ -1030,8 +1048,9 @@ msgstr ""
 msgid "Open the message the cursor is on"
 msgstr "Открывает сообщение с готовым черновиком пересылки."
 
-msgid "Back to the message list"
-msgstr "Вернуться к списку сообщений"
+#, fuzzy
+msgid "Close the conversation, back to the list"
+msgstr "Всё обсуждение"
 
 #, fuzzy
 msgid "Next or previous message in the conversation"
@@ -1078,6 +1097,14 @@ msgstr "Ответить всем"
 msgid "Archive the conversation"
 msgstr "Всё обсуждение"
 
+#, fuzzy
+msgid "Archive the conversation and open the older one"
+msgstr "Всё обсуждение"
+
+#, fuzzy
+msgid "Archive the conversation and open the newer one"
+msgstr "Всё обсуждение"
+
 msgid "Mark as spam"
 msgstr "Отметить как спам"
 
@@ -1089,18 +1116,27 @@ msgid "Mark the conversation as read"
 msgstr "Всё обсуждение"
 
 #, fuzzy
-msgid "Mark the conversation as unread"
+msgid "Mark the conversation as unread and close it"
 msgstr "Отметить прочитанным/непрочитанным"
 
 #, fuzzy
-msgid "Mark as unread from this message on"
+msgid "Mark as unread from this message on and close it"
 msgstr "Попробовать отправить сейчас"
 
-msgid "Select this row (for a bulk action)"
+#, fuzzy
+msgid "Select this row without opening it"
 msgstr "Выбрать эту строку (для массового действия)"
 
 msgid "Select every row, or none"
 msgstr ""
+
+#, fuzzy
+msgid "Select the read or the unread conversations"
+msgstr "Удалить переписку"
+
+#, fuzzy
+msgid "Select the starred or the unstarred conversations"
+msgstr "Следующее сообщение в беседе"
 
 #, fuzzy
 msgid "Move to a folder"
@@ -1113,8 +1149,23 @@ msgstr "Отменить последнее перемещение или уда
 msgid "Add or remove a tag (the first nine, in Settings order)"
 msgstr "Добавить или удалить тег (первые девять — в порядке настроек)"
 
+#, fuzzy
+msgid "Reply, or reply to all, in a window"
+msgstr "Ответ и пересылка в основном окне"
+
+#, fuzzy
+msgid "Forward in a window"
+msgstr "Ответ и пересылка в основном окне"
+
 msgid "Compose"
 msgstr "Написать"
+
+#, fuzzy
+msgid "Compose in a window"
+msgstr "Создание писем в основном окне"
+
+msgid "Check for new mail"
+msgstr "Проверка новой почты"
 
 msgid "Next message"
 msgstr "Следующее сообщение"
@@ -1125,6 +1176,9 @@ msgstr "Предыдущее сообщение"
 msgid "Open the selected message"
 msgstr "Открыть выбранное сообщение"
 
+msgid "Back to the message list"
+msgstr "Вернуться к списку сообщений"
+
 msgid "Next message in the conversation"
 msgstr "Следующее сообщение в беседе"
 
@@ -1133,6 +1187,9 @@ msgstr "Предыдущее сообщение в беседе"
 
 msgid "Mark read or unread"
 msgstr "Отметить прочитанным/непрочитанным"
+
+msgid "Select this row (for a bulk action)"
+msgstr "Выбрать эту строку (для массового действия)"
 
 msgid "Remove every tag"
 msgstr "Удалить все теги"
@@ -1285,6 +1342,9 @@ msgid_plural "{n} unread messages"
 msgstr[0] "{n} непрочитанное сообщение"
 msgstr[1] "{n} непрочитанных сообщения"
 msgstr[2] "{n} непрочитанных сообщений"
+
+msgid "Signature"
+msgstr "Подпись"
 
 msgid "Custom Order"
 msgstr "Пользовательский порядок"
@@ -1711,8 +1771,10 @@ msgid "The sender marked this message “{label}”."
 msgstr ""
 
 msgid ""
-"The sender's organization labeled this message, without saying the label's "
-"name. Hylki shows the label but does not apply its rules."
+"The sender's organization labeled this message without naming the label in "
+"it. For a Microsoft 365 account, turning on “Show sensitivity label names” "
+"in its settings shows the name. Hylki shows the label but does not apply its "
+"rules."
 msgstr ""
 
 msgid ""
@@ -2135,17 +2197,29 @@ msgstr ""
 msgid "Add Alias…"
 msgstr "Добавить псевдоним…"
 
-msgid "Signature"
+#, fuzzy
+msgid "Signatures"
 msgstr "Подпись"
 
-msgid "Appended to new messages sent from this account."
-msgstr "Добавляется к новым сообщениям, отправляемым с этой учётной записи."
+msgid ""
+"Put in messages sent from this account. With more than one, the composer's "
+"signature button lists them."
+msgstr ""
 
-msgid "Edit HTML…"
-msgstr "Редактировать HTML…"
+#, fuzzy
+msgid "Add Signature"
+msgstr "Подпись"
 
 msgid "Import File…"
 msgstr "Импортировать файл…"
+
+#, fuzzy
+msgid "Delete Signature"
+msgstr "Импортировать подпись"
+
+#, fuzzy
+msgid "Start messages with this signature"
+msgstr "Написать письмо с прикреплённым файлом"
 
 msgid "Syncing"
 msgstr "Синхронизация"
@@ -2181,8 +2255,32 @@ msgid ""
 msgstr ""
 
 #, fuzzy
+msgid "Microsoft 365"
+msgstr "Microsoft 365 / Outlook"
+
+#, fuzzy
 msgid "Search the organization directory"
 msgstr "Сохранить каталог?"
+
+msgid "Suggest people from your organization as you type a recipient."
+msgstr ""
+
+#, fuzzy
+msgid "Suggest only from this account"
+msgstr "Показывать только эту учётную запись"
+
+msgid ""
+"Writing from this account, suggest people from the directory and from its "
+"own mail, not from Contacts, LDAP directories or other accounts."
+msgstr ""
+
+msgid "Show sensitivity label names"
+msgstr ""
+
+msgid ""
+"Name a message's label from your organization's list when the message gives "
+"only its ID."
+msgstr ""
 
 msgid "Folder Order"
 msgstr "Порядок папок"
@@ -2193,9 +2291,6 @@ msgid ""
 msgstr ""
 "Способ сортировки папок этой учётной записи на боковой панели. Настраивается "
 "также в контекстном меню заголовка «Папки»."
-
-msgid "Sort by"
-msgstr "Сортировать по"
 
 msgid "Special Folders"
 msgstr "Специальные папки"
@@ -2288,6 +2383,13 @@ msgstr ""
 "Ваш пароль хранится в системной связке ключей (secret-service), а не в "
 "открытом виде на диске."
 
+#, fuzzy
+msgid "Edit HTML"
+msgstr "Редактировать HTML…"
+
+msgid "Edit the signature's HTML source"
+msgstr ""
+
 msgid "Follow Settings"
 msgstr "Из системных настроек"
 
@@ -2322,18 +2424,13 @@ msgstr "Открытие браузера… завершите вход в нё
 msgid "Approve access to the directory in the window that opened."
 msgstr "Завершите вход в открывшемся окне."
 
-msgid "Signature HTML"
-msgstr "HTML-код подписи"
+#, fuzzy
+msgid "Opening browser… approve access to the sensitivity labels there."
+msgstr "Открытие браузера… завершите вход в нём."
 
-msgid ""
-"Paste or edit the signature's HTML. Scripts and style sheets are removed; "
-"inline styles, tables and images are kept."
-msgstr ""
-"Вставьте или отредактируйте HTML-код подписи. Скрипты и таблицы стилей "
-"удаляются; встроенные стили, таблицы и изображения сохраняются."
-
-msgid "Apply"
-msgstr "Применить"
+#, fuzzy
+msgid "Approve access to the sensitivity labels in the window that opened."
+msgstr "Завершите вход в открывшемся окне."
 
 msgid "Import Signature"
 msgstr "Импортировать подпись"
@@ -2346,6 +2443,10 @@ msgstr "Не удалось прочитать файл"
 
 msgid "OK"
 msgstr "ОК"
+
+#, fuzzy
+msgid "Signature {n}"
+msgstr "Подпись"
 
 msgid "Enter a client ID and sign in before saving"
 msgstr "Введите идентификатор клиента и войдите перед сохранением"
@@ -2363,14 +2464,16 @@ msgstr "✓ Вход выполнен — сохраните учётную за
 msgid "Sign-in failed: {e}"
 msgstr "Ошибка входа: {e}"
 
-#, fuzzy
-msgid "Signed in as {address}, not {email}."
-msgstr "Выполнен вход как {who}. {terms}"
-
 msgid "Access to the directory approved. Save the account to finish."
 msgstr ""
 
 msgid "Access to the directory was not approved: {e}"
+msgstr ""
+
+msgid "Access to the sensitivity labels approved. Save the account to finish."
+msgstr ""
+
+msgid "Access to the sensitivity labels was not approved: {e}"
 msgstr ""
 
 msgid "✓ SMTP: connected"
@@ -2378,6 +2481,11 @@ msgstr "✓ SMTP: подключено"
 
 msgid "✗ SMTP: {e}"
 msgstr "✗ SMTP: {e}"
+
+#. The one label on the row goes when there is no width for it, the
+#. same trade the header makes when it folds.
+msgid "Preview"
+msgstr "Предпросмотр печати"
 
 msgid "Show"
 msgstr "Показать"
@@ -2474,16 +2582,19 @@ msgid "Use this account in Hylki"
 msgstr "Использовать эту учётную запись в Hylki"
 
 msgid ""
-"Only for an account signed in within Hylki. To use it, add this account with "
-"Microsoft 365 / Outlook as the provider, instead of from GNOME Online "
+"Only for an account signed in within Hylki. To use these, add this account "
+"with Microsoft 365 / Outlook as the provider, instead of from GNOME Online "
 "Accounts."
 msgstr ""
 
 msgid ""
-"Suggest people from your organization as you type a recipient. Turning this "
-"on asks Microsoft for access to the directory; some organizations need an "
-"administrator to approve it."
+"Turning one of these on asks Microsoft for access; some organizations need "
+"an administrator to approve it."
 msgstr ""
+
+#, fuzzy
+msgid "Signed in as {address}, not {email}."
+msgstr "Выполнен вход как {who}. {terms}"
 
 msgid "Never"
 msgstr "Никогда"
@@ -3391,13 +3502,15 @@ msgstr "Отформатированный текст"
 msgid "Markdown"
 msgstr "Markdown"
 
-msgid "HTML"
-msgstr "HTML"
+#, fuzzy
+msgid "HTML source"
+msgstr "Просмотреть исходный текст"
 
 msgid "Plain text"
 msgstr "Обычный текст"
 
-msgid "Format as you type, with the toolbar"
+#, fuzzy
+msgid "Format as you type; it is sent as HTML"
 msgstr "Форматировать при вводе с помощью панели инструментов"
 
 msgid "Write Markdown; it is sent as formatted mail"
@@ -3511,11 +3624,6 @@ msgstr "Адрес для ответа"
 msgid "Writing in {format}"
 msgstr "Формат письма: {format}"
 
-#. The one label on the row goes when there is no width for it, the
-#. same trade the header makes when it folds.
-msgid "Preview"
-msgstr "Предпросмотр печати"
-
 msgid "Show the message as it will be sent"
 msgstr "Показать сообщение в том виде, в котором оно будет отправлено"
 
@@ -3565,6 +3673,10 @@ msgstr "Удалить {name}?"
 
 msgid "Typing"
 msgstr "Ввод текста"
+
+#, fuzzy
+msgid "No Signature"
+msgstr "Подпись"
 
 #, fuzzy
 msgid "Insert Before the Text"
@@ -3777,6 +3889,12 @@ msgstr "Редактировать"
 
 msgid "Delete…"
 msgstr "Удалить…"
+
+msgid "Type three letters or more to search the directory."
+msgstr ""
+
+msgid "Nobody in the directory matches."
+msgstr ""
 
 msgid "View photo"
 msgstr "Просмотреть фото"
@@ -4057,6 +4175,25 @@ msgstr "{name} · {current} из {total}"
 msgid "me"
 msgstr "я"
 
+#, fuzzy
+msgid "Has Attachments"
+msgstr "Есть вложения"
+
+#, fuzzy
+msgid "Addressed to Me"
+msgstr "Адресная книга"
+
+#, fuzzy
+msgid "From Contacts"
+msgstr "Нет контактов"
+
+#, fuzzy
+msgid "High Importance"
+msgstr "Высокая важность"
+
+msgid "Today"
+msgstr ""
+
 msgid "Choose which folders to search"
 msgstr "Выберите папки для поиска"
 
@@ -4072,8 +4209,16 @@ msgstr "Снять выделение"
 msgid "No Messages"
 msgstr "Нет сообщений"
 
+#, fuzzy
+msgid "No Matching Messages"
+msgstr "Нет сообщений"
+
 msgid "There's nothing here right now."
 msgstr "Здесь пока ничего нет."
+
+#, fuzzy
+msgid "No message here passes the filters."
+msgstr "Новое сообщение из шаблона"
 
 #, fuzzy
 msgid "Customize Columns…"
@@ -4098,9 +4243,6 @@ msgstr "Папки поиска"
 #, fuzzy
 msgid "Search this folder"
 msgstr "Папки поиска"
-
-msgid "Today"
-msgstr ""
 
 #, fuzzy
 msgid "Yesterday"
@@ -4213,6 +4355,26 @@ msgstr "Это сообщение написано на языке «{language}�
 
 msgid "Translate"
 msgstr "Перевести"
+
+#, fuzzy
+msgid "{n} conversation selected"
+msgid_plural "{n} conversations selected"
+msgstr[0] "Подтверждать удаление обсуждения"
+msgstr[1] "Подтверждать удаление обсуждения"
+msgstr[2] "Подтверждать удаление обсуждения"
+
+#, fuzzy
+msgid "{n} message selected"
+msgid_plural "{n} messages selected"
+msgstr[0] "Сообщение не выбрано"
+msgstr[1] "Сообщение не выбрано"
+msgstr[2] "Сообщение не выбрано"
+
+msgid "No draft selected"
+msgstr "Сообщение не выбрано"
+
+msgid "No message selected"
+msgstr "Сообщение не выбрано"
 
 msgid "Received"
 msgstr "Получено"
@@ -4348,11 +4510,8 @@ msgstr "Пользователь {name} отклонил это приглаше
 msgid "Save…"
 msgstr "Сохранить…"
 
-msgid "No draft selected"
-msgstr "Сообщение не выбрано"
-
-msgid "No message selected"
-msgstr "Сообщение не выбрано"
+msgid "The actions above the list apply to all of them."
+msgstr ""
 
 msgid "Choose a draft from the list to edit it here."
 msgstr "Выберите черновик из списка, чтобы отредактировать его здесь."
@@ -5075,9 +5234,6 @@ msgid ""
 "when it is made."
 msgstr ""
 
-msgid "Check for new mail"
-msgstr "Проверка новой почты"
-
 msgid ""
 "Receives messages the moment they arrive. Microsoft 365 accounts check at "
 "the interval above."
@@ -5594,6 +5750,14 @@ msgid ""
 "Last 14 days and Older."
 msgstr ""
 
+msgid "Keep the search field open"
+msgstr ""
+
+msgid ""
+"Shows the search field above the list at all times, instead of behind the "
+"search button."
+msgstr ""
+
 #, fuzzy
 msgid "Tint tagged messages"
 msgstr "Метка добавлена к {n} письму"
@@ -6059,10 +6223,12 @@ msgstr "Всегда развёрнута"
 msgid "Write messages in"
 msgstr "Составлять сообщения в"
 
+#, fuzzy
 msgid ""
-"What new messages, replies and forwards start as. Markdown and HTML are "
-"written as source and sent as formatted mail; plain text is sent without "
-"formatting. The composer's format button switches any one message."
+"What new messages, replies and forwards start as. Rich text is formatted as "
+"you type and sent as HTML. Markdown and HTML source are written as source "
+"and sent as formatted mail; plain text is sent without formatting. The "
+"composer's format button switches any one message."
 msgstr ""
 "Формат по умолчанию для новых сообщений, ответов и пересылок. Markdown и "
 "HTML пишутся в виде исходного кода и отправляются как форматированное "
@@ -7561,6 +7727,39 @@ msgid "Hyprlab"
 msgstr "Hyprlab"
 
 #, fuzzy
+#~ msgid ""
+#~ "New messages, replies and forwards. The composer's signature button puts "
+#~ "in any signature by hand."
+#~ msgstr ""
+#~ "Новые сообщения, ответы и пересылаемые письма создаются с включённой "
+#~ "цифровой подписью."
+
+#~ msgid "Signature HTML"
+#~ msgstr "HTML-код подписи"
+
+#~ msgid ""
+#~ "Paste or edit the signature's HTML. Scripts and style sheets are removed; "
+#~ "inline styles, tables and images are kept."
+#~ msgstr ""
+#~ "Вставьте или отредактируйте HTML-код подписи. Скрипты и таблицы стилей "
+#~ "удаляются; встроенные стили, таблицы и изображения сохраняются."
+
+#~ msgid "Apply"
+#~ msgstr "Применить"
+
+#~ msgid "Appended to new messages sent from this account."
+#~ msgstr "Добавляется к новым сообщениям, отправляемым с этой учётной записи."
+
+#~ msgid "HTML"
+#~ msgstr "HTML"
+
+#~ msgid "Sort messages"
+#~ msgstr "Сортировка сообщений"
+
+#~ msgid "Show only starred"
+#~ msgstr "Только отмеченные"
+
+#, fuzzy
 #~ msgid "unknown folder {path}"
 #~ msgstr "неизвестная папка"
 
@@ -7846,6 +8045,3 @@ msgstr "Hyprlab"
 
 #~ msgid "Inside All Inboxes"
 #~ msgstr "Внутри «Все входящие»"
-
-#~ msgid "Filtered Folders"
-#~ msgstr "Отфильтрованные папки"

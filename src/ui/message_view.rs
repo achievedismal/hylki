@@ -87,6 +87,9 @@ pub struct MessageView {
     /// Read-marking policy (#100), stamped on the document for the
     /// viewport observer.
     read_mark: crate::config::ReadMark,
+    /// Rows Gmail's x has checked in the list (#392), and whether they are
+    /// conversations: the empty pane counts them.
+    checked: (usize, bool),
     /// Whether the blocked-content banner is shown at all. It gates only the notice: `blocked`
     /// still governs what is withheld, so hiding it never loads anything.
     show_banner: bool,
@@ -153,6 +156,9 @@ pub struct MessageView {
     /// its first card), not flush at the top the way a place the user
     /// scrolled to is restored.
     anchor_gutter: bool,
+    /// The next document goes in without the page crossfade: a sent reply's
+    /// card is arriving, and the app's stage covers the pane while it does.
+    skip_fade: bool,
     /// What each message's frame measured last time it was shown, so reopening a
     /// conversation lays out right away instead of settling into place.
     frame_heights: std::collections::HashMap<(u32, u32), u32>,
@@ -176,6 +182,12 @@ pub struct MessageView {
     under_split: bool,
     find_matches: Option<(u32, u32)>,
     find_entry: Option<gtk::SearchEntry>,
+    /// The page shown while a message loads, and whether it is holding the
+    /// keyboard for the web view meanwhile (#392). A web view whose document
+    /// is being replaced drops the keys it is given, so a shortcut pressed
+    /// then never arrived; this page lets them through.
+    loading_page: Option<gtk::Box>,
+    focus_held: std::cell::Cell<bool>,
     /// When find last closed itself (empty entry blur) — the toolbar click
     /// that caused the blur must not instantly reopen it.
     find_closed_at: Option<std::time::Instant>,
@@ -268,14 +280,17 @@ impl MessageView {
             None => String::new(),
         };
         // The sensitivity label (#411): read-only, shown as the sender's
-        // organization named it.
+        // organization named it, its icon in the label's color when the
+        // organization's list gave one (a checked `#rrggbb`; empty clears).
         let label = match &check.label {
             Some(l) => format!(
                 "var l=document.querySelector('.hylki-sens[data-key=\"{account_id}:{id}\"]');\
                  if(l){{l.className='hylki-sens on';l.title={title:?};\
+                 l.style.setProperty('--hylki-sens',{color:?});\
                  var t=l.querySelector('.hylki-sens-text');if(t)t.textContent={text:?};}}",
                 title = l.summary(),
                 text = l.short_label(),
+                color = l.color,
             ),
             None => String::new(),
         };
@@ -419,6 +434,24 @@ impl MessageView {
                     _ => String::new(),
                 }
             }
+        }
+    }
+
+    /// What the empty pane is titled: how many rows are checked, while
+    /// Gmail's x has some (#392).
+    fn empty_title(&self) -> String {
+        let n = self.checked.0;
+        if n > 0 {
+            let count = n.to_string();
+            if self.checked.1 {
+                ni18n_f("{n} conversation selected", "{n} conversations selected", n as u32, &[("n", &count)])
+            } else {
+                ni18n_f("{n} message selected", "{n} messages selected", n as u32, &[("n", &count)])
+            }
+        } else if self.drafts_view {
+            i18n("No draft selected")
+        } else {
+            i18n("No message selected")
         }
     }
 
@@ -957,6 +990,9 @@ pub enum MessageViewInput {
     /// Expand All (false) or Collapse All (true) from the reading pane's
     /// menu (#326).
     FoldAll(bool),
+    /// How many rows Gmail's x has checked (#392), and whether threading
+    /// makes them conversations.
+    SetChecked { count: usize, conversations: bool },
     /// The view came on screen (#332).
     Mapped,
     /// The OpenPGP chip's words on or off (#300), applied to the open
@@ -1179,6 +1215,10 @@ pub enum MessageViewInput {
     /// the viewport top and the offset into it — kept so a re-render can put
     /// the reader back where they were.
     ScrollAnchor { account_id: u32, id: u32, offset: u32 },
+    /// A sent reply's card is joining the conversation: the next document
+    /// pins it in view, below the page's top gutter, and goes in without the
+    /// page crossfade.
+    PinArrival { account_id: u32, id: u32 },
     /// The list shows Drafts (or not): the empty pane's wording follows.
     SetDraftsView(bool),
     /// Which folders are Templates folders, as (account, folder) (#360).
@@ -1693,11 +1733,19 @@ impl Component for MessageView {
             add_named[Some("empty")] = &adw::StatusPage {
                 // Drafts open in the editor, so the empty pane says so there.
                 #[watch]
-                set_icon_name: Some(if model.drafts_view { "document-edit-symbolic" } else { "hylki-mail-read-symbolic" }),
+                set_icon_name: Some(if model.checked.0 > 0 {
+                    "object-select-symbolic"
+                } else if model.drafts_view {
+                    "document-edit-symbolic"
+                } else {
+                    "hylki-mail-read-symbolic"
+                }),
                 #[watch]
-                set_title: &if model.drafts_view { i18n("No draft selected") } else { i18n("No message selected") },
+                set_title: &model.empty_title(),
                 #[watch]
-                set_description: Some(if model.drafts_view {
+                set_description: Some(if model.checked.0 > 0 {
+                    i18n("The actions above the list apply to all of them.")
+                } else if model.drafts_view {
                     i18n("Choose a draft from the list to edit it here.")
                 } else {
                     i18n("Choose a message from the list to read it here.")
@@ -2007,8 +2055,10 @@ impl Component for MessageView {
                     #[watch]
                     set_visible_child_name: model.body_page(),
 
+                    #[name = "loading_page"]
                     add_named[Some("loading")] = &gtk::Box {
                         add_css_class: "reader-loading",
+                        set_focusable: true,
                         set_orientation: gtk::Orientation::Vertical,
                         set_halign: gtk::Align::Center,
                         set_valign: gtk::Align::Center,
@@ -2090,6 +2140,7 @@ impl Component for MessageView {
             zoom_default: 100,
             reader_default: crate::config::ReaderDefault::Remember,
             read_mark: crate::config::ReadMark::default(),
+            checked: (0, false),
             show_banner: crate::config::load_privacy().show_remote_banner,
             show_spoof_banner: crate::config::load_privacy().show_spoof_banner,
             card_actions_hover: crate::config::load_privacy().card_actions_hover,
@@ -2107,6 +2158,7 @@ impl Component for MessageView {
             autoscroll_lone: false,
             saved_anchor: None,
             anchor_gutter: false,
+            skip_fade: false,
             drafts_view: false,
             template_folders: std::collections::HashSet::new(),
             frame_heights: std::collections::HashMap::new(),
@@ -2119,6 +2171,8 @@ impl Component for MessageView {
             under_split: false,
             find_matches: None,
             find_entry: None,
+            loading_page: None,
+            focus_held: std::cell::Cell::new(false),
             find_closed_at: None,
             webview,
             sender_check: None,
@@ -2528,6 +2582,7 @@ impl Component for MessageView {
         let header_tags = gtk::Box::new(gtk::Orientation::Horizontal, 4);
         let widgets = view_output!();
         model.find_entry = Some(widgets.find_entry.clone());
+        model.loading_page = Some(widgets.loading_page.clone());
         model.account_chip = Some(widgets.account_chip.clone());
         model.cover = Some(widgets.body_stack.clone());
         model.apply_webview_bg(model.effective_dark());
@@ -2542,6 +2597,7 @@ impl Component for MessageView {
 
     fn post_view() {
         self.sync_header_tags(&widgets.header_tags);
+        self.hold_focus_while_loading();
     }
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>, _root: &Self::Root) {
@@ -2727,6 +2783,7 @@ impl Component for MessageView {
                     self.render();
                 }
             }
+            MessageViewInput::SetChecked { count, conversations } => self.checked = (count, conversations),
             MessageViewInput::FoldAll(folded) => {
                 for m in &self.thread {
                     self.folds.insert((m.account_id, m.id), folded);
@@ -3236,16 +3293,20 @@ impl Component for MessageView {
                 let from = match self.selected_cards.as_slice() {
                     [key] => order.iter().position(|k| k == key),
                     _ => None,
-                }
-                .or_else(|| {
-                    let c = self.current.as_ref()?;
-                    order.iter().position(|k| *k == (c.account_id, c.id))
-                });
+                };
                 let last = order.len() as i64 - 1;
                 let next = match from {
                     Some(i) => (i as i64 + i64::from(delta)).clamp(0, last) as usize,
-                    None if delta > 0 => 0,
-                    None => last as usize,
+                    // No card picked yet: the first press lands where reading
+                    // starts, the first message unread or open, not one past
+                    // the conversation's first (#392).
+                    None => {
+                        let folded = self.folded_cards();
+                        self.thread
+                            .iter()
+                            .position(|m| m.unread || !folded.contains(&(m.account_id, m.id)))
+                            .unwrap_or(if delta > 0 { 0 } else { last as usize })
+                    }
                 };
                 let key = order[next];
                 if self.folded_cards().contains(&key) {
@@ -3264,7 +3325,15 @@ impl Component for MessageView {
             }
             MessageViewInput::FocusBody => {
                 if self.current.is_some() {
-                    self.webview.grab_focus();
+                    match &self.loading_page {
+                        Some(page) if self.body_page() == "loading" => {
+                            page.grab_focus();
+                            self.focus_held.set(true);
+                        }
+                        _ => {
+                            self.webview.grab_focus();
+                        }
+                    }
                 }
             }
             MessageViewInput::ComposeTo(addr) => {
@@ -3300,6 +3369,13 @@ impl Component for MessageView {
                 // reopened — the viewport observer must not undo it.
                 if self.no_autoread.contains(&(account_id, id)) {
                     return;
+                }
+                // A card read while open stays open: folding the read ones
+                // is for when the conversation is drawn, not under the
+                // reader's eyes the next time the folds are patched.
+                let key = (account_id, id);
+                if !self.folded_cards().contains(&key) {
+                    self.folds.entry(key).or_insert(false);
                 }
                 // Keep the local copy in step so a later re-render doesn't put
                 // the mark back on a message already read.
@@ -3611,6 +3687,13 @@ impl Component for MessageView {
                 self.saved_anchor = Some((account_id, id, offset));
                 self.anchor_gutter = false;
             }
+            MessageViewInput::PinArrival { account_id, id } => {
+                self.saved_anchor = Some((account_id, id, 0));
+                self.anchor_gutter = true;
+                // The anchor rides only on a document that keeps its place.
+                self.did_autoscroll = true;
+                self.skip_fade = true;
+            }
             MessageViewInput::SetDraftsView(on) => {
                 self.drafts_view = on;
             }
@@ -3790,7 +3873,7 @@ impl MessageView {
         }
         // Only a page that stays in view dissolves into the next; behind the
         // spinner there is nothing to see.
-        let fade = self.webview_ready && !self.loading;
+        let fade = self.webview_ready && !self.loading && !std::mem::take(&mut self.skip_fade);
         let html = self.document_html(dark);
         // A message painted alone that has since grown into a conversation
         // gets the conversation's open scroll, unless the reader has been
@@ -3960,6 +4043,22 @@ impl MessageView {
 
     /// Which body-stack page to show: spinner while fetching, themed cover while
     /// the WebView loads, then the rendered message(s).
+    /// While a document loads, keep the keyboard on the loading page rather
+    /// than in the web view, and give it back once the document is shown.
+    fn hold_focus_while_loading(&self) {
+        let Some(page) = &self.loading_page else { return };
+        let web: &gtk::Widget = self.webview.upcast_ref();
+        let focus = web.root().and_then(|r| r.focus());
+        if self.body_page() == "loading" {
+            if focus.is_some_and(|f| f == *web || f.is_ancestor(web)) {
+                page.grab_focus();
+                self.focus_held.set(true);
+            }
+        } else if self.focus_held.replace(false) && focus.is_some_and(|f| f == *page.upcast_ref::<gtk::Widget>()) {
+            self.webview.grab_focus();
+        }
+    }
+
     fn body_page(&self) -> &'static str {
         // A document that has been handed over but hasn't painted yet is still
         // loading as far as the reader is concerned. Showing the previous
@@ -4848,7 +4947,7 @@ impl MessageView {
                  background:rgba(128,128,128,0.16);cursor:default;}}\
                .hylki-sens.on{{display:inline-flex;}}\
                .hylki-sens svg{{width:1em;height:1em;flex:none;}}\
-               .hylki-sens svg,.hylki-sens svg *{{fill:currentColor;}}\
+               .hylki-sens svg,.hylki-sens svg *{{fill:var(--hylki-sens,currentColor);}}\
                .hylki-sens-text{{overflow:hidden;text-overflow:ellipsis;}}\
                /* The icons alone (Settings, #300): the chip as it was before\
                   it had words, sitting on the name's line like the seal. */\
