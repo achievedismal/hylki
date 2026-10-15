@@ -2,6 +2,20 @@
 
 Hylki (formerly Vireo) is a clean, fast, GNOME-native email client built with Rust and libadwaita for Wayland desktops. Privacy-first: no telemetry, remote content blocked by default, and credentials kept in the system keyring.
 
+## What's new in 1.44.0-beta.9
+
+New features:
+
+- Search results say which folder they are in - (#374)
+- A search scope that leaves out Trash and Junk, and one that takes them in - (#374)
+- Gmail labels in colors - (#374)
+- Tags and labels on a line of their own under the message text - (#374)
+
+Fixes:
+
+- an LDAP directory finding nobody by surname - (#307)
+- directory suggestions showing the mail history icon - (#307)
+
 ## What's new in 1.44.0-beta.8
 
 New features:

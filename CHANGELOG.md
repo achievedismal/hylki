@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.44.0-beta.9 — 2026-10-15
+
+The ninth beta previewing 1.44.0.
+
+- **Added: search results say which folder they are in** (#374, requested
+  by 3v1n0). A search across folders puts a pill with the folder's name on
+  each result.
+- **Changed: "All folders" leaves Trash and Junk out of a search** (#374).
+  **Everywhere** takes them in. The scope is picked from a popover beside
+  the search field instead of a drop-down, with an info button by each
+  choice that says what it searches. Searching while Trash or Junk is
+  open still finds the mail in it.
+- **Added: Gmail labels in colors** (#374). Each label wears one of the tag
+  colors, picked from its name, in the list and the reader. A tag named
+  like the label still sets its color.
+- **Added: Settings → Message List → Tags and labels under the text**
+  (#374). A card's pills go on a line of their own under the message's
+  text, leaving the subject the full width.
+- **Fixed: an LDAP directory found nobody by surname** (#307, reported by
+  3v1n0). Only names and addresses that began with the typed text were
+  asked for, so a surname inside "Name Surname" or name.surname@ was missed
+  unless the server kept it as a surname of its own. Names and addresses
+  now match anywhere, as in Evolution.
+- **Fixed: directory suggestions showed the mail history icon** (#307).
+  Someone in a directory whom you had mailed before was suggested with the
+  clock; a directory's suggestions now carry the address book icon.
+
 ## 1.44.0-beta.8 — 2026-10-15
 
 The eighth beta previewing 1.44.0.
