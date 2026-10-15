@@ -4230,6 +4230,34 @@ msgid "me"
 msgstr "Nazwa"
 
 #, fuzzy
+msgid "All folders (except trash & junk)"
+msgstr "Wyszukaj katalogi"
+
+#, fuzzy
+msgid "Everywhere"
+msgstr "Lub jeśli"
+
+msgid "This folder"
+msgstr "Ten katalog"
+
+msgid "All folders"
+msgstr "Wszystkie katalogi"
+
+msgid ""
+"Every folder of every account, except Trash and Junk. A search started in "
+"Trash or Junk looks there too."
+msgstr ""
+
+msgid "Every folder of every account, Trash and Junk included."
+msgstr ""
+
+msgid "Only the folder or view the list is showing."
+msgstr ""
+
+msgid "What this searches"
+msgstr ""
+
+#, fuzzy
 msgid "Has Attachments"
 msgstr "Brak załączników"
 
@@ -4250,12 +4278,6 @@ msgstr ""
 
 msgid "Choose which folders to search"
 msgstr "Wybierz katalogi do przeszukania"
-
-msgid "All folders"
-msgstr "Wszystkie katalogi"
-
-msgid "This folder"
-msgstr "Ten katalog"
 
 msgid "Clear selection"
 msgstr "Wyczyść zaznaczenie"
@@ -4291,7 +4313,11 @@ msgid "Mark All as Unread"
 msgstr "Oznacz wszystkie jako nieprzeczytane"
 
 #, fuzzy
-msgid "Search all folders"
+msgid "Search all folders but Trash and Junk"
+msgstr "Wyszukaj katalogi"
+
+#, fuzzy
+msgid "Search all folders, Trash and Junk too"
 msgstr "Wyszukaj katalogi"
 
 #, fuzzy
@@ -4325,6 +4351,10 @@ msgstr ""
 #, fuzzy
 msgid "Low importance"
 msgstr "Zaimportowano klucz"
+
+#, fuzzy
+msgid "In {folder}"
+msgstr "Wyświetl poszczególne katalogi"
 
 msgid "Mark as read"
 msgstr "Oznacz jako przeczytane"
@@ -5825,6 +5855,14 @@ msgstr ""
 msgid ""
 "Headings divide a list sorted by date into Today, Yesterday, Last 7 days, "
 "Last 14 days and Older."
+msgstr ""
+
+msgid "Tags and labels under the text"
+msgstr ""
+
+msgid ""
+"Puts a card's tags and labels on a line of their own under its text, where "
+"they leave the subject its full width."
 msgstr ""
 
 msgid "Keep the search field open"

@@ -4214,6 +4214,34 @@ msgid "me"
 msgstr "Name"
 
 #, fuzzy
+msgid "All folders (except trash & junk)"
+msgstr "Ordner durchsuchen"
+
+#, fuzzy
+msgid "Everywhere"
+msgstr "Oder wo"
+
+msgid "This folder"
+msgstr "Dieser Ordner"
+
+msgid "All folders"
+msgstr "Alle Ordner"
+
+msgid ""
+"Every folder of every account, except Trash and Junk. A search started in "
+"Trash or Junk looks there too."
+msgstr ""
+
+msgid "Every folder of every account, Trash and Junk included."
+msgstr ""
+
+msgid "Only the folder or view the list is showing."
+msgstr ""
+
+msgid "What this searches"
+msgstr ""
+
+#, fuzzy
 msgid "Has Attachments"
 msgstr "Keine Anhänge"
 
@@ -4234,12 +4262,6 @@ msgstr ""
 
 msgid "Choose which folders to search"
 msgstr "Wählen Sie aus, welche Ordner gesucht werden sollen"
-
-msgid "All folders"
-msgstr "Alle Ordner"
-
-msgid "This folder"
-msgstr "Dieser Ordner"
 
 msgid "Clear selection"
 msgstr "Auswahl aufheben"
@@ -4275,7 +4297,11 @@ msgid "Mark All as Unread"
 msgstr "Alle als ungelesen markieren"
 
 #, fuzzy
-msgid "Search all folders"
+msgid "Search all folders but Trash and Junk"
+msgstr "Ordner durchsuchen"
+
+#, fuzzy
+msgid "Search all folders, Trash and Junk too"
 msgstr "Ordner durchsuchen"
 
 #, fuzzy
@@ -4309,6 +4335,10 @@ msgstr ""
 #, fuzzy
 msgid "Low importance"
 msgstr "Schlüssel importiert"
+
+#, fuzzy
+msgid "In {folder}"
+msgstr "Jeden Ordner anzeigen"
 
 msgid "Mark as read"
 msgstr "Als gelesen markieren"
@@ -5797,6 +5827,14 @@ msgstr ""
 msgid ""
 "Headings divide a list sorted by date into Today, Yesterday, Last 7 days, "
 "Last 14 days and Older."
+msgstr ""
+
+msgid "Tags and labels under the text"
+msgstr ""
+
+msgid ""
+"Puts a card's tags and labels on a line of their own under its text, where "
+"they leave the subject its full width."
 msgstr ""
 
 msgid "Keep the search field open"
