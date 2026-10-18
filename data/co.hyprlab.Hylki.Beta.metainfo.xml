@@ -63,6 +63,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.45.0-beta.1" date="2026-10-18" type="development">
+      <description>
+        <p>First preview of 1.45.0: CardDAV accounts and one Contacts page in Settings, contact groups, Undo Send, replied and forwarded arrows, replies filed beside the message they answer, waiting for the network, Shift+Delete, composer zoom and Ctrl+scroll zoom, Bcc recipients shown on sent mail, and the German translation brought up to date.</p>
+      </description>
+    </release>
     <release version="1.44.0-beta.9" date="2026-10-15" type="development">
       <description>
         <p>Ninth preview of 1.44.0: search results name their folder, a search scope that leaves out Trash and Junk, Gmail labels in colors, tags and labels under the message text, and LDAP directories that find people by surname.</p>
