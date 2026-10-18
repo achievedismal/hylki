@@ -269,6 +269,9 @@ pub struct Message {
     /// Original recipients (comma-separated emails), used for Reply All.
     pub to: String,
     pub cc: String,
+    /// Bcc recipients, comma-separated. Only a sender's own copy names them
+    /// (#476); a received message has none.
+    pub bcc: String,
     pub subject: String,
     pub preview: String,
     pub body: String,
@@ -278,6 +281,11 @@ pub struct Message {
     pub timestamp: i64,
     pub unread: bool,
     pub starred: bool,
+    /// Replied to (IMAP `\Answered`, JMAP `$answered`, Microsoft 365's last
+    /// verb) and forwarded (`$Forwarded`, `$forwarded`), for the list's
+    /// arrows (#454). Set by any client, this one included when it sends.
+    pub answered: bool,
+    pub forwarded: bool,
     /// The message's IMAP keywords (user flags) as the server reports them —
     /// `$label1`, `Work`, `$Junk`… — verbatim and in server order. Tags (#71)
     /// are the ones a [`crate::config::Tag`] maps to; the rest are ignored.
@@ -876,6 +884,12 @@ pub struct OutboxItem {
     pub last_error: String,
     /// Send Later (#145): unix seconds it is due; `None` goes as soon as it can.
     pub send_at: Option<i64>,
+    /// The Message-ID of the message a forward forwards, to mark once it
+    /// goes (#454); a reply's original is in its own In-Reply-To.
+    pub forwards: String,
+    /// Set only for a message still on its way out (#434), never stored:
+    /// what it is doing ("Sending…"), shown instead of how long it waited.
+    pub status: String,
 }
 
 impl OutboxItem {
@@ -919,6 +933,7 @@ impl OutboxItem {
             reply_to: String::new(),
             to: self.recipients.clone(),
             cc: String::new(),
+            bcc: String::new(),
             subject: if self.subject.trim().is_empty() {
                 "(no subject)".to_string()
             } else {
@@ -927,7 +942,9 @@ impl OutboxItem {
             // The row's one line of context: how long it has been stuck and what
             // is stopping it, falling back to the body when nothing has failed
             // yet (a message queued while offline never got an error).
-            preview: {
+            preview: if !self.status.is_empty() {
+                self.status.clone()
+            } else {
                 // A scheduled message says when it goes, until it is due.
                 let waiting = match self.send_at {
                     Some(at) if at > crate::datefmt::now() => {
@@ -956,6 +973,8 @@ impl OutboxItem {
             // Never dimmed as read: it is still waiting to go out.
             unread: true,
             starred: false,
+            answered: false,
+            forwarded: false,
             keywords: Vec::new(),
             has_attachment: false,
             message_id: String::new(),
@@ -1238,6 +1257,7 @@ impl Message {
             &mut self.reply_to,
             &mut self.to,
             &mut self.cc,
+            &mut self.bcc,
             &mut self.subject,
             &mut self.preview,
             &mut self.body,
@@ -1576,6 +1596,8 @@ mod tests {
             attempts: 1,
             send_at: None,
             last_error: String::new(),
+            forwards: String::new(),
+            status: String::new(),
         }
     }
 

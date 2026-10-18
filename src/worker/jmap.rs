@@ -47,11 +47,14 @@ const CAP_QUOTA: &str = "urn:ietf:params:jmap:quota";
 /// there (invalidRecipients, forbiddenToSend and the rest) is final, so the
 /// message goes back to the composer rather than to the Outbox (#368).
 const SUBMISSION_REFUSED: &str = "the server refused to send it";
+/// How [`jmap_submit`] says the copy was refused before anything was sent,
+/// so a reply filed beside its original (#468) can go to Sent instead.
+const IMPORT_REFUSED: &str = "the server would not take the message";
 
 /// The summary properties one listing asks `Email/get` for.
 const EMAIL_PROPS: &[&str] = &[
     "id", "blobId", "threadId", "mailboxIds", "keywords", "hasAttachment", "receivedAt",
-    "subject", "from", "replyTo", "to", "cc", "messageId", "inReplyTo", "references", "preview",
+    "subject", "from", "replyTo", "to", "cc", "bcc", "messageId", "inReplyTo", "references", "preview",
     "header:X-Priority:asText", "header:Importance:asText", "header:Priority:asText",
 ];
 
@@ -746,6 +749,7 @@ fn jmap_message(v: &serde_json::Value, account_id: u32, folder_id: u32) -> Optio
         reply_to,
         to: jmap_addrs(&v["to"]),
         cc: jmap_addrs(&v["cc"]),
+        bcc: jmap_addrs(&v["bcc"]),
         subject: v["subject"].as_str().unwrap_or("").to_string(),
         preview,
         body: String::new(),
@@ -753,6 +757,8 @@ fn jmap_message(v: &serde_json::Value, account_id: u32, folder_id: u32) -> Optio
         timestamp: ts,
         unread: !has("$seen"),
         starred: has("$flagged"),
+        answered: has("$answered"),
+        forwarded: has("$forwarded"),
         keywords: user_keywords,
         has_attachment: v["hasAttachment"].as_bool().unwrap_or(false),
         message_id: jmap_msgids(&v["messageId"]).into_iter().next().unwrap_or_default(),
@@ -981,6 +987,10 @@ async fn jmap_session(
 ) -> Option<JmapSession> {
     if let Some(s) = &state.session {
         return Some(s.clone());
+    }
+    // The Refresh button already says the network is down (#442).
+    if !crate::power::reaches_url(&jmap_base_url(account)) {
+        return None;
     }
     let a = account.clone();
     match blocking(move || jmap_connect(&a)).await {
@@ -1743,7 +1753,7 @@ fn jmap_submit(
         .ok_or_else(|| {
             let why = &imported["notCreated"]["m"];
             format!(
-                "the server would not take the message: {}",
+                "{IMPORT_REFUSED}: {}",
                 why["description"].as_str().or(why["type"].as_str()).unwrap_or("unknown reason")
             )
         })?;
@@ -1814,13 +1824,54 @@ async fn jmap_send_message(
     let envelope = email.envelope().clone();
     let from = envelope.from().map(|f| f.to_string()).unwrap_or_else(|| account.email.clone());
     let rcpts: Vec<String> = envelope.to().iter().map(|a| a.to_string()).collect();
-    let raw = email.formatted();
-    let (folder_id, path, mailbox_id) = jmap_sent_target(account, state, sent_path)
+    // The copy keeps its Bcc (#476); the server removes it on delivery
+    // (RFC 8621, 7.5).
+    let raw = with_bcc(&email.formatted(), &message.bcc);
+    let sent = jmap_sent_target(account, state, sent_path)
         .ok_or_else(|| "the account has no Sent folder to file the copy in".to_string())?;
+    let reply = jmap_reply_target(account, account_id, state, cache, &message.in_reply_to);
     let sess = s.clone();
-    let email_id = blocking(move || jmap_submit(&sess, &raw, &from, &rcpts, &mailbox_id)).await?;
+    let ((folder_id, path), email_id) =
+        blocking(move || jmap_submit_filed(&sess, &raw, &from, &rcpts, reply, sent)).await?;
     jmap_index_sent_copy(s, account_id, folder_id, &path, &email_id, cache, state, emit).await;
     Ok(())
+}
+
+/// The mailbox beside a reply's original (#468), when the account files
+/// replies there: see [`reply_copy_path`].
+fn jmap_reply_target(
+    account: &AccountConfig,
+    account_id: u32,
+    state: &JmapState,
+    cache: Option<&Cache>,
+    in_reply_to: &str,
+) -> Option<(u32, String, String)> {
+    let path = reply_copy_path(account, account_id, cache, in_reply_to)?;
+    let (folder_id, mailbox_id) = state.folders.get(&path).cloned()?;
+    Some((folder_id, path, mailbox_id))
+}
+
+/// [`jmap_submit`] with the copy filed in `reply` when there is one, and in
+/// `sent` when there is not or that mailbox will not take it (one the user
+/// may only read). The folder that took it, and the copy's id.
+fn jmap_submit_filed(
+    s: &JmapSession,
+    raw: &[u8],
+    from: &str,
+    rcpts: &[String],
+    reply: Option<(u32, String, String)>,
+    sent: (u32, String, String),
+) -> Result<((u32, String), String), String> {
+    if let Some((folder_id, path, mailbox_id)) = reply {
+        match jmap_submit(s, raw, from, rcpts, &mailbox_id) {
+            Err(e) if e.starts_with(IMPORT_REFUSED) => {
+                tracing::warn!("could not file the reply's copy in {path}, using Sent: {e}");
+            }
+            r => return r.map(|id| ((folder_id, path), id)),
+        }
+    }
+    let (folder_id, path, mailbox_id) = sent;
+    jmap_submit(s, raw, from, rcpts, &mailbox_id).map(|id| ((folder_id, path), id))
 }
 
 /// Put the sent copy in the cache and on screen before the app is told the
@@ -1854,6 +1905,26 @@ async fn jmap_index_sent_copy(
 
 /// The Outbox retry loop for JMAP accounts: same queue and bookkeeping as
 /// [`flush_outbox`], with `EmailSubmission` as the transport.
+/// [`super::mark_answered`] for JMAP: `$answered` or `$forwarded` (#454).
+async fn jmap_mark_answered(
+    s: &JmapSession,
+    state: &mut JmapState,
+    cache: Option<&Cache>,
+    account_id: u32,
+    in_reply_to: &str,
+    forwards: &str,
+    emit: &impl Fn(WorkerEvent),
+) {
+    for (path, uid, forwarded) in answered_copies(cache, account_id, in_reply_to, forwards) {
+        let keyword = if forwarded { "keywords/$forwarded" } else { "keywords/$answered" };
+        jmap_patch_message(s, state, &path, uid, serde_json::json!({ keyword: true })).await;
+        if let Some(c) = cache {
+            c.set_answered(account_id, &path, uid, forwarded);
+        }
+        emit(WorkerEvent::Answered { path, uid, forwarded });
+    }
+}
+
 async fn jmap_flush_outbox(
     s: &JmapSession,
     cache: Option<&Cache>,
@@ -1879,18 +1950,21 @@ async fn jmap_flush_outbox(
     emit(WorkerEvent::Status(i18n("Sending…")));
     let mut sent_any = false;
     for item in items {
-        let Some((folder_id, path, mailbox_id)) = jmap_sent_target(account, state, item.sent_path.as_deref()) else {
+        let Some(sent) = jmap_sent_target(account, state, item.sent_path.as_deref()) else {
             cache.record_outbox_failure(item.id, "no Sent folder to file the copy in");
             continue;
         };
+        let reply = jmap_reply_target(account, account_id, state, Some(cache), &raw_in_reply_to(&item.raw));
         let sess = s.clone();
-        let raw = item.raw.clone();
+        let raw = queued_with_bcc(&item.raw, &item.rcpts);
         let from = item.from_addr.clone();
         let rcpts = item.rcpts.clone();
-        match blocking(move || jmap_submit(&sess, &raw, &from, &rcpts, &mailbox_id)).await {
-            Ok(email_id) => {
+        match blocking(move || jmap_submit_filed(&sess, &raw, &from, &rcpts, reply, sent)).await {
+            Ok(((folder_id, path), email_id)) => {
                 sent_any = true;
                 cache.delete_outbox(item.id);
+                jmap_mark_answered(s, state, Some(cache), account_id, &raw_in_reply_to(&item.raw), &item.forwards, emit)
+                    .await;
                 jmap_index_sent_copy(s, account_id, folder_id, &path, &email_id, Some(cache), state, emit).await;
             }
             Err(e) => {
@@ -2076,6 +2150,12 @@ fn spawn_jmap_push(s: JmapSession, tx: mpsc::UnboundedSender<()>) {
                 if tx.is_closed() {
                     return;
                 }
+                // Offline: wait for the network rather than redial into
+                // nothing every 30 seconds (#442).
+                if !crate::power::reaches_url(&url) {
+                    std::thread::sleep(Duration::from_secs(5));
+                    continue;
+                }
                 jmap_wire("GET events");
                 let resp = ureq::AgentBuilder::new()
                     .timeout_connect(Duration::from_secs(20))
@@ -2251,7 +2331,11 @@ pub(super) async fn run_jmap(
     loop {
         // The background index (#429) runs only while nothing else is
         // asked, a single request a step.
-        let indexing = !state.backfill.is_empty();
+        // Offline or on a metered connection it waits; the request that
+        // follows the change wakes this loop to look again (#442).
+        let indexing = !state.backfill.is_empty()
+            && crate::power::reaches_url(&jmap_base_url(&account))
+            && !crate::power::saving_data();
         let wait = state.backfill_wait;
         let req = tokio::select! {
             biased;
@@ -2260,6 +2344,9 @@ pub(super) async fn run_jmap(
                 None => break,
             },
             _ = poll.tick() => {
+                if !crate::power::reaches_url(&jmap_base_url(&account)) {
+                    continue;
+                }
                 if let Some(s) = jmap_session(&account, &mut state, &|_| {}).await {
                     jmap_poll_inbox(&s, account_id, &account, cache.as_ref(), &mut state, &emit).await;
                     if push_enabled && !push_started {
@@ -2806,12 +2893,13 @@ pub(super) async fn run_jmap(
             }
 
             // Send Later (#145): into the Outbox until its time.
-            MailRequest::Send { mut message, sent_path }
+            MailRequest::Send { mut message, sent_path, ticket }
                 if message.send_at.is_some_and(|t| t > crate::datefmt::now()) =>
             {
                 let at = message.send_at.unwrap_or_default();
                 restore_msgid_case(cache.as_ref(), &mut message);
                 schedule_send(cache.as_ref(), account_id, &account, &message, sent_path.as_deref(), at, &emit);
+                emit(WorkerEvent::SendDone { ticket, sent: false });
                 if let Some(o) = message.draft_origin.clone() {
                     if let Some(s) = jmap_session(&account, &mut state, &emit).await {
                         jmap_drop_draft_origin(&s, account_id, &o, cache.as_ref(), &mut state).await;
@@ -2824,20 +2912,27 @@ pub(super) async fn run_jmap(
                 }
             }
 
-            MailRequest::Send { mut message, sent_path } => {
+            MailRequest::Send { mut message, sent_path, ticket } => {
                 emit(WorkerEvent::Status(i18n("Sending…")));
                 restore_msgid_case(cache.as_ref(), &mut message);
+                let reachable = crate::power::reaches_url(&jmap_base_url(&account));
                 let sent = match jmap_session(&account, &mut state, &emit).await {
-                    Some(s) => {
+                    Some(s) if reachable => {
                         jmap_send_message(&s, account_id, &account, &message, sent_path.as_deref(), cache.as_ref(), &mut state, &emit)
                             .await
                             .map(|()| s)
                     }
-                    None => Err("could not reach the server".to_string()),
+                    _ if !reachable => Err(offline_text()),
+                    _ => Err("could not reach the server".to_string()),
                 };
                 emit(WorkerEvent::Status(String::new()));
                 match sent {
                     Ok(s) => {
+                        jmap_mark_answered(
+                            &s, &mut state, cache.as_ref(), account_id,
+                            &message.in_reply_to, &message.forwards, &emit,
+                        )
+                        .await;
                         if let Some(o) = message.draft_origin.clone() {
                             if o.account_id == account_id {
                                 jmap_drop_draft_origin(&s, account_id, &o, cache.as_ref(), &mut state).await;
@@ -2848,9 +2943,11 @@ pub(super) async fn run_jmap(
                         }
                         drop_superseded_outbox(cache.as_ref(), account_id, &message, &emit);
                         emit(WorkerEvent::Sent);
+                        emit(WorkerEvent::SendDone { ticket, sent: true });
                     }
                     Err(e) => {
                         send_failed(cache.as_ref(), account_id, &account, &message, sent_path.as_deref(), &e, e.starts_with(SUBMISSION_REFUSED), &emit);
+                        emit(WorkerEvent::SendDone { ticket, sent: false });
                     }
                 }
             }
@@ -3339,7 +3436,7 @@ mod tests {
             "from": [{ "name": "Ada", "email": "ada@example.org" }],
             "replyTo": [{ "email": "ada@example.org" }],
             "to": [{ "email": "me@example.org" }, { "email": "you@example.org" }],
-            "keywords": { "$seen": true, "$flagged": true, "Work": true, "$Junk": false },
+            "keywords": { "$seen": true, "$flagged": true, "$answered": true, "Work": true, "$Junk": false },
             "hasAttachment": true,
             "messageId": ["<A@x>"], "inReplyTo": ["<B@x>"], "references": ["<C@x>", "<B@x>"],
         });
@@ -3347,6 +3444,7 @@ mod tests {
         assert_eq!((id.as_str(), blob.as_str()), ("M1", "B1"));
         assert_eq!(m.uid, hash_uid("M1"));
         assert!(!m.unread && m.starred && m.has_attachment);
+        assert!(m.answered && !m.forwarded);
         assert_eq!(m.keywords, vec!["Work"]);
         assert_eq!(m.reply_to, "", "a Reply-To equal to From is dropped");
         assert_eq!(m.to, "me@example.org, you@example.org");

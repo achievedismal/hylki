@@ -573,6 +573,11 @@ pub struct AccountConfig {
     /// that has stopped appending means no sent mail is kept at all.
     #[serde(default, skip_serializing_if = "is_false")]
     pub server_saves_sent: bool,
+    /// Where the copy of a reply is filed (#468): with the rest of sent
+    /// mail, or beside the message it answers, as Evolution can. Decided
+    /// when the reply goes out, from wherever the original is by then.
+    #[serde(default, skip_serializing_if = "ReplyCopies::is_default")]
+    pub reply_copies: ReplyCopies,
     /// Auto-empty (#140): mail in the Junk folder older than this many days
     /// is deleted for good at each sync. 0 = never.
     #[serde(default, skip_serializing_if = "is_zero")]
@@ -867,9 +872,20 @@ pub fn load() -> Option<Vec<AccountConfig>> {
 /// Passwords live only in the keyring, so an in-memory `AccountConfig` loaded
 /// from disk has an empty `password`. We must NEVER store an empty password —
 /// doing so would wipe the keyring entry of any account that wasn't just edited.
+///
+/// The file is written at once; the passwords are queued for the keyring
+/// thread (see [`keyring_later`]), since this is called from the main thread
+/// and a keyring can take as long as its user does to answer. A keyring read
+/// queued after this call sees them.
 pub fn save(accounts: &[AccountConfig]) -> std::io::Result<()> {
     write_config(accounts)?;
     prune_avatars(accounts);
+    let accounts = accounts.to_vec();
+    keyring_later(move || store_secrets(&accounts));
+    Ok(())
+}
+
+fn store_secrets(accounts: &[AccountConfig]) {
     for account in accounts {
         if !account.password.is_empty() {
             if let Err(e) = store_password(&account.email, &account.password) {
@@ -905,7 +921,6 @@ pub fn save(accounts: &[AccountConfig]) -> std::io::Result<()> {
             }
         }
     }
-    Ok(())
 }
 
 /// Rewrite the config file from the current accounts (dropping any plaintext
@@ -941,8 +956,146 @@ fn write_config(accounts: &[AccountConfig]) -> std::io::Result<()> {
 // Keyring (secret-service)
 // ---------------------------------------------------------------------------
 
+// Every keyring call runs on one thread, in the order it was made. A Secret
+// Service provider may wait on its user before it answers (a security key
+// that wants a tap, #466), and nothing bounds that wait, so the main thread
+// must never make the call itself: it queues it here with [`keyring_later`]
+// or [`keyring_then`]. Other threads still call the functions below and wait
+// for their turn. One thread keeps the order: a password saved and then read
+// back, or read and then replaced, is never overtaken.
+
+type KeyringJob = Box<dyn FnOnce() + Send>;
+
+/// Jobs queued with [`keyring_later`] and not yet done.
+static KEYRING_QUEUED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+thread_local! {
+    static ON_KEYRING_THREAD: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn keyring_thread() -> Option<&'static std::sync::mpsc::Sender<KeyringJob>> {
+    static THREAD: std::sync::OnceLock<Option<std::sync::mpsc::Sender<KeyringJob>>> =
+        std::sync::OnceLock::new();
+    THREAD
+        .get_or_init(|| {
+            let (tx, rx) = std::sync::mpsc::channel::<KeyringJob>();
+            std::thread::Builder::new()
+                .name("hylki-keyring".into())
+                .spawn(move || {
+                    ON_KEYRING_THREAD.with(|on| on.set(true));
+                    for job in rx {
+                        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(job)).is_err() {
+                            tracing::error!("a keyring call panicked");
+                        }
+                    }
+                })
+                .map_err(|e| tracing::error!("could not start the keyring thread: {e}"))
+                .ok()
+                .map(|_| tx)
+        })
+        .as_ref()
+}
+
+/// Queue `job` for the keyring thread and return at once.
+pub fn keyring_later(job: impl FnOnce() + Send + 'static) {
+    use std::sync::atomic::Ordering;
+    // Counted down even when the job panics.
+    struct Done;
+    impl Drop for Done {
+        fn drop(&mut self) {
+            KEYRING_QUEUED.fetch_sub(1, Ordering::SeqCst);
+        }
+    }
+    KEYRING_QUEUED.fetch_add(1, Ordering::SeqCst);
+    let job: KeyringJob = Box::new(move || {
+        let _done = Done;
+        job();
+    });
+    match keyring_thread() {
+        Some(thread) => {
+            if let Err(std::sync::mpsc::SendError(job)) = thread.send(job) {
+                std::thread::spawn(job);
+            }
+        }
+        None => {
+            std::thread::spawn(job);
+        }
+    }
+}
+
+/// Wait, up to `limit`, for the jobs queued with [`keyring_later`] to be
+/// done; whether they were. Called on the way out: a password saved just
+/// before quitting would otherwise go with the process.
+pub fn keyring_drain(limit: std::time::Duration) -> bool {
+    let started = std::time::Instant::now();
+    while KEYRING_QUEUED.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+        if started.elapsed() >= limit {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    true
+}
+
+/// Run `job` on the keyring thread and hand its answer to `done` on the main
+/// loop. Called from the main thread.
+pub fn keyring_then<T: Send + 'static>(
+    job: impl FnOnce() -> T + Send + 'static,
+    done: impl FnOnce(T) + 'static,
+) {
+    let (tx, rx) = futures::channel::oneshot::channel();
+    keyring_later(move || {
+        let _ = tx.send(job());
+    });
+    gtk::glib::spawn_future_local(async move {
+        if let Ok(answer) = rx.await {
+            done(answer);
+        }
+    });
+}
+
+/// Run `f` on the keyring thread and wait for it.
+fn on_keyring_thread<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+    if ON_KEYRING_THREAD.with(|on| on.get()) {
+        return f();
+    }
+    if gtk::glib::MainContext::default().is_owner() {
+        tracing::warn!(
+            "keyring call on the main thread: the window waits until the keyring answers\n{}",
+            std::backtrace::Backtrace::force_capture()
+        );
+    }
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    let job: KeyringJob = Box::new(move || {
+        let _ = tx.send(std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)));
+    });
+    match keyring_thread() {
+        Some(thread) => {
+            if let Err(std::sync::mpsc::SendError(job)) = thread.send(job) {
+                job();
+            }
+        }
+        None => job(),
+    }
+    match rx.recv() {
+        Ok(Ok(answer)) => answer,
+        Ok(Err(panic)) => std::panic::resume_unwind(panic),
+        Err(_) => unreachable!("the keyring job always answers"),
+    }
+}
+
 fn keyring_entry(key: &str) -> keyring::Result<keyring::Entry> {
     keyring::Entry::new(KEYRING_SERVICE, key)
+}
+
+fn set_secret(key: &str, secret: &str) -> keyring::Result<()> {
+    let (key, secret) = (key.to_owned(), secret.to_owned());
+    on_keyring_thread(move || keyring_entry(&key)?.set_password(&secret))
+}
+
+fn delete_secret(key: &str) -> keyring::Result<()> {
+    let key = key.to_owned();
+    on_keyring_thread(move || keyring_entry(&key)?.delete_credential())
 }
 
 /// Keyring key for an account's separate SMTP password.
@@ -962,7 +1115,7 @@ fn oauth_key(email: &str) -> String {
 }
 
 pub fn store_oauth_refresh(email: &str, token: &str) -> keyring::Result<()> {
-    keyring_entry(&oauth_key(email))?.set_password(token)
+    set_secret(&oauth_key(email), token)
 }
 
 pub fn load_oauth_refresh(email: &str) -> Option<String> {
@@ -970,12 +1123,12 @@ pub fn load_oauth_refresh(email: &str) -> Option<String> {
 }
 
 pub fn store_password(email: &str, password: &str) -> keyring::Result<()> {
-    keyring_entry(email)?.set_password(password)
+    set_secret(email, password)
 }
 
 /// Cloud attachments (#144): an account's app password, by `CloudAccount::key`.
 pub fn store_cloud_password(key: &str, password: &str) -> keyring::Result<()> {
-    keyring_entry(key)?.set_password(password)
+    set_secret(key, password)
 }
 
 pub fn load_cloud_password(key: &str) -> Option<String> {
@@ -983,9 +1136,42 @@ pub fn load_cloud_password(key: &str) -> Option<String> {
 }
 
 pub fn delete_cloud_password(key: &str) {
-    if let Ok(e) = keyring_entry(key) {
-        let _ = e.delete_credential();
-    }
+    let _ = delete_secret(key);
+}
+
+/// A keyring item in the shape Evolution Data Server keeps its own
+/// passwords in, found by the source's UID, so EDS signs in to a source
+/// Hylki set up without asking anyone, also while Hylki is not running
+/// (#408).
+fn eds_entry(uid: &str, label: &str) -> keyring::Result<keyring::Entry> {
+    // Hylki's own attributes stay, as the keyring crate finds its items by
+    // them; EDS finds the item by the source UID alone.
+    let mut cred = keyring::secret_service::SsCredential::new_with_target(None, KEYRING_SERVICE, &format!("eds:{uid}"))?;
+    cred.attributes.extend([
+        ("xdg:schema".to_string(), "org.gnome.Evolution.Data.Source".to_string()),
+        ("e-source-uid".to_string(), uid.to_string()),
+        ("eds-origin".to_string(), "evolution-data-server".to_string()),
+    ]);
+    cred.label = format!("Evolution Data Source \"{label}\"");
+    Ok(keyring::Entry::new_with_credential(Box::new(cred)))
+}
+
+/// Store the password EDS signs in to the source `uid` with; `label` names
+/// the source in the keyring's own app.
+pub fn store_eds_password(uid: &str, label: &str, password: &str) -> keyring::Result<()> {
+    let (uid, label, password) = (uid.to_owned(), label.to_owned(), password.to_owned());
+    on_keyring_thread(move || eds_entry(&uid, &label)?.set_password(&password))
+}
+
+/// Whether the keyring holds EDS's password for the source `uid`.
+pub fn has_eds_password(uid: &str) -> bool {
+    let uid = uid.to_owned();
+    on_keyring_thread(move || eds_entry(&uid, "").and_then(|e| e.get_password()).is_ok())
+}
+
+pub fn delete_eds_password(uid: &str) {
+    let uid = uid.to_owned();
+    let _ = on_keyring_thread(move || eds_entry(&uid, "")?.delete_credential());
 }
 
 /// Write a settings file readable by the owner only (for modules outside
@@ -999,7 +1185,7 @@ pub fn load_password(email: &str) -> Option<String> {
 }
 
 pub fn store_smtp_password(email: &str, password: &str) -> keyring::Result<()> {
-    keyring_entry(&smtp_key(email))?.set_password(password)
+    set_secret(&smtp_key(email), password)
 }
 
 pub fn load_smtp_password(email: &str) -> Option<String> {
@@ -1011,7 +1197,7 @@ pub fn store_alias_smtp_password(
     alias_addr: &str,
     password: &str,
 ) -> keyring::Result<()> {
-    keyring_entry(&alias_smtp_key(email, alias_addr))?.set_password(password)
+    set_secret(&alias_smtp_key(email, alias_addr), password)
 }
 
 pub fn load_alias_smtp_password(email: &str, alias_addr: &str) -> Option<String> {
@@ -1045,11 +1231,12 @@ fn load_key(key: &str) -> Option<String> {
 /// locked or still starting, and taking that for "no password" signed the
 /// account in with an empty one until Hylki restarted (#375).
 fn read_key(key: &str) -> Result<Option<String>, String> {
-    match keyring_entry(key).and_then(|e| e.get_password()) {
+    let key = key.to_owned();
+    on_keyring_thread(move || match keyring_entry(&key).and_then(|e| e.get_password()) {
         Ok(password) => Ok(Some(password)),
-        Err(keyring::Error::NoEntry) => Ok(load_legacy_key(key)),
+        Err(keyring::Error::NoEntry) => Ok(load_legacy_key(&key)),
         Err(e) => Err(e.to_string()),
-    }
+    })
 }
 
 /// [`load_password`], with a keyring that could not be read as an error.
@@ -1090,11 +1277,9 @@ pub fn delete_password(email: &str) {
 }
 
 fn delete_key(key: &str) {
-    if let Ok(entry) = keyring_entry(key) {
-        match entry.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => {}
-            Err(e) => tracing::warn!("could not delete keyring entry for {key}: {e}"),
-        }
+    match delete_secret(key) {
+        Ok(()) | Err(keyring::Error::NoEntry) => {}
+        Err(e) => tracing::warn!("could not delete keyring entry for {key}: {e}"),
     }
 }
 
@@ -1250,6 +1435,11 @@ pub(crate) struct PrivacyFile {
     /// Whether to use IMAP IDLE push for instant new-mail delivery.
     #[serde(default = "default_on")]
     pub(crate) push: bool,
+    /// On a metered connection, hold back the work done ahead of the user:
+    /// prefetching bodies and attachments, indexing old mail, watching
+    /// folders other than the Inbox, fetching sender logos (#442).
+    #[serde(default = "default_on")]
+    pub(crate) metered_save_data: bool,
     /// Addresses or whole domains whose incoming mail is auto-deleted (to Trash).
     /// Stored lowercased; a bare domain like "spam.com" matches any sender there.
     #[serde(default)]
@@ -1491,6 +1681,10 @@ pub(crate) struct PrivacyFile {
     /// Off by default, as in most mail programs today.
     #[serde(default)]
     pub(crate) signature_dashes: bool,
+    /// Undo Send (#434): seconds a sent message waits, with Undo on offer,
+    /// before it is handed to the server. 0 sends at once.
+    #[serde(default = "default_undo_send_secs")]
+    pub(crate) undo_send_secs: u32,
     /// Whether the composer underlines misspelled words as you type.
     #[serde(default = "default_on")]
     pub(crate) spellcheck: bool,
@@ -1806,6 +2000,7 @@ impl Default for PrivacyFile {
             clock_style: ClockStyle::default(),
             fetch_interval_secs: default_fetch_interval(),
             push: true,
+            metered_save_data: true,
             blacklist: Vec::new(),
             palette_collapse_secs: default_palette_collapse(),
             card_palette_collapse_secs: default_palette_collapse(),
@@ -1863,6 +2058,7 @@ impl Default for PrivacyFile {
             reply_position: ReplyPosition::default(),
             signature_position: SignaturePosition::default(),
             signature_dashes: false,
+            undo_send_secs: default_undo_send_secs(),
             spellcheck: true,
             spellcheck_langs: String::new(),
             sidebar_hover_expand: false,
@@ -2177,6 +2373,42 @@ impl FolderSort {
 
 
 
+
+/// Where an account files the copy of a reply it sends (#468).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplyCopies {
+    /// Wherever the rest of sent mail goes.
+    #[default]
+    WithSent,
+    /// In the folder of the message replied to.
+    Original,
+    /// The same, but a reply to mail in the Inbox goes with sent mail:
+    /// what the Inbox holds is waiting to be dealt with, and a reply is not.
+    OriginalNotInbox,
+}
+
+impl ReplyCopies {
+    pub const ALL: [ReplyCopies; 3] =
+        [ReplyCopies::WithSent, ReplyCopies::Original, ReplyCopies::OriginalNotInbox];
+
+    pub fn label(self) -> String {
+        match self {
+            ReplyCopies::WithSent => crate::i18n::i18n("With sent mail"),
+            ReplyCopies::Original => crate::i18n::i18n("Folder of the original"),
+            ReplyCopies::OriginalNotInbox => crate::i18n::i18n("Folder of the original, not the Inbox"),
+        }
+    }
+
+    /// Its place in [`ReplyCopies::ALL`], for combo rows.
+    pub fn index(self) -> u32 {
+        ReplyCopies::ALL.iter().position(|s| *s == self).unwrap_or(0) as u32
+    }
+
+    fn is_default(&self) -> bool {
+        *self == ReplyCopies::WithSent
+    }
+}
 
 /// When an opened message is marked read (#100).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -3633,6 +3865,13 @@ pub struct RailFold {
     pub tags: bool,
 }
 
+/// The delays Settings → Composing offers for Undo Send (#434), in seconds.
+pub(crate) const UNDO_SEND_CHOICES: [u32; 6] = [0, 3, 5, 10, 20, 30];
+
+fn default_undo_send_secs() -> u32 {
+    5
+}
+
 fn default_on() -> bool {
     true
 }
@@ -3730,6 +3969,8 @@ pub fn load_list_layout() -> ListLayout {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ListColumn {
     Star,
+    /// Replied to, forwarded, or both (#454).
+    Replied,
     Sender,
     Recipients,
     Correspondents,
@@ -3745,8 +3986,9 @@ pub enum ListColumn {
 }
 
 impl ListColumn {
-    pub const ALL: [ListColumn; 11] = [
+    pub const ALL: [ListColumn; 12] = [
         ListColumn::Star,
+        ListColumn::Replied,
         ListColumn::Sender,
         ListColumn::Recipients,
         ListColumn::Correspondents,
@@ -3760,9 +4002,10 @@ impl ListColumn {
     ];
 
     /// The columns a single line shows until they are changed: the ones it
-    /// had before they could be.
-    pub const DEFAULT: [ListColumn; 6] = [
+    /// had before they could be, and the replied arrows (#454).
+    pub const DEFAULT: [ListColumn; 7] = [
         ListColumn::Star,
+        ListColumn::Replied,
         ListColumn::Sender,
         ListColumn::Subject,
         ListColumn::Tags,
@@ -3774,6 +4017,7 @@ impl ListColumn {
     pub fn key(self) -> &'static str {
         match self {
             ListColumn::Star => "star",
+            ListColumn::Replied => "replied",
             ListColumn::Sender => "sender",
             ListColumn::Recipients => "recipients",
             ListColumn::Correspondents => "correspondents",
@@ -3795,6 +4039,7 @@ impl ListColumn {
     pub fn icon(self) -> &'static str {
         match self {
             ListColumn::Star => "starred-symbolic",
+            ListColumn::Replied => "mail-reply-sender-symbolic",
             ListColumn::Sender => "avatar-default-symbolic",
             ListColumn::Recipients => "mail-send-symbolic",
             ListColumn::Correspondents => "chat-bubbles-text-symbolic",
@@ -3812,6 +4057,7 @@ impl ListColumn {
     pub fn label(self) -> &'static str {
         match self {
             ListColumn::Star => crate::i18n::i18n_noop("Star"),
+            ListColumn::Replied => crate::i18n::i18n_noop("Replied"),
             ListColumn::Sender => crate::i18n::i18n_noop("Sender"),
             ListColumn::Recipients => crate::i18n::i18n_noop("Recipients"),
             ListColumn::Correspondents => crate::i18n::i18n_noop("Correspondents"),
@@ -4630,6 +4876,38 @@ pub fn save_contacts_pane_width(width: i32) {
 mod tests {
     use super::{decode_gallery_folder, encode_gallery_folder, ConfigFile, ListColumn, PrivacyFile, StateFile};
 
+    /// The keyring thread runs what is queued in order, a call made from
+    /// another thread waits behind it, one made on the keyring thread itself
+    /// runs at once, and the drain waits for the queue (#466).
+    #[test]
+    fn the_keyring_thread_keeps_the_order() {
+        use std::sync::{Arc, Mutex};
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        for i in 0..5 {
+            let seen = seen.clone();
+            super::keyring_later(move || {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                seen.lock().unwrap().push(i);
+            });
+        }
+        let after = {
+            let seen = seen.clone();
+            super::on_keyring_thread(move || {
+                let inline = super::on_keyring_thread(|| 7);
+                seen.lock().unwrap().push(inline);
+                seen.lock().unwrap().len()
+            })
+        };
+        assert_eq!(after, 6, "the blocking call waited for the queue");
+        let seen_late = seen.clone();
+        super::keyring_later(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            seen_late.lock().unwrap().push(9);
+        });
+        assert!(super::keyring_drain(std::time::Duration::from_secs(5)));
+        assert_eq!(*seen.lock().unwrap(), vec![0, 1, 2, 3, 4, 7, 9]);
+    }
+
     /// An account with a protocol this build does not know (an EWS account
     /// from 1.44.0-beta.5) leaves the others readable.
     #[test]
@@ -5404,6 +5682,7 @@ dest_path = "Lists"
             folders_seeded: false,
             sent_copy_path: None,
             server_saves_sent: false,
+            reply_copies: Default::default(),
             empty_junk_days: 0,
             empty_trash_days: 0,
             clean_lists_days: 0,

@@ -21,6 +21,7 @@ this list in the app; the same key closes it again.
 | <kbd>?</kbd> | This list | <kbd>x</kbd> | Select the row (for a bulk action) |
 | | | <kbd>1</kbd> … <kbd>9</kbd> | Add or remove a tag (the first nine, in Settings order) |
 | | | <kbd>0</kbd> | Remove every tag |
+| | | <kbd>D</kbd> | Delete permanently, without going to Trash |
 
 <kbd>w</kbd> and <kbd>b</kbd> step through the cards of the conversation you
 are reading, opening a folded one; outside a conversation they move along the
@@ -89,8 +90,11 @@ puts replies or new messages in the reading pane.
 the conversation that was open. While rows are selected this way, the
 reading pane counts them and the bar above the list acts on them, as do the
 action keys; <kbd>x</kbd> again on a row takes it out. <kbd>o</kbd>,
-<kbd>Enter</kbd> or a click opens a row and ends the selection. An action key
-pressed with none selected says that a selection is needed.
+<kbd>Enter</kbd> or a click opens a row in the reading pane and ends the
+selection; with several rows selected, <kbd>o</kbd> and <kbd>Enter</kbd> do
+nothing. Deleting the selected rows leaves the cursor on the conversation
+above them, or the one below, without opening it. An action key pressed with
+none selected says that a selection is needed.
 
 <kbd>Enter</kbd> on a message that is already open opens it in a window of
 its own. A <kbd>g</kbd> or <kbd>*</kbd> waits a second and a half for the key
@@ -142,6 +146,7 @@ These work with or without single-key shortcuts too:
 | <kbd>Ctrl+K</kbd> | Command palette: type to find an action, a folder, a view, a tag or a smart folder, and Enter runs it; start with `>` for actions only |
 | <kbd>Ctrl+Shift+K</kbd> | Command palette with `>` already typed: actions only |
 | <kbd>Delete</kbd> <kbd>Backspace</kbd> | Delete the selected messages, with the list focused |
+| <kbd>Shift+Delete</kbd> | Delete the selected messages permanently, without going to Trash, after asking |
 | <kbd>Ctrl+F</kbd> | Search the message list |
 | <kbd>Ctrl+P</kbd> | Print the message you are reading |
 | <kbd>Ctrl+Shift+P</kbd> | Preview it as a PDF first |
@@ -162,19 +167,30 @@ highlighted attachment. In the attachments gallery's preview, <kbd>←</kbd> and
 <kbd>→</kbd> step to the previous and next one, and <kbd>Esc</kbd> closes it.
 
 In the Contacts view, <kbd>Delete</kbd> asks to delete the contact shown,
-while the contact list has the focus.
+while the contact list has the focus. In a group's form, <kbd>↓</kbd> and
+<kbd>↑</kbd> move through the people matching what is typed in the field
+that adds them, <kbd>Enter</kbd> adds the one highlighted, and <kbd>Esc</kbd>
+puts the matches away.
 
 <kbd>Ctrl+F</kbd> in the Settings window opens its search, and closes it
 again. <kbd>Esc</kbd> closes it too, wherever the focus is in the window,
 including after you have picked a result.
 
 <kbd>Ctrl++</kbd> and <kbd>Ctrl+-</kbd> zoom the message in the reading pane
-in and out, with or without Reader View; <kbd>Ctrl+0</kbd> puts it back to
+in and out, with or without Reader View, and so does <kbd>Ctrl</kbd> with the
+scroll wheel over the message; <kbd>Ctrl+0</kbd> puts it back to
 the default. Only the message scales, not the header or the toolbar; a chip
 beside the Reader View switch shows the percentage while it is away from
 the default, and a click on it goes back there.
 The zoom stays as set from message to message until Hylki is next started,
 which begins at the default from **Settings → Reading → Default zoom**.
+
+The same keys, and <kbd>Ctrl</kbd> with the scroll wheel over the body, zoom
+the composer's text while it is written in Markdown, HTML source or plain
+text; <kbd>Ctrl+0</kbd> puts it back to 100%. Only the screen changes, not
+the message that is sent, and the next composer opens at the same size until
+Hylki is next started. Rich text does not zoom, because there the size on
+screen is the size that is sent; the keys go on to the message instead.
 
 Keys never fire while you are typing: whatever has focus gets first refusal, so
 "archive" typed into the search box searches for it.

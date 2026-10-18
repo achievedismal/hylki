@@ -365,12 +365,15 @@ fn build(s: &Spec) -> Message {
         reply_to: String::new(),
         to: s.to.into(),
         cc: String::new(),
+        bcc: String::new(),
         subject: s.subject.into(),
         preview: s.preview.into(),
         body: s.body.into(),
         date: s.date.into(),
         unread: s.unread,
         starred: s.starred,
+        answered: false,
+        forwarded: false,
         keywords: s.keywords.iter().map(|k| k.to_string()).collect(),
         has_attachment: s.has_attachment,
         message_id: format!("<demo-{}@hylki.local>", s.id),
@@ -438,6 +441,7 @@ pub fn seed_demo_cache(cache: &crate::cache::Cache) {
                 reply_to: String::new(),
                 to: String::new(),
                 cc: String::new(),
+                bcc: String::new(),
                 subject: subject.to_string(),
                 preview: String::new(),
                 body: String::new(),
@@ -445,6 +449,8 @@ pub fn seed_demo_cache(cache: &crate::cache::Cache) {
                 timestamp: ts,
                 unread: false,
                 starred: false,
+                answered: false,
+                forwarded: false,
                 keywords: Vec::new(),
                 has_attachment: true,
                 message_id: String::new(),
@@ -501,6 +507,7 @@ pub fn seed_demo_cache(cache: &crate::cache::Cache) {
                     reply_to: String::new(),
                     to: String::new(),
                     cc: String::new(),
+                    bcc: String::new(),
                     subject: format!("Message {i}"),
                     preview: String::new(),
                     body: String::new(),
@@ -508,6 +515,8 @@ pub fn seed_demo_cache(cache: &crate::cache::Cache) {
                     timestamp: ts,
                     unread: false,
                     starred: false,
+                    answered: false,
+                    forwarded: false,
                     keywords: Vec::new(),
                     has_attachment: true,
                     message_id: String::new(),
@@ -828,6 +837,17 @@ fn sample_messages() -> Vec<Message> {
             date: "Sun", unread: true, starred: false, keywords: &[], has_attachment: false, in_reply_to: None },
     ];
     let mut out: Vec<Message> = specs.iter().map(build).collect();
+    // What the demo's own mail answers wears the replied arrow (#454), and a
+    // receipt passed on to the accountant the forwarded one.
+    let answered: std::collections::HashSet<String> = out
+        .iter()
+        .filter(|m| [ME, LAB, PERSONAL].contains(&m.from_addr.as_str()) && !m.references.is_empty())
+        .map(|m| m.references.clone())
+        .collect();
+    for m in out.iter_mut() {
+        m.answered = answered.contains(&m.message_id);
+        m.forwarded = m.id == 11;
+    }
     // HYLKI_DEMO_BULK=N pads every account's Inbox and Sent with N more
     // messages, to exercise the list at a real mailbox's size.
     if let Some(n) = std::env::var("HYLKI_DEMO_BULK").ok().and_then(|v| v.parse::<u32>().ok()) {
@@ -848,6 +868,7 @@ fn sample_messages() -> Vec<Message> {
                         reply_to: String::new(),
                         to: if sent { format!("person{}@example.com", i % 53) } else { ME.into() },
                         cc: String::new(),
+                        bcc: String::new(),
                         subject: format!("Bulk message {i} in folder {folder_id}"),
                         preview: "A generated message that stands in for real mail, so a list of thousands can be measured.".into(),
                         body: String::new(),
@@ -855,6 +876,8 @@ fn sample_messages() -> Vec<Message> {
                         timestamp: base - 3600 * (i as i64 + 1) - account_id as i64,
                         unread: !sent && i % 7 == 0,
                         starred: i % 41 == 0,
+                        answered: false,
+                        forwarded: false,
                         keywords: Vec::new(),
                         has_attachment: false,
                         message_id: format!("<bulk-{id}@hylki.local>"),

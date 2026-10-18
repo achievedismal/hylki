@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: hylki\n"
 "Report-Msgid-Bugs-To: https://github.com/hyprlab/hylki/issues\n"
-"PO-Revision-Date: 2026-10-14 17:23+0200\n"
+"PO-Revision-Date: 2026-10-15 20:10+0200\n"
 "Last-Translator: Daniel Miguel <danielmigueltejedor@icloud.com>\n"
 "Language-Team: Spanish\n"
 "Language: es\n"
@@ -36,16 +36,16 @@ msgid "Sort by"
 msgstr "Ordenar por"
 
 msgid "Show only"
-msgstr ""
+msgstr "Mostrar solo"
 
 msgid "Clear Filters"
-msgstr ""
+msgstr "Quitar filtros"
 
 msgid "Sort and filter messages"
-msgstr ""
+msgstr "Ordenar y filtrar mensajes"
 
 msgid "Filtered: {names}"
-msgstr ""
+msgstr "Filtros activos: {names}"
 
 msgid "Refresh or long-press for Status Bar"
 msgstr "Actualizar o mantener pulsado para mostrar la barra de estado"
@@ -365,6 +365,10 @@ msgstr "Buscar en el mensaje"
 msgid "Delete"
 msgstr "Eliminar"
 
+#, fuzzy
+msgid "Delete Permanently"
+msgstr "¿Eliminar este mensaje permanentemente?"
+
 msgid "Star or Remove Star"
 msgstr "Añadir o quitar la estrella"
 
@@ -477,7 +481,7 @@ msgid "Search Messages…"
 msgstr "Buscar mensajes…"
 
 msgid "Filter"
-msgstr ""
+msgstr "Filtrar"
 
 msgid "Sort"
 msgstr "Ordenar"
@@ -645,6 +649,22 @@ msgid ""
 msgstr ""
 "Ya están en la Papelera, por lo que se eliminarán del servidor. Esta acción "
 "no se puede deshacer."
+
+#, fuzzy
+msgid ""
+"It will be erased from the server instead of going to Trash. This can’t be "
+"undone."
+msgstr ""
+"Todos los mensajes que contiene se eliminarán del servidor. Esta acción no "
+"se puede deshacer."
+
+#, fuzzy
+msgid ""
+"They will be erased from the server instead of going to Trash. This can’t be "
+"undone."
+msgstr ""
+"Todos los mensajes que contiene se eliminarán del servidor. Esta acción no "
+"se puede deshacer."
 
 msgid "No {v1} folder available"
 msgstr "No hay ninguna carpeta {v1} disponible"
@@ -1048,6 +1068,9 @@ msgstr "Archivar la conversación y abrir la anterior"
 msgid "Archive the conversation and open the newer one"
 msgstr "Archivar la conversación y abrir la más reciente"
 
+msgid "Delete permanently, without going to Trash"
+msgstr ""
+
 msgid "Mark as spam"
 msgstr "Marcar como spam"
 
@@ -1274,6 +1297,39 @@ msgid_plural "{n} unread messages"
 msgstr[0] "{n} mensaje sin leer"
 msgstr[1] "{n} mensajes sin leer"
 
+#, fuzzy
+msgid "Enter the server's address."
+msgstr "Introduce el servidor del directorio."
+
+#, fuzzy
+msgid "“{text}” is not a server address."
+msgstr "«{addr}» no es una dirección de correo electrónico."
+
+msgid "The address starts with https:// or http://."
+msgstr ""
+
+msgid "Evolution Data Server is not available"
+msgstr "Evolution Data Server no está disponible"
+
+msgid "Enter the password to sign in."
+msgstr ""
+
+#, fuzzy
+msgid "The server did not accept the user name or password."
+msgstr "El directorio no aceptó la contraseña."
+
+#, fuzzy
+msgid "The server's certificate could not be verified."
+msgstr "No se pudo verificar el certificado del directorio."
+
+#, fuzzy
+msgid "The server's certificate could not be verified: {error}"
+msgstr "No se pudo verificar el certificado del directorio: {error}"
+
+#, fuzzy
+msgid "Could not connect to the server."
+msgstr "No se pudo contactar con el servidor"
+
 msgid "Signature"
 msgstr "Firma"
 
@@ -1288,6 +1344,21 @@ msgstr "Nombre (Z a A)"
 
 msgid "Full Path"
 msgstr "Ruta completa"
+
+msgid "With sent mail"
+msgstr ""
+
+#, fuzzy
+msgid "Folder of the original"
+msgstr "Mostrando el original."
+
+#, fuzzy
+msgid "Folder of the original, not the Inbox"
+msgstr "Mostrando el original."
+
+#, fuzzy
+msgid "Replied"
+msgstr "Responder"
 
 msgid "Sender"
 msgstr "Remitente"
@@ -1328,11 +1399,52 @@ msgstr "Mover a"
 msgid "Find"
 msgstr "Buscar"
 
+#, fuzzy
+msgid "{n} address book"
+msgid_plural "{n} address books"
+msgstr[0] "Libreta de direcciones"
+msgstr[1] "Libreta de direcciones"
+
 msgid "Hylki Address Book"
 msgstr "Libreta de direcciones de Hylki"
 
+#, fuzzy
+msgid "{n} contact, kept by Hylki"
+msgid_plural "{n} contacts, kept by Hylki"
+msgstr[0] "{n} contacto exportado a {path}"
+msgstr[1] "{n} contactos exportados a {path}"
+
 msgid "On This Computer"
 msgstr "En este equipo"
+
+msgid "{books} · kept by GNOME Contacts and Evolution"
+msgstr ""
+
+msgid "Online account"
+msgstr "Cuenta en línea"
+
+#, fuzzy
+msgid "Contacts is switched off for this account in GNOME Online Accounts."
+msgstr ""
+"En pausa: el correo está desactivado para esta cuenta en los Ajustes de GNOME"
+
+#, fuzzy
+msgid "Looking for address books…"
+msgstr "Buscando una clave para {addr}…"
+
+msgid "This address book is switched off in Evolution."
+msgstr ""
+
+msgid "{n} person, in Bcc"
+msgid_plural "{n} people, in Bcc"
+msgstr[0] ""
+msgstr[1] ""
+
+#, fuzzy
+msgid "{n} person"
+msgid_plural "{n} people"
+msgstr[0] "{n} destinatario"
+msgstr[1] "{n} destinatarios"
 
 msgid "CardDAV Address Book"
 msgstr "Libreta de direcciones CardDAV"
@@ -1340,12 +1452,10 @@ msgstr "Libreta de direcciones CardDAV"
 msgid "{date} at {time}"
 msgstr "{date} a las {time}"
 
-msgid "Evolution Data Server is not available"
-msgstr "Evolution Data Server no está disponible"
-
+#, fuzzy
 msgid ""
-"The directory cannot be searched without signing in. Add a sign-in in "
-"Settings → LDAP Directories."
+"The directory cannot be searched without signing in. Add a sign-in to it in "
+"Settings → Contacts."
 msgstr ""
 "No se puede buscar en el directorio sin iniciar sesión. Configura el inicio "
 "de sesión en Ajustes → Directorios LDAP."
@@ -1380,7 +1490,8 @@ msgid "Could not reach {server}. Check the server's name and the network."
 msgstr ""
 "No se pudo acceder a {server}. Comprueba el nombre del servidor y la red."
 
-msgid "The directory needs a password. Add it in Settings → LDAP Directories."
+#, fuzzy
+msgid "The directory needs a password. Add it in Settings → Contacts."
 msgstr ""
 "El directorio necesita una contraseña. Añádela en Ajustes → Directorios LDAP."
 
@@ -1548,6 +1659,19 @@ msgid "A new message with {n} file attached is open in Hylki."
 msgid_plural "A new message with {n} files attached is open in Hylki."
 msgstr[0] "Hay un mensaje nuevo con {n} archivo adjunto abierto en Hylki."
 msgstr[1] "Hay un mensaje nuevo con {n} archivos adjuntos abierto en Hylki."
+
+#, fuzzy
+msgid "Sending message…"
+msgstr "Indexando {n} mensajes…"
+
+msgid "Sending “{subject}”…"
+msgstr ""
+
+msgid "Waiting to send"
+msgstr ""
+
+msgid "Sending…"
+msgstr "Enviando…"
 
 msgid ""
 "{reason} If your organization manages your account, an administrator can "
@@ -2128,24 +2252,26 @@ msgid "Add Alias…"
 msgstr "Añadir alias…"
 
 msgid "Signatures"
-msgstr ""
+msgstr "Firmas"
 
 msgid ""
 "Put in messages sent from this account. With more than one, the composer's "
 "signature button lists them."
 msgstr ""
+"Se incluyen en los mensajes enviados desde esta cuenta. Si hay varias, el "
+"botón de firmas del editor permite elegir entre ellas."
 
 msgid "Add Signature"
-msgstr ""
+msgstr "Añadir firma"
 
 msgid "Import File…"
 msgstr "Importar archivo…"
 
 msgid "Delete Signature"
-msgstr ""
+msgstr "Eliminar firma"
 
 msgid "Start messages with this signature"
-msgstr ""
+msgstr "Incluir esta firma al iniciar los mensajes"
 
 msgid "Syncing"
 msgstr "Sincronización"
@@ -2245,12 +2371,17 @@ msgstr "Enviados"
 msgid "Save a copy of sent mail in"
 msgstr "Guardar una copia del correo enviado en"
 
+#, fuzzy
+msgid "Save a copy of replies in"
+msgstr "Guardar una copia del correo enviado en"
+
 msgid "Server saves its own copy of sent mail"
 msgstr "El servidor guarda su propia copia del correo enviado"
 
+#, fuzzy
 msgid ""
-"For Gmail and others that file sent mail themselves. Disables above Save a "
-"copy."
+"For Gmail and others that file sent mail themselves. Disables both Save a "
+"copy rows above."
 msgstr ""
 "Para Gmail y otros servicios que archivan por sí mismos el correo enviado. "
 "Desactiva la opción anterior de guardar una copia."
@@ -2316,10 +2447,10 @@ msgstr ""
 "como texto sin cifrar en el disco."
 
 msgid "Edit HTML"
-msgstr ""
+msgstr "Editar HTML"
 
 msgid "Edit the signature's HTML source"
-msgstr ""
+msgstr "Editar el código HTML de la firma"
 
 msgid "Follow Settings"
 msgstr "Seguir Ajustes"
@@ -2376,7 +2507,7 @@ msgid "OK"
 msgstr "Aceptar"
 
 msgid "Signature {n}"
-msgstr ""
+msgstr "Firma {n}"
 
 msgid "Enter a client ID and sign in before saving"
 msgstr "Introduce un ID de cliente e inicia sesión antes de guardar"
@@ -3136,9 +3267,6 @@ msgstr ""
 "API y guardará ese token en lugar de la contraseña. También puedes pegar en "
 "el campo de contraseña un token obtenido por otro medio."
 
-msgid "Online account"
-msgstr "Cuenta en línea"
-
 msgid "Dropbox app key"
 msgstr "Clave de aplicación de Dropbox"
 
@@ -3421,13 +3549,13 @@ msgid "Markdown"
 msgstr "Markdown"
 
 msgid "HTML source"
-msgstr ""
+msgstr "Código fuente HTML"
 
 msgid "Plain text"
 msgstr "Texto sin formato"
 
 msgid "Format as you type; it is sent as HTML"
-msgstr ""
+msgstr "Aplicar formato mientras escribes; se envía como HTML"
 
 msgid "Write Markdown; it is sent as formatted mail"
 msgstr "Escribe en Markdown; se enviará como correo con formato"
@@ -3591,7 +3719,7 @@ msgid "Typing"
 msgstr "Escribiendo"
 
 msgid "No Signature"
-msgstr ""
+msgstr "Sin firma"
 
 msgid "Insert Before the Text"
 msgstr "Insertar antes del texto"
@@ -3752,7 +3880,8 @@ msgstr "Añade contactos en Contactos de GNOME para verlos aquí."
 msgid "Open GNOME Contacts"
 msgstr "Abrir Contactos de GNOME"
 
-msgid "New contact"
+#, fuzzy
+msgid "New contact or group"
 msgstr "Contacto nuevo"
 
 msgid "Import vCard files into the Hylki address book"
@@ -3785,6 +3914,18 @@ msgstr "Apellidos"
 msgid "In Directories"
 msgstr "En directorios"
 
+#, fuzzy
+msgid "Delete Group?"
+msgstr "¿Eliminar tu clave?"
+
+#, fuzzy
+msgid ""
+"{name} is removed from your address book, and for a synced book, from the "
+"server too. The people in it are not."
+msgstr ""
+"Se eliminará a {name} de tu libreta de direcciones y, si está sincronizada, "
+"también del servidor."
+
 msgid "Delete Contact?"
 msgstr "¿Eliminar contacto?"
 
@@ -3801,14 +3942,17 @@ msgstr "Todas las libretas de direcciones"
 msgid "Edit"
 msgstr "Editar"
 
+msgid "Add to Group"
+msgstr ""
+
 msgid "Delete…"
 msgstr "Eliminar…"
 
 msgid "Type three letters or more to search the directory."
-msgstr ""
+msgstr "Escribe al menos tres letras para buscar en el directorio."
 
 msgid "Nobody in the directory matches."
-msgstr ""
+msgstr "No hay personas en el directorio que coincidan con la búsqueda."
 
 msgid "View photo"
 msgstr "Ver foto"
@@ -3834,6 +3978,24 @@ msgstr "Libreta de direcciones"
 
 msgid "Details"
 msgstr "Detalles"
+
+#, fuzzy
+msgid "Edit Group"
+msgstr "Grupo derecho"
+
+#, fuzzy
+msgid "New Group"
+msgstr "Grupo izquierdo"
+
+msgid "Group"
+msgstr ""
+
+#, fuzzy
+msgid "Send as Bcc"
+msgstr "Enviar todo"
+
+msgid "Members do not see each other's addresses."
+msgstr ""
 
 msgid "Edit Contact"
 msgstr "Editar contacto"
@@ -3863,6 +4025,19 @@ msgstr "Añadir teléfono"
 msgid "Add website"
 msgstr "Añadir sitio web"
 
+#, fuzzy
+msgid "Members"
+msgstr "Números de página"
+
+msgid "No one is in this group yet."
+msgstr ""
+
+msgid "Changed in the app it came from"
+msgstr ""
+
+msgid "This group names its members by contact, which Hylki does not edit."
+msgstr ""
+
 msgid "Import Contacts"
 msgstr "Importar contactos"
 
@@ -3872,37 +4047,75 @@ msgstr "Archivos vCard"
 msgid "All files"
 msgstr "Todos los archivos"
 
-msgid "LDAP Directories"
-msgstr "Directorios LDAP"
+#, fuzzy
+msgid "Add a person by name or address"
+msgstr "El contacto necesita un nombre o una dirección de correo electrónico"
 
-msgid "LDAP directories"
-msgstr "Directorios LDAP"
+#, fuzzy
+msgid "Use an app-specific password, not your usual one."
+msgstr ""
+"Requiere una contraseña específica de aplicación (no tu contraseña de inicio "
+"de sesión habitual)."
+
+#, fuzzy
+msgid "CardDAV Server"
+msgstr "Servidor"
 
 msgid ""
-"The composer looks up recipients in these directories as you type an "
-"address, and a search in Contacts looks in them too. They are kept by "
-"Evolution Data Server, so a directory set up in Evolution is listed here too."
+"The server's address is enough for most services; Hylki finds the address "
+"books on it. Services that sign in with two steps want an app password."
 msgstr ""
-"Al escribir una dirección, el editor busca destinatarios en estos "
-"directorios; las búsquedas de Contactos también los consultan. Los gestiona "
-"Evolution Data Server, por lo que aquí aparecen los directorios configurados "
-"en Evolution."
 
-msgid "Add Directory…"
-msgstr "Añadir directorio…"
+msgid ""
+"Your Nextcloud's address, such as cloud.example.org. With two-factor sign-"
+"in, make an app password in Nextcloud under Settings → Security."
+msgstr ""
 
-msgid "No directories yet."
-msgstr "Todavía no hay directorios."
+msgid ""
+"Use an app password with access to contacts, made in Fastmail under Settings "
+"→ Privacy & Security."
+msgstr ""
 
 msgid "LDAP Directory"
 msgstr "Directorio LDAP"
 
+#, fuzzy
+msgid "Address Books"
+msgstr "Libreta de direcciones"
+
 msgid ""
-"Evolution Data Server, which keeps the directories, is not available on this "
-"system."
+"Where Hylki finds contacts: for Contacts, the composer's suggestions, sender "
+"pictures and the filters. Switch one off to leave it out of Hylki; GNOME and "
+"Evolution keep using it."
 msgstr ""
-"Evolution Data Server, que gestiona los directorios, no está disponible en "
-"este sistema."
+
+#, fuzzy
+msgid "Look again for address books"
+msgstr "Buscando una clave para {addr}…"
+
+#, fuzzy
+msgid "Add Address Book…"
+msgstr "Todas las libretas de direcciones"
+
+msgid ""
+"The address books of GNOME Contacts, CardDAV accounts and LDAP directories "
+"are kept by Evolution Data Server, which is not installed. Install the "
+"evolution-data-server package, which runs without GNOME, and open this page "
+"again."
+msgstr ""
+
+msgid "New Contacts"
+msgstr "Contactos nuevos"
+
+msgid "Save new contacts in"
+msgstr "Guardar los contactos nuevos en"
+
+msgid ""
+"The address book a contact made in Hylki goes to, unless another is picked "
+"when it is made."
+msgstr ""
+"La libreta de direcciones en la que se guardan los contactos creados en "
+"Hylki, salvo que se elija otra al crearlos."
 
 msgid ""
 "The directory is removed from Evolution Data Server, so Evolution and other "
@@ -3912,20 +4125,161 @@ msgstr ""
 "las demás aplicaciones que lo usan también dejan de verlo. No cambia nada en "
 "el servidor."
 
+#, fuzzy
+msgid ""
+"The account and its address books are removed from this computer, so "
+"Evolution and other apps that use them stop seeing them too. Nothing on the "
+"server changes."
+msgstr ""
+"El directorio se elimina de Evolution Data Server, por lo que Evolution y "
+"las demás aplicaciones que lo usan también dejan de verlo. No cambia nada en "
+"el servidor."
+
+#, fuzzy
+msgid "Looking for address books on {name}…"
+msgstr "Buscando una clave para {addr}…"
+
+#, fuzzy
+msgid "{name}: {problem}"
+msgstr "{name}: superada"
+
+#, fuzzy
+msgid "No address books were found on {name} yet."
+msgstr "No hay ninguna libreta de direcciones disponible para añadir contactos"
+
+msgid "Found {n} address book on {name}"
+msgid_plural "Found {n} address books on {name}"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "Connected to {name}"
 msgstr "Conectado a {name}"
 
 msgid "The server took too long to answer."
 msgstr "El servidor ha tardado demasiado en responder."
 
-msgid "Edit Directory"
-msgstr "Editar directorio"
+#, fuzzy
+msgid "Kept by Evolution Data Server"
+msgstr "Evolution Data Server no está disponible"
 
-msgid "Add Directory"
-msgstr "Añadir directorio"
+msgid ""
+"The address books GNOME Contacts and Evolution keep on this computer. They "
+"are changed there, and in Hylki's Contacts."
+msgstr ""
 
-msgid "Look up recipients in this directory"
-msgstr "Buscar destinatarios en este directorio"
+#, fuzzy
+msgid "Set up in GNOME Online Accounts"
+msgstr "Encontrada en Cuentas en línea de GNOME"
+
+msgid ""
+"The account's sign-in, and whether it keeps contacts at all, are changed in "
+"GNOME Settings."
+msgstr ""
+
+#, fuzzy
+msgid "Open Online Accounts"
+msgstr "Abrir Cuentas en línea…"
+
+#, fuzzy
+msgid "Add Address Book"
+msgstr "Todas las libretas de direcciones"
+
+#, fuzzy
+msgid "Added in GNOME Online Accounts"
+msgstr "Encontrada en Cuentas en línea de GNOME"
+
+msgid ""
+"Google and Microsoft 365 sign in through the browser, which Evolution Data "
+"Server leaves to GNOME Online Accounts. Add the account there with Contacts "
+"switched on, and it is listed here."
+msgstr ""
+
+#, fuzzy
+msgid ""
+"Contacts Hylki keeps itself, in its own data folder. They work without GNOME."
+msgstr ""
+"Contactos que Hylki guarda en su propia carpeta de datos. Aparecen en "
+"Contactos junto a las libretas de GNOME Contactos y funcionan sin GNOME."
+
+msgid "Contacts in the Hylki book"
+msgstr "Contactos de la libreta de Hylki"
+
+msgid "Import vCard files"
+msgstr "Importar archivos vCard"
+
+msgid ""
+"Adds the contacts in .vcf files to the Hylki book. Importing a file again "
+"updates its contacts."
+msgstr ""
+"Añade los contactos de archivos .vcf a la libreta de Hylki. Si vuelves a "
+"importar un archivo, se actualizarán sus contactos."
+
+msgid "Export as a vCard file"
+msgstr "Exportar como archivo vCard"
+
+msgid ""
+"Saves every contact in the Hylki book in one .vcf file, which other apps can "
+"import."
+msgstr ""
+"Guarda todos los contactos de la libreta de Hylki en un único archivo .vcf "
+"que pueden importar otras aplicaciones."
+
+msgid "Delete all contacts"
+msgstr "Eliminar todos los contactos"
+
+#, fuzzy
+msgid "Empties the Hylki book. The other address books are not touched."
+msgstr ""
+"Vacía la libreta de Hylki. No afecta a las libretas de GNOME Contactos."
+
+#, fuzzy
+msgid "Set up in Hylki"
+msgstr "Mostrar en Hylki"
+
+#, fuzzy
+msgid "From GNOME Online Accounts"
+msgstr "Cuentas en línea de GNOME"
+
+msgid "Evolution"
+msgstr ""
+
+msgid "Kept by Evolution Data Server, set up in Evolution or GNOME Contacts"
+msgstr ""
+
+#, fuzzy
+msgid "Use in Hylki"
+msgstr "Abrir Hylki"
+
+#, fuzzy
+msgid "Address books"
+msgstr "Libreta de direcciones"
+
+msgid "Switch off an address book to leave it out of Hylki."
+msgstr ""
+
+msgid "Sign-in"
+msgstr "Inicio de sesión"
+
+msgid "Password (saved; type to replace it)"
+msgstr "Contraseña (guardada; escribe para reemplazarla)"
+
+#, fuzzy
+msgid "Enter the user name."
+msgstr "Introduce el servidor del directorio."
+
+#, fuzzy
+msgid "Enter the password."
+msgstr "Proteger con una contraseña"
+
+#, fuzzy
+msgid ""
+"The composer looks up recipients in the directory as you type an address, "
+"and a search in Contacts looks in it too."
+msgstr ""
+"Al escribir una dirección, el editor busca destinatarios en estos "
+"directorios; las búsquedas de Contactos también los consultan. Los gestiona "
+"Evolution Data Server, por lo que aquí aparecen los directorios configurados "
+"en Evolution."
 
 msgid "Encryption"
 msgstr "Cifrado"
@@ -3948,9 +4302,6 @@ msgstr "Árbol completo"
 msgid "First level"
 msgstr "Primer nivel"
 
-msgid "Sign-in"
-msgstr "Inicio de sesión"
-
 msgid ""
 "Leave these empty for a directory that can be searched without signing in."
 msgstr ""
@@ -3959,9 +4310,6 @@ msgstr ""
 
 msgid "Sign in as, such as cn=jane,ou=people,dc=example,dc=com"
 msgstr "Iniciar sesión como, por ejemplo cn=jane,ou=people,dc=example,dc=com"
-
-msgid "Password (saved; type to replace it)"
-msgstr "Contraseña (guardada; escribe para reemplazarla)"
 
 msgid "Enter the directory's server."
 msgstr "Introduce el servidor del directorio."
@@ -4073,13 +4421,11 @@ msgstr "{name} · {current} de {total}"
 msgid "me"
 msgstr "yo"
 
-#, fuzzy
 msgid "All folders (except trash & junk)"
-msgstr "Todas excepto Papelera y Correo no deseado"
+msgstr "Todas las carpetas (excepto Papelera y Correo no deseado)"
 
-#, fuzzy
 msgid "Everywhere"
-msgstr "O donde"
+msgstr "En todas partes"
 
 msgid "This folder"
 msgstr "Esta carpeta"
@@ -4091,27 +4437,32 @@ msgid ""
 "Every folder of every account, except Trash and Junk. A search started in "
 "Trash or Junk looks there too."
 msgstr ""
+"Busca en todas las carpetas de todas las cuentas, excepto Papelera y Correo "
+"no deseado. Si inicias la búsqueda desde una de esas carpetas, también se "
+"buscará en ella."
 
 msgid "Every folder of every account, Trash and Junk included."
 msgstr ""
+"Busca en todas las carpetas de todas las cuentas, incluidas Papelera y "
+"Correo no deseado."
 
 msgid "Only the folder or view the list is showing."
-msgstr ""
+msgstr "Solo en la carpeta o vista que se muestra en la lista."
 
 msgid "What this searches"
-msgstr ""
+msgstr "Ámbito de búsqueda"
 
 msgid "Has Attachments"
-msgstr ""
+msgstr "Con archivos adjuntos"
 
 msgid "Addressed to Me"
-msgstr ""
+msgstr "Dirigidos a mí"
 
 msgid "From Contacts"
-msgstr ""
+msgstr "De mis contactos"
 
 msgid "High Importance"
-msgstr ""
+msgstr "Importancia alta"
 
 msgid "Today"
 msgstr "Hoy"
@@ -4126,13 +4477,13 @@ msgid "No Messages"
 msgstr "No hay mensajes"
 
 msgid "No Matching Messages"
-msgstr ""
+msgstr "No hay mensajes que coincidan"
 
 msgid "There's nothing here right now."
 msgstr "Ahora mismo no hay nada aquí."
 
 msgid "No message here passes the filters."
-msgstr ""
+msgstr "Ningún mensaje cumple los filtros aplicados."
 
 msgid "Customize Columns…"
 msgstr "Personalizar columnas…"
@@ -4149,13 +4500,11 @@ msgstr "Marcar todo como leído"
 msgid "Mark All as Unread"
 msgstr "Marcar todo como no leído"
 
-#, fuzzy
 msgid "Search all folders but Trash and Junk"
-msgstr "Todas excepto Papelera y Correo no deseado"
+msgstr "Buscar en todas las carpetas excepto Papelera y Correo no deseado"
 
-#, fuzzy
 msgid "Search all folders, Trash and Junk too"
-msgstr "Buscar en todas las carpetas"
+msgstr "Buscar en todas las carpetas, incluidas Papelera y Correo no deseado"
 
 msgid "Search this folder"
 msgstr "Buscar en esta carpeta"
@@ -4180,15 +4529,18 @@ msgstr ""
 "Arrastra para cambiar el tamaño; haz doble clic para recuperar el ancho "
 "habitual"
 
+#, fuzzy
+msgid "Forwarded"
+msgstr "Reenviar"
+
 msgid "High importance"
 msgstr "Importancia alta"
 
 msgid "Low importance"
 msgstr "Importancia baja"
 
-#, fuzzy
 msgid "In {folder}"
-msgstr "carpeta desconocida"
+msgstr "En {folder}"
 
 msgid "Mark as read"
 msgstr "Marcar como leído"
@@ -4462,9 +4814,10 @@ msgstr "Coincidencia siguiente"
 msgid "Close find"
 msgstr "Cerrar búsqueda"
 
+#, fuzzy
 msgid ""
-"Message zoom. Ctrl+ and Ctrl- change it; a click here, or Ctrl+0, puts it "
-"back to the default from Settings."
+"Message zoom. Ctrl+ and Ctrl-, or Ctrl and the scroll wheel, change it; a "
+"click here, or Ctrl+0, puts it back to the default from Settings."
 msgstr ""
 "Zoom del mensaje. Ctrl+ y Ctrl- lo modifican; un clic aquí, o Ctrl+0, lo "
 "restablece al valor predeterminado de Ajustes."
@@ -4639,6 +4992,9 @@ msgstr "Para:"
 msgid "Cc:"
 msgstr "Cc:"
 
+msgid "Bcc:"
+msgstr ""
+
 msgid "Date:"
 msgstr "Fecha:"
 
@@ -4650,6 +5006,12 @@ msgstr "Exportar registro"
 
 msgid "Collapse status bar"
 msgstr "Contraer barra de estado"
+
+msgid ""
+"Offline: there is no network connection, so mail is not being checked or "
+"sent. Messages you send wait in the Outbox. Everything syncs again once the "
+"network is back."
+msgstr ""
 
 msgid "Status bar ({n})"
 msgstr "Barra de estado ({n})"
@@ -5043,6 +5405,13 @@ msgstr "Buscar ajustes"
 msgid "No Results"
 msgstr "Sin resultados"
 
+#. Translators: words the settings search finds the Contacts page by,
+#. separated by spaces; keep "CardDAV" and "LDAP".
+msgid ""
+"address books CardDAV LDAP directory directories Online Accounts Nextcloud "
+"iCloud Google Microsoft vCard"
+msgstr ""
+
 msgid "Save the filter?"
 msgstr "¿Guardar el filtro?"
 
@@ -5073,12 +5442,14 @@ msgstr ""
 "El editor de etiquetas está abierto. Guarda los cambios o descártalos antes "
 "de continuar."
 
-msgid "Save the directory?"
+#, fuzzy
+msgid "Save the address book?"
 msgstr "¿Guardar el directorio?"
 
+#, fuzzy
 msgid ""
-"The directory editor is open. Save what you changed, or discard it, before "
-"moving on."
+"The address book editor is open. Save what you changed, or discard it, "
+"before moving on."
 msgstr ""
 "El editor de directorios está abierto. Guarda los cambios o descártalos "
 "antes de continuar."
@@ -5094,62 +5465,21 @@ msgstr ""
 "continuar."
 
 msgid ""
-"Contacts Hylki keeps itself, in its own data folder. They are listed in "
-"Contacts beside the address books of GNOME Contacts, and work without GNOME."
-msgstr ""
-"Contactos que Hylki guarda en su propia carpeta de datos. Aparecen en "
-"Contactos junto a las libretas de GNOME Contactos y funcionan sin GNOME."
-
-msgid "Contacts in the Hylki book"
-msgstr "Contactos de la libreta de Hylki"
-
-msgid "Import vCard files"
-msgstr "Importar archivos vCard"
-
-msgid ""
-"Adds the contacts in .vcf files to the Hylki book. Importing a file again "
-"updates its contacts."
-msgstr ""
-"Añade los contactos de archivos .vcf a la libreta de Hylki. Si vuelves a "
-"importar un archivo, se actualizarán sus contactos."
-
-msgid "Export as a vCard file"
-msgstr "Exportar como archivo vCard"
-
-msgid ""
-"Saves every contact in the Hylki book in one .vcf file, which other apps can "
-"import."
-msgstr ""
-"Guarda todos los contactos de la libreta de Hylki en un único archivo .vcf "
-"que pueden importar otras aplicaciones."
-
-msgid "Delete all contacts"
-msgstr "Eliminar todos los contactos"
-
-msgid ""
-"Empties the Hylki book. The address books of GNOME Contacts are not touched."
-msgstr ""
-"Vacía la libreta de Hylki. No afecta a las libretas de GNOME Contactos."
-
-msgid "New Contacts"
-msgstr "Contactos nuevos"
-
-msgid "Save new contacts in"
-msgstr "Guardar los contactos nuevos en"
-
-msgid ""
-"The address book a contact made in Hylki goes to, unless another is picked "
-"when it is made."
-msgstr ""
-"La libreta de direcciones en la que se guardan los contactos creados en "
-"Hylki, salvo que se elija otra al crearlos."
-
-msgid ""
 "Receives messages the moment they arrive. Microsoft 365 accounts check at "
 "the interval above."
 msgstr ""
 "Recibe los mensajes en cuanto llegan. Las cuentas de Microsoft 365 se "
 "comprueban según el intervalo indicado arriba."
+
+#, fuzzy
+msgid "Save data on metered connections"
+msgstr "Seleccionar las conversaciones leídas o las no leídas"
+
+msgid ""
+"On a metered connection, new mail still arrives, but Hylki does not download "
+"messages and attachments ahead of time, index older mail, watch folders "
+"other than the Inbox or fetch sender logos."
+msgstr ""
 
 msgid "Notifications"
 msgstr "Notificaciones"
@@ -5672,12 +6002,14 @@ msgstr ""
 "días, Últimos 14 días y Anteriores."
 
 msgid "Tags and labels under the text"
-msgstr ""
+msgstr "Etiquetas y rótulos debajo del texto"
 
 msgid ""
 "Puts a card's tags and labels on a line of their own under its text, where "
 "they leave the subject its full width."
 msgstr ""
+"Coloca las etiquetas y los rótulos de cada tarjeta en una línea "
+"independiente debajo del texto, para que el asunto disponga de todo el ancho."
 
 msgid "Keep the search field open"
 msgstr "Mantener abierto el campo de búsqueda"
@@ -6169,6 +6501,11 @@ msgid ""
 "and sent as formatted mail; plain text is sent without formatting. The "
 "composer's format button switches any one message."
 msgstr ""
+"Determina el formato inicial de los mensajes nuevos, las respuestas y los "
+"reenvíos. El texto enriquecido se formatea mientras escribes y se envía como "
+"HTML. Markdown y el código fuente HTML se escriben como código y se envían "
+"con formato; el texto sin formato se envía sin formato. El botón de formato "
+"del editor permite cambiarlo para cada mensaje."
 
 msgid "Font"
 msgstr "Fuente"
@@ -6218,6 +6555,15 @@ msgid ""
 msgstr ""
 "Añade el separador estándar «-- » encima de la firma. Thunderbird, Evolution "
 "y Mutt lo utilizan para atenuar la firma y omitirla cuando citan tu mensaje."
+
+#, fuzzy
+msgid "Undo Send"
+msgstr "Deshacer"
+
+msgid ""
+"How long a sent message waits before it goes, with Undo on offer to bring it "
+"back to the composer."
+msgstr ""
 
 msgid "Spelling"
 msgstr "Ortografía"
@@ -6704,6 +7050,12 @@ msgstr "Encima del mensaje citado"
 
 msgid "Below the quoted message"
 msgstr "Debajo del mensaje citado"
+
+#, fuzzy
+msgid "{n} second"
+msgid_plural "{n} seconds"
+msgstr[0] "{n} destinatario"
+msgstr[1] "{n} destinatarios"
 
 msgid "Above the messages"
 msgstr "Encima de los mensajes"
@@ -7225,6 +7577,11 @@ msgstr ""
 "Introduce primero tu dirección de correo electrónico, el ID de cliente y las "
 "dos URL de OAuth."
 
+msgid ""
+"Offline: there is no network connection. Mail syncs again once the network "
+"is back. Click to try now, or long-press for Status Bar"
+msgstr ""
+
 msgid "Your mail provider confirmed this really came from {from}."
 msgstr ""
 "Tu proveedor de correo ha confirmado que este mensaje procede realmente de "
@@ -7357,9 +7714,6 @@ msgstr "carpeta desconocida"
 msgid "Could not reach the server"
 msgstr "No se pudo contactar con el servidor"
 
-msgid "Sending…"
-msgstr "Enviando…"
-
 msgid "A Microsoft account can't receive mail from another account"
 msgstr "Una cuenta de Microsoft no puede recibir correo de otra cuenta"
 
@@ -7405,8 +7759,16 @@ msgstr ""
 msgid "the server's reply could not be read (it began: {reply})"
 msgstr "no se pudo leer la respuesta del servidor (comenzaba por: {reply})"
 
+#, fuzzy
+msgid "no network connection"
+msgstr "Probar conexión"
+
 msgid "runtime error: {e}"
 msgstr "error en tiempo de ejecución: {e}"
+
+#, fuzzy
+msgid "could not reach the server"
+msgstr "No se pudo contactar con el servidor"
 
 msgid "Could not load {path}: {e}"
 msgstr "No se pudo cargar {path}: {e}"
@@ -7461,6 +7823,16 @@ msgid "Downloading attachments… {n} remaining"
 msgid_plural "Downloading attachments… {n} remaining"
 msgstr[0] "Descargando archivos adjuntos… queda {n}"
 msgstr[1] "Descargando archivos adjuntos… quedan {n}"
+
+#. Nothing failed: the message waits for the network, which the
+#. Refresh button already shows is down (#442).
+#, fuzzy
+msgid ""
+"No network connection. The message is in the Outbox and will be sent when "
+"the connection is back."
+msgstr ""
+"El envío ha fallado: {e}. El mensaje está en la Bandeja de salida y se "
+"enviará cuando vuelva la conexión."
 
 msgid ""
 "Send failed: {e}. The message is in the Outbox and will be sent when the "
@@ -7662,6 +8034,90 @@ msgstr "La bandeja de entrada unificada en modo claro"
 msgid "Hyprlab"
 msgstr "Hyprlab"
 
+#, fuzzy
+#~ msgid "From your mail accounts"
+#~ msgstr "Añade tu cuenta de correo"
+
+#, fuzzy
+#~ msgid "Add Address Books"
+#~ msgstr "Todas las libretas de direcciones"
+
+#, fuzzy
+#~ msgid "CardDAV Accounts"
+#~ msgstr "Cuentas de correo"
+
+#, fuzzy
+#~ msgid "CardDAV accounts"
+#~ msgstr "Todas las cuentas"
+
+#, fuzzy
+#~ msgid "No CardDAV accounts yet."
+#~ msgstr "Todavía no hay cuentas en la nube."
+
+#, fuzzy
+#~ msgid "CardDAV Account"
+#~ msgstr "Cuenta en la nube"
+
+#, fuzzy
+#~ msgid "Edit Account"
+#~ msgstr "Editar cuenta en la nube"
+
+#, fuzzy
+#~ msgid "Add Account"
+#~ msgstr "Añadir cuenta"
+
+#, fuzzy
+#~ msgid "Use this account's address books"
+#~ msgstr "Usar esta cuenta en Hylki"
+
+#~ msgid "LDAP Directories"
+#~ msgstr "Directorios LDAP"
+
+#~ msgid "LDAP directories"
+#~ msgstr "Directorios LDAP"
+
+#~ msgid "Add Directory…"
+#~ msgstr "Añadir directorio…"
+
+#~ msgid "No directories yet."
+#~ msgstr "Todavía no hay directorios."
+
+#~ msgid ""
+#~ "Evolution Data Server, which keeps the directories, is not available on "
+#~ "this system."
+#~ msgstr ""
+#~ "Evolution Data Server, que gestiona los directorios, no está disponible "
+#~ "en este sistema."
+
+#~ msgid "Edit Directory"
+#~ msgstr "Editar directorio"
+
+#~ msgid "Add Directory"
+#~ msgstr "Añadir directorio"
+
+#~ msgid "Look up recipients in this directory"
+#~ msgstr "Buscar destinatarios en este directorio"
+
+#, fuzzy
+#~ msgid "Save the CardDAV account?"
+#~ msgstr "¿Guardar la cuenta?"
+
+#, fuzzy
+#~ msgid ""
+#~ "The CardDAV account editor is open. Save what you changed, or discard it, "
+#~ "before moving on."
+#~ msgstr ""
+#~ "El editor de cuentas está abierto. Guarda los cambios o descártalos antes "
+#~ "de continuar."
+
+#, fuzzy
+#~ msgid "Message sent"
+#~ msgstr "Lista de mensajes"
+
+#, fuzzy
+#~ msgid "“{subject}” sent"
+#~ msgstr "«{subject}» se enviará {when}"
+
 #~ msgid "Show only unread"
 #~ msgstr "Mostrar solo no leídos"
 
@@ -7807,9 +8263,6 @@ msgstr "Hyprlab"
 #~ msgid_plural "Send them with the message"
 #~ msgstr[0] "Encima de los mensajes"
 #~ msgstr[1] "Encima de los mensajes"
-
-#~ msgid "Found in GNOME Online Accounts"
-#~ msgstr "Encontrada en Cuentas en línea de GNOME"
 
 #~ msgid "Start Reading"
 #~ msgstr "Empezar a leer"

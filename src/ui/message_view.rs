@@ -223,6 +223,10 @@ pub struct MessageView {
     fold_preview_lines: u32,
     /// A document was loaded while the view was not on screen (#332).
     painted_hidden: bool,
+    /// The open scroll went to a document loaded while the view was hidden,
+    /// which never painted (#332): the next document loaded on screen is owed
+    /// it, unless the reader has a place to keep by then.
+    scroll_owed: bool,
     /// The conversation's messages filed in Sent, for the folded bar.
     sent: std::collections::HashSet<(u32, u32)>,
     /// Cards opened or folded by hand: these win over the default for as
@@ -1290,8 +1294,10 @@ pub enum MessageViewOutput {
     /// The subject block's Reader View toggle was flipped; the app saves the
     /// preference and pushes it back (`SetReaderMode`) to every reader.
     ReaderMode(bool),
-    /// The zoom chip was clicked: back to the default from Settings.
-    ZoomReset,
+    /// Message zoom one step in (1) or out (-1), from Ctrl + the scroll
+    /// wheel over the body, or back to the default from Settings (0), from
+    /// a click on the zoom chip.
+    Zoom(i8),
     /// A card's Unsubscribe button: leave the list this message came from,
     /// by the handles its headers offered.
     Unsubscribe { message: Box<Message>, info: Box<crate::models::Unsubscribe> },
@@ -1942,10 +1948,10 @@ impl Component for MessageView {
                             add_css_class: "caption",
                             add_css_class: "hylki-zoom-chip",
                             set_cursor_from_name: Some("pointer"),
-                            set_tooltip_text: Some(i18n("Message zoom. Ctrl+ and Ctrl- change it; a click here, or Ctrl+0, puts it back to the default from Settings.").as_str()),
+                            set_tooltip_text: Some(i18n("Message zoom. Ctrl+ and Ctrl-, or Ctrl and the scroll wheel, change it; a click here, or Ctrl+0, puts it back to the default from Settings.").as_str()),
                             add_controller = gtk::GestureClick {
                                 connect_released[sender] => move |_, _, _, _| {
-                                    let _ = sender.output(MessageViewOutput::ZoomReset);
+                                    let _ = sender.output(MessageViewOutput::Zoom(0));
                                 },
                             },
                         },
@@ -2186,6 +2192,7 @@ impl Component for MessageView {
             fold_messages: crate::config::FoldMessages::Never,
             fold_preview_lines: 1,
             painted_hidden: false,
+            scroll_owed: false,
             sent: std::collections::HashSet::new(),
             folds: std::collections::HashMap::new(),
             translations: std::collections::HashMap::new(),
@@ -2594,6 +2601,13 @@ impl Component for MessageView {
         body_overlay.set_child(Some(&model.webview));
         body_overlay.add_overlay(&model.page_fade.cover);
         body_overlay.add_overlay(&link_preview);
+        let zoom_sender = sender.clone();
+        body_overlay.add_controller(super::ctrl_scroll_zoom(
+            || true,
+            move |step| {
+                let _ = zoom_sender.output(MessageViewOutput::Zoom(step));
+            },
+        ));
         widgets.body_stack.add_named(&body_overlay, Some("body"));
         widgets.body_stack.set_visible_child_name("body");
         ComponentParts { model, widgets }
@@ -2628,13 +2642,19 @@ impl Component for MessageView {
                     self.member_checks.clear();
                     self.unsub_state.clear();
                 }
+                // A card taken out of the conversation on screen, deleted or
+                // moved, can leave another message heading it. What remains
+                // is the same document, read on from where it was.
+                let card_left = !same_message
+                    && thread.len() < self.thread.len()
+                    && thread.iter().all(|m| self.thread.iter().any(|t| (t.account_id, t.id) == (m.account_id, m.id)));
                 // What was done to a card (translated, folded) holds while it
                 // stays in the conversation on screen: stepping to another of
                 // its messages must not undo it. The message stepped to opens.
                 let stays = |k: &(u32, u32)| thread.iter().any(|m| (m.account_id, m.id) == *k);
                 self.translations.retain(|k, _| stays(k));
                 self.folds.retain(|k, _| stays(k));
-                if !same_message {
+                if !same_message && !card_left {
                     if let Some(key) = shown.as_ref().map(|s| (s.account_id, s.id)) {
                         if self.thread.iter().any(|m| (m.account_id, m.id) == key) {
                             self.folds.insert(key, false);
@@ -2646,10 +2666,11 @@ impl Component for MessageView {
                 // A fresh open: anything the user marked unread earlier can be
                 // read by scrolling again — and the first render may auto-scroll
                 // to the unread mark again.
-                if !same_message {
+                if !same_message && !card_left {
                     self.no_autoread.clear();
                     self.did_autoscroll = false;
                     self.saved_anchor = None;
+                    self.scroll_owed = false;
                     // A per-message Reader View default (Settings) resets
                     // the view for each conversation opened; the switch can
                     // still flip this one.
@@ -3886,6 +3907,16 @@ impl MessageView {
         if self.did_autoscroll && self.autoscroll_lone && self.thread.len() > 1 && self.saved_anchor.is_none() {
             self.did_autoscroll = false;
         }
+        // A conversation opened behind the loading cover spends its open
+        // scroll on a document nobody saw; the repaint once it is on screen
+        // would otherwise keep that unseen place, the top.
+        if self.webview.is_mapped() {
+            if std::mem::take(&mut self.scroll_owed) && self.saved_anchor.is_none() {
+                self.did_autoscroll = false;
+            }
+        } else if !self.did_autoscroll {
+            self.scroll_owed = true;
+        }
         // Only a conversation's first document may auto-scroll to the unread
         // mark; every later render of the same thread (bodies streaming in, a
         // theme change) is stamped no-scroll so the reader's place is kept.
@@ -4123,6 +4154,7 @@ impl MessageView {
             m.from_addr.hash(&mut h);
             m.to.hash(&mut h);
             m.cc.hash(&mut h);
+            m.bcc.hash(&mut h);
             m.body.hash(&mut h);
             m.datetime_full().hash(&mut h);
             self.no_autoread.contains(&key).hash(&mut h);
@@ -5655,21 +5687,22 @@ fn paints_own_background(body: &str) -> bool {
         .any(|needle| lower.contains(needle))
 }
 
-/// How many addresses a message's To + Cc headers name.
+/// How many addresses a message's To, Cc and Bcc headers name.
 fn recipient_count(m: &Message) -> usize {
-    [m.to.as_str(), m.cc.as_str()]
+    [m.to.as_str(), m.cc.as_str(), m.bcc.as_str()]
         .iter()
         .flat_map(|s| s.split(','))
         .filter(|a| !a.trim().is_empty())
         .count()
 }
 
-/// The collapsible To/Cc block inside a conversation card's header. Starts
-/// hidden; the header's recipients chip toggles it. Empty when the message
-/// names no recipients at all.
+/// The collapsible To/Cc/Bcc block inside a conversation card's header.
+/// Starts hidden; the header's recipients chip toggles it. Empty when the
+/// message names no recipients at all. Bcc is there only on the sender's own
+/// copy (#476).
 fn recipients_html(m: &Message, always_shown: bool) -> String {
     let mut lines = String::new();
-    for (label, list) in [("To", m.to.trim()), ("Cc", m.cc.trim())] {
+    for (label, list) in [("To", m.to.trim()), ("Cc", m.cc.trim()), ("Bcc", m.bcc.trim())] {
         if list.is_empty() {
             continue;
         }
@@ -6941,6 +6974,13 @@ fn inject_csp(html: &str, allow_remote: bool, dark: bool) -> String {
     // ahead of the email's own CSS, so a message that styles its body (a
     // full-bleed design, say) still wins.
     let body_pad = "body{margin:0;padding:20px;box-sizing:border-box;}";
+    // An image with no size of its own (a photo sent from a phone is a bare
+    // `<img>`) would otherwise lay out at its pixel width, and the frame
+    // widens to whatever its content needs, so the card ran off the pane.
+    // Capped at the card instead; a message that sizes its images keeps its
+    // own rules, which come later. No `height:auto`: that would stretch a
+    // spacer image whose `height` attribute is all that keeps it thin.
+    let image_fit = "img{max-width:100%;}";
     // The frame's own document must never scroll: WebKit latches a wheel
     // gesture to the innermost scrollable area under the pointer, and a
     // frame document that can scroll sideways (a message wider than the
@@ -6956,7 +6996,7 @@ fn inject_csp(html: &str, allow_remote: bool, dark: bool) -> String {
     let supported = if dark { "dark light" } else { "light dark" };
     let theme = format!(
         "<meta name=\"color-scheme\" content=\"{supported}\">\
-         <style>:root{{color-scheme:{scheme};}}{body_pad}\
+         <style>:root{{color-scheme:{scheme};}}{body_pad}{image_fit}\
          html{{overflow:hidden !important;}}\
          @media print{{:root{{color-scheme:light;}}html{{overflow:visible !important;}}html,body{{background:#fff !important;}}}}\
          </style>"
@@ -7090,17 +7130,24 @@ fn ground_rgba(hex: &str) -> gtk::gdk::RGBA {
 // parent-attached listeners, but a click into an iframe focuses it and blurs
 // the wrapper window — caught there, the focused frame names the card, and
 // focus is handed straight back so the next click fires again.
+//
+// `zf` is the message zoom on the frame's root. Under it WebKit reports the
+// body's scroll sizes in the body's own unzoomed pixels, not the frame's, so
+// at 90% the body always looked wider than its frame: each pass of the widen
+// loop grew the frame by 1/zoom and centred mail drifted right (#473).
 const SIZE_SCRIPT: &str = "\
+function zf(d){try{return parseFloat(d.defaultView.getComputedStyle(d.documentElement).zoom)||1;}catch(_){return 1;}}\
 function s(f){if(f._s)return;f._s=1;try{var d=f.contentDocument;if(!d||d.URL==='about:blank')return;\
 f.classList.add('hylki-live');\
 var b=d.body,e=d.documentElement;\
 var sy=window.scrollY;var _r=f.getBoundingClientRect();\
 var above=_r.bottom<=0;var old=_r.height||0;\
 f.style.width='';void f.offsetWidth;\
-for(var k=0;k<8;k++){var w=Math.max(b?b.scrollWidth:0,e?e.scrollWidth:0);\
+var z=zf(d);\
+for(var k=0;k<8;k++){var w=Math.max(b?Math.ceil(b.scrollWidth*z):0,e?e.scrollWidth:0);\
 if(w<=f.clientWidth+1)break;f.style.width=w+'px';void f.offsetWidth;}\
 var prev=f.style.height;f.style.height='0px';void f.offsetHeight;\
-var h=Math.max(b?b.scrollHeight:0,e?e.scrollHeight:0,b?b.offsetHeight:0);\
+var h=Math.max(b?Math.ceil(b.scrollHeight*z):0,e?e.scrollHeight:0,b?Math.ceil(b.offsetHeight*z):0);\
 if(h>0){f.style.height=h+'px';\
 if(f.dataset.key&&f._h!==h){f._h=h;\
 try{window.webkit.messageHandlers.hylki.postMessage('size:'+f.dataset.key+':'+h);}catch(_){}}}\
@@ -7204,7 +7251,7 @@ b.classList.toggle('open',on);\
 b.setAttribute('title',on?QT[1]:QT[0]);f._qp();\
 var to=0;try{var dd=f.contentDocument,bb=dd.body,ee=dd.documentElement;\
 var prev=f.style.height;f.style.height='0px';void f.offsetHeight;\
-to=Math.max(bb?bb.scrollHeight:0,ee?ee.scrollHeight:0,bb?bb.offsetHeight:0);\
+var z=zf(dd);to=Math.max(bb?Math.ceil(bb.scrollHeight*z):0,ee?ee.scrollHeight:0,bb?Math.ceil(bb.offsetHeight*z):0);\
 f.style.height=prev;void f.offsetHeight;}catch(_){}\
 if(!to){s(f);window.scrollTo(0,sy);return;}\
 f.style.height=from+'px';f.classList.add('anim');\
@@ -7817,12 +7864,13 @@ fn print_header_html(message: Option<&Message>) -> String {
     };
     format!(
         "<div class=\"hylki-print-hdr\">\
-           <div class=\"hylki-print-subject\">{subject}</div>{from}{to}{cc}{date}\
+           <div class=\"hylki-print-subject\">{subject}</div>{from}{to}{cc}{bcc}{date}\
          </div>",
         subject = escape_text(&subject),
         from = row(&i18n("From:"), &from),
         to = row(&i18n("To:"), &m.to),
         cc = row(&i18n("Cc:"), &m.cc),
+        bcc = row(&i18n("Bcc:"), &m.bcc),
         date = row(&i18n("Date:"), &m.datetime_full()),
     )
 }
@@ -7925,6 +7973,23 @@ mod tests {
     }
 
     // ===== Meeting invitations (#223) =====
+
+    /// A sent copy's Bcc recipients are listed under To and Cc, and counted
+    /// on the chip (#476); a message without any has no Bcc line.
+    #[test]
+    fn the_recipients_block_lists_bcc() {
+        let mut m = msg_for_print();
+        assert!(!recipients_html(&m, true).contains("Bcc:"));
+        m.bcc = "hidden@example.com".into();
+        let html = recipients_html(&m, true);
+        assert!(
+            html.contains("<b>Bcc:</b> <span class=\"hylki-mail\" data-mail=\"hidden@example.com\">"),
+            "{html}"
+        );
+        assert!(html.find("<b>Cc:</b>") < html.find("<b>Bcc:</b>"));
+        assert_eq!(recipient_count(&m), 3);
+        assert!(print_header_html(Some(&m)).contains("hidden@example.com"));
+    }
 
     /// The banner's container is emitted for every card whether or not the
     /// message is about a meeting, so an invitation read after the paint has
@@ -8324,6 +8389,7 @@ mod tests {
             reply_to: String::new(),
             to: "me@example.com".into(),
             cc: "carol@example.com".into(),
+            bcc: String::new(),
             subject: "Quarterly numbers".into(),
             preview: String::new(),
             body: "<p>hi</p>".into(),
@@ -8331,6 +8397,8 @@ mod tests {
             timestamp: 0,
             unread: false,
             starred: false,
+            answered: false,
+            forwarded: false,
             keywords: Vec::new(),
             has_attachment: false,
             message_id: String::new(),
@@ -9146,6 +9214,20 @@ mod tests {
         assert!(doc.contains("img,table,pre{max-width:100% !important;}"));
         // Still no scripts, and blocked remote content stays blocked.
         assert!(doc.contains("Content-Security-Policy"));
+    }
+
+    #[test]
+    fn a_bare_image_is_capped_at_the_card_unless_the_message_says_otherwise() {
+        let doc = inject_csp(
+            "<html><head><style>img{max-width:none}</style></head><body><img src=\"data:image/png;base64,AA\"></body></html>",
+            false,
+            false,
+        );
+        let ours = doc.find("img{max-width:100%;}").expect("the default image cap");
+        let theirs = doc.find("img{max-width:none}").unwrap();
+        assert!(ours < theirs, "the message's own rule must come later and win: {doc}");
+        // A body with no head at all gets it too.
+        assert!(inject_csp("<img src=x>", false, true).contains("img{max-width:100%;}"));
     }
 
     #[test]

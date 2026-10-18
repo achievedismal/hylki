@@ -67,8 +67,11 @@ The full list. The [README](../README.md) carries a shorter one.
 - **Printing:** a message with its sender, recipients and date, page
   numbers and an optional wider margin for hole punching, with an in-app
   preview that also saves straight to PDF.
+- **Undo Send:** a sent message waits three to thirty seconds, five by
+  default, with Undo on offer.
 - **Outbox:** a send that fails is kept and retried when the connection
   returns, not lost. Queued messages can be edited, sent by hand or discarded.
+  A message being sent is listed there too until it has gone.
 - **Send later:** schedule a message for tomorrow morning, Monday, or any
   date and time; it waits in the Outbox, editable, until then.
 
@@ -175,6 +178,12 @@ The full list. The [README](../README.md) carries a shorter one.
 - **GNOME Contacts:** names and photos from your address book, optional.
 - **Hylki address book:** a book of your own, beside the ones Evolution Data
   Server keeps, with vCard (`.vcf`) import. It works without GNOME.
+- **CardDAV accounts:** the address books of Nextcloud, iCloud, Fastmail or
+  any CardDAV server, set up in Hylki, through Evolution Data Server. See
+  [CardDAV accounts](DOCUMENTATION.md#carddav-accounts).
+- **Contact groups:** a name for several people that the composer offers
+  like a contact, optionally sent as Bcc; Evolution's contact lists work the
+  same way. See [Contact groups](DOCUMENTATION.md#contact-groups).
 - **LDAP directories:** recipients looked up in a company directory as you
   type, through Evolution Data Server, and in a Microsoft 365
   organization's directory.

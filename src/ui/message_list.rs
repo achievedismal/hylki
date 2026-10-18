@@ -65,6 +65,9 @@ fn message_cmp(a: &Message, b: &Message, order: SortOrder) -> std::cmp::Ordering
         }
         SortOrder::Account => a.account_id.cmp(&b.account_id).then(b.timestamp.cmp(&a.timestamp)),
         SortOrder::Attachment => b.has_attachment.cmp(&a.has_attachment).then(b.timestamp.cmp(&a.timestamp)),
+        SortOrder::Replied => {
+            (b.answered, b.forwarded).cmp(&(a.answered, a.forwarded)).then(b.timestamp.cmp(&a.timestamp))
+        }
         SortOrder::Importance => b
             .importance
             .to_i64()
@@ -113,6 +116,7 @@ pub fn column_sort(column: crate::config::ListColumn, show_recipient: bool) -> S
         C::Recipients => SortOrder::Recipients,
         C::Subject => SortOrder::Subject,
         C::Attachment => SortOrder::Attachment,
+        C::Replied => SortOrder::Replied,
         C::Importance => SortOrder::Importance,
         C::Account => SortOrder::Account,
         C::Due => SortOrder::Due,
@@ -833,10 +837,11 @@ pub enum SortOrder {
     Due,
     Correspondents,
     Tags,
+    Replied,
 }
 
 impl SortOrder {
-    const KEYS: [(SortOrder, &'static str); 13] = [
+    const KEYS: [(SortOrder, &'static str); 14] = [
         (SortOrder::DateNewest, "date_newest"),
         (SortOrder::DateOldest, "date_oldest"),
         (SortOrder::Sender, "sender"),
@@ -850,6 +855,7 @@ impl SortOrder {
         (SortOrder::Due, "due"),
         (SortOrder::Correspondents, "correspondents"),
         (SortOrder::Tags, "tags"),
+        (SortOrder::Replied, "replied"),
     ];
 
     pub fn from_key(key: &str) -> Self {
@@ -870,6 +876,7 @@ impl SortOrder {
                 | SortOrder::FlaggedFirst
                 | SortOrder::Attachment
                 | SortOrder::Importance
+                | SortOrder::Replied
         )
     }
 }
@@ -1022,6 +1029,8 @@ pub enum BulkAction {
     /// The reverse of `Spam`, for a selection in Junk (#168).
     NotSpam,
     Delete,
+    /// Erase from the server, skipping Trash (#471). The app asks first.
+    DeleteForever,
     /// Back to the Inbox, for a selection in Trash or Junk (#138).
     MoveToInbox,
 }
@@ -1381,6 +1390,9 @@ pub enum MessageListInput {
     /// A hover-palette action for a specific message (forwarded to the app).
     RowAction { action: RowAction, message: Box<Message> },
     SetStarred { slot: (u32, u32, u32), starred: bool },
+    /// A message was replied to or forwarded (#454), or the send that
+    /// marked it ahead of time failed (`on` false).
+    SetAnswered { slot: (u32, u32, u32), forwarded: bool, on: bool },
     /// A message's keywords changed (a tag put on or taken off, #71).
     /// A message's keywords and Gmail labels changed (a tag put on or
     /// taken off, #374).
@@ -1394,6 +1406,9 @@ pub enum MessageListInput {
     /// UID, since a UID is unique only within its folder.
     SetHasAttachment { account_id: u32, folder_id: u32, uid: u32, has: bool },
     Remove(u32),
+    /// `gone` left the open conversation, which stays open: its row stays,
+    /// now headed by `head`.
+    LeaveConversation { gone: (u32, u32), head: (u32, u32) },
     /// Remove many messages in a single batch (bulk archive/delete/spam), so the
     /// list updates in one render pass instead of one per message.
     RemoveMany(Vec<u32>),
@@ -1503,8 +1518,9 @@ pub enum MessageListOutput {
     /// How many rows Gmail's x has checked (#392), whenever that changes;
     /// `None` once checking ends.
     Checked(Option<usize>),
-    /// The search field became active (non-empty) or inactive (empty), so the app
-    /// can supply or drop the cross-folder search pool.
+    /// A search across folders began or ended (a query in the field and a
+    /// scope wider than this folder), so the app can supply or drop the
+    /// cross-folder search pool.
     SearchActive(bool),
     /// A column heading changed the sort (#334), by its key: the sort
     /// menus follow.
@@ -2376,9 +2392,9 @@ impl SimpleComponent for MessageList {
                 self.sync_look();
             }
             MessageListInput::Search(q) => {
-                let was_active = self.searching();
+                let was_active = self.wants_pool();
                 self.query = q;
-                let now_active = self.searching();
+                let now_active = self.wants_pool();
                 // On the empty↔non-empty edge, tell the app to supply or drop the
                 // cross-folder pool.
                 if was_active != now_active {
@@ -2392,7 +2408,13 @@ impl SimpleComponent for MessageList {
                     picker.sync(scope);
                 }
                 if self.scope != scope {
+                    let was_active = self.wants_pool();
                     self.scope = scope;
+                    // "This folder" has no use for the pool, which can run to
+                    // every message of every account (#472).
+                    if was_active != self.wants_pool() {
+                        let _ = sender.output(MessageListOutput::SearchActive(!was_active));
+                    }
                     // Scope only affects the view while a query is present.
                     if self.searching() {
                         self.sync_look();
@@ -2604,6 +2626,11 @@ impl SimpleComponent for MessageList {
                 self.shared.set_cursor(self.shown.get(next).map(|m| (m.account_id, m.id)));
             }
             MessageListInput::OpenCursor => {
+                // Several checked are for an action, not for reading: which
+                // one to open is anyone's guess (#392).
+                if self.checking && self.selection_count > 1 {
+                    return;
+                }
                 let Some(pos) = self.cursor_position().or_else(|| self.selected_positions().first().copied()) else {
                     return;
                 };
@@ -3017,8 +3044,9 @@ impl SimpleComponent for MessageList {
             }
             MessageListInput::RowActivated(index) => {
                 // With Gmail's keys, Enter on the row the cursor reached opens
-                // it here, as o does; a row already open goes to a window.
-                if self.gmail_keys && !self.shared.selection.is_selected(index as u32) {
+                // it here, as o does, checked or not (#392); a row already
+                // open goes to a window.
+                if self.gmail_keys && (self.checking || !self.shared.selection.is_selected(index as u32)) {
                     sender.input(MessageListInput::OpenCursor);
                     return;
                 }
@@ -3037,6 +3065,13 @@ impl SimpleComponent for MessageList {
             }
             MessageListInput::SetStarred { slot, starred } => {
                 self.update_message(|m| thread_slot(m) == slot, |m| m.starred = starred);
+                self.refresh_thread_head(slot);
+            }
+            MessageListInput::SetAnswered { slot, forwarded, on } => {
+                self.update_message(
+                    |m| thread_slot(m) == slot,
+                    |m| if forwarded { m.forwarded = on } else { m.answered = on },
+                );
                 self.refresh_thread_head(slot);
             }
             MessageListInput::SetKeywords { slot, keywords, labels } => {
@@ -3120,6 +3155,57 @@ impl SimpleComponent for MessageList {
                     }
                 }
             }
+            MessageListInput::LeaveConversation { gone, head } => {
+                // The cache's count of the conversation still holds the
+                // message until the server has moved it, so the badge is
+                // brought down here rather than asked for again. A reply
+                // filed in another folder is no row of this list: the
+                // conversation is found by its row.
+                let group = [gone, head]
+                    .iter()
+                    .find_map(|k| self.msg_thread.get(k))
+                    .cloned()
+                    .or_else(|| {
+                        self.groups
+                            .iter()
+                            .find(|(_, ms)| ms.iter().any(|m| (m.account_id, m.id) == head))
+                            .map(|(k, _)| k.clone())
+                    });
+                // A message of this folder goes by another id there, so by
+                // folder and UID; one filed elsewhere by the id the reader
+                // gave it.
+                let slot = self.all.iter().find(|m| (m.account_id, m.id) == gone).map(|m| (m.account_id, m.folder_id, m.uid));
+                if let Some(s) = group.and_then(|k| self.thread_summaries.get_mut(&k)) {
+                    let before = s.members.len();
+                    s.members.retain(|m| (m.account_id, m.id) != gone && Some((m.account_id, m.folder_id, m.uid)) != slot);
+                    if s.members.len() < before {
+                        s.count = s.count.saturating_sub(before - s.members.len());
+                        // The row may have been quoting it as the newest.
+                        s.latest = s.members.iter().max_by_key(|m| m.timestamp).map(|m| crate::models::ThreadLatest {
+                            from_name: m.from_name.clone(),
+                            from_addr: m.from_addr.clone(),
+                            preview: m.preview.clone(),
+                            timestamp: m.timestamp,
+                            date: m.date.clone(),
+                        });
+                    }
+                }
+                self.all.retain(|m| (m.account_id, m.id) != gone);
+                self.tail.retain(|r| (r.msg.account_id, r.msg.id) != gone);
+                self.emitted_thread.retain(|k| *k != gone);
+                self.drop_threads();
+                // The row is selected under its new head before the rebuild
+                // lights it, so the selection reads as the one already open
+                // and the reader is not loaded again.
+                for k in self.selected_ids.iter_mut().filter(|k| **k == gone) {
+                    *k = head;
+                }
+                self.selected_ids.dedup();
+                if self.selected_id == Some(gone) {
+                    self.selected_id = Some(head);
+                }
+                self.queue_rebuild(true);
+            }
             MessageListInput::RemoveMany(ids) => {
                 if ids.is_empty() {
                     return;
@@ -3163,7 +3249,17 @@ impl SimpleComponent for MessageList {
                 }
                 // Keep the header count honest; no rebuild follows.
                 self.total_matches = self.total_matches.saturating_sub(shown_before - self.shown.len());
-                if was_viewed {
+                if self.checking {
+                    // Checked rows deleted (#392): the keyboard goes to the
+                    // conversation above them, else the one below, outlined
+                    // but neither checked nor opened.
+                    let cursor_gone = self.shared.cursor().is_some_and(|(_, i)| set.contains(&i));
+                    if let Some(idx) = first_removed.filter(|_| (cursor_gone || had_focus) && !self.shown.is_empty()) {
+                        let pos = if idx > 0 { self.conversation_step(Some(idx), -1) } else { 0 };
+                        self.focus_row(pos);
+                        self.shared.set_cursor(self.shown.get(pos).map(|m| (m.account_id, m.id)));
+                    }
+                } else if was_viewed {
                     match first_removed {
                         Some(idx) if !self.shown.is_empty() => {
                             let next = self.advance_index(idx);
@@ -3928,6 +4024,7 @@ impl MessageList {
             let px = self.widths.get(c).copied().unwrap_or_else(|| default_width(*c));
             match c {
                 C::Star | C::Attachment => fixed += 12,
+                C::Replied => fixed += crate::ui::message_row::REPLIED_PX,
                 C::Importance => fixed += 16,
                 C::Subject => fixed += SUBJECT_PX,
                 // A date cut short says nothing: it keeps its width.
@@ -4120,9 +4217,13 @@ impl MessageList {
         };
         let unread = own.iter().any(|m| now(m).unread);
         let starred = own.iter().any(|m| now(m).starred);
+        let newest = own.last().map(now);
+        let (answered, forwarded) = newest.map(|m| (m.answered, m.forwarded)).unwrap_or_default();
         self.shared.model.update_row(idx, |d| {
             d.meta.unread = unread;
             d.meta.starred = starred;
+            d.meta.answered = answered;
+            d.meta.forwarded = forwarded;
         });
     }
 
@@ -4288,8 +4389,13 @@ impl MessageList {
         true
     }
 
+    /// Whether the search reaches past this folder, and so wants the pool.
+    fn wants_pool(&self) -> bool {
+        self.searching() && self.scope != SearchScope::ThisFolder
+    }
+
     fn searching_pool(&self) -> bool {
-        self.searching() && self.scope != SearchScope::ThisFolder && !self.search_pool.is_empty()
+        self.wants_pool() && !self.search_pool.is_empty()
     }
 
     /// The conversations of `active_source`, from the kept copy while the
@@ -4321,7 +4427,7 @@ impl MessageList {
         // The entry's own change arrives with the query already empty, too
         // late to see the search end: the cross-folder pool and the account
         // tint were left behind.
-        if self.searching() {
+        if self.wants_pool() {
             let _ = sender.output(MessageListOutput::SearchActive(false));
         }
         self.query.clear();
@@ -4445,6 +4551,7 @@ impl MessageList {
             (None, None, None, None)
         };
         let any_starred = count > 1 && msgs.iter().any(|m| m.starred);
+        let (answered, forwarded) = (count > 1 && newest_here.answered, count > 1 && newest_here.forwarded);
         // The row stays this folder's oldest message, whatever the other
         // folders hold that is older, so what is done to the row is done to
         // mail in this folder. The rest follow in time order.
@@ -4478,6 +4585,8 @@ impl MessageList {
             latest_at,
             unread: any_unread,
             starred: any_starred,
+            answered,
+            forwarded,
             people,
             revealed: true,
             group: self.threading.then(|| key.clone()),
@@ -4542,6 +4651,9 @@ impl MessageList {
         let passes = self.filter();
         let source_len = self.active_source().len();
         let mut matches: Vec<Rc<Message>> = self.active_source().iter().filter(|m| passes(m)).cloned().collect();
+        if self.searching() {
+            tracing::debug!("list: search matched {} of {} messages ({:?})", matches.len(), source_len, self.scope);
+        }
         let mut filtered = matches.len() != source_len;
         // A large list's conversations are worked out on a background
         // thread (`threads_pending`). Until they are in, its newest messages
@@ -4791,10 +4903,15 @@ impl MessageList {
         });
         // Delete / Backspace on a focused row deletes the selection (single or
         // multi). Scoped to the list, so typing in the search box is unaffected.
+        // Shift+Delete erases it instead, as in Thunderbird (#471).
         let key = gtk::EventControllerKey::new();
         let s = input.clone();
-        key.connect_key_pressed(move |_, keyval, _, _| {
-            if matches!(keyval, gtk::gdk::Key::Delete | gtk::gdk::Key::BackSpace) {
+        key.connect_key_pressed(move |_, keyval, _, state| {
+            let shift = state.contains(gtk::gdk::ModifierType::SHIFT_MASK);
+            if shift && matches!(keyval, gtk::gdk::Key::Delete | gtk::gdk::Key::KP_Delete) {
+                let _ = s.send(MessageListInput::Bulk(BulkAction::DeleteForever));
+                gtk::glib::Propagation::Stop
+            } else if matches!(keyval, gtk::gdk::Key::Delete | gtk::gdk::Key::BackSpace) {
                 // ResolveDelete, not a straight Bulk: a lone thread-head row
                 // stands for its whole conversation (confirmed by the app).
                 let _ = s.send(MessageListInput::ResolveDelete);
@@ -5258,6 +5375,7 @@ mod tests {
             reply_to: String::new(),
             to: String::new(),
             cc: String::new(),
+            bcc: String::new(),
             subject: "S".into(),
             preview: String::new(),
             body: String::new(),
@@ -5265,6 +5383,8 @@ mod tests {
             timestamp: 1000,
             unread: false,
             starred: false,
+            answered: false,
+            forwarded: false,
             keywords: Vec::new(),
             has_attachment: false,
             message_id: message_id.into(),

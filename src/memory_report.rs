@@ -374,6 +374,7 @@ pub fn message_bytes(m: &Message) -> usize {
         + m.reply_to.len()
         + m.to.len()
         + m.cc.len()
+        + m.bcc.len()
         + m.subject.len()
         + m.preview.len()
         + m.body.len()
@@ -524,6 +525,7 @@ mod tests {
             reply_to: String::new(),
             to: String::new(),
             cc: String::new(),
+            bcc: String::new(),
             subject: String::new(),
             preview: String::new(),
             body: String::new(),
@@ -531,6 +533,8 @@ mod tests {
             timestamp: 0,
             unread: false,
             starred: false,
+            answered: false,
+            forwarded: false,
             keywords: Vec::new(),
             has_attachment: false,
             message_id: String::new(),

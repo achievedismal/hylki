@@ -7,10 +7,12 @@ mod avatar;
 mod backend;
 mod brand;
 mod cache;
+mod carddav;
 mod cloud;
 mod color;
 mod config;
 mod console_log;
+mod contact_sources;
 mod contacts;
 mod datefmt;
 mod desktop;
@@ -31,6 +33,7 @@ mod ms_broker;
 mod mutf7;
 mod nautilus_ext;
 mod notify;
+mod outgoing;
 mod oauth;
 mod outlook_msg;
 mod percent;
@@ -275,6 +278,7 @@ fn main() {
         .with_args(args)
         .visible_on_activate(!hidden && !first_run);
     app.run::<AppModel>(());
+    app::finish_keyring_writes();
 }
 
 /// Whether another instance already owns the app's D-Bus name.

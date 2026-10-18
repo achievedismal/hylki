@@ -11,6 +11,8 @@ keyboard.
 - [GNOME Online Accounts](#gnome-online-accounts)
 - [OAuth (Google / Microsoft)](#oauth-google--microsoft)
 - [Cloud attachments (Nextcloud, OneDrive, Dropbox, Seafile)](#cloud-attachments-nextcloud-onedrive-dropbox-seafile)
+- [Address books](#address-books)
+- [CardDAV accounts](#carddav-accounts)
 - [LDAP directories](#ldap-directories)
 - [Translating messages](#translating-messages)
 - [Writing in Markdown or HTML](#writing-in-markdown-or-html)
@@ -465,6 +467,38 @@ of the generated one.
   empty. Link passwords and expiry dates are a paid Dropbox feature; on a
   Basic plan leave both off, or the share step reports it.
 
+### Address books
+
+**Settings → Contacts** lists every address book Hylki reads contacts from,
+one row each, as Mail Accounts lists mail accounts: the Hylki book, the books
+on this computer that GNOME Contacts and Evolution keep, each GNOME Online
+Accounts account that keeps contacts (Google, Microsoft 365, Nextcloud,
+iCloud), each [CardDAV account](#carddav-accounts) and each
+[LDAP directory](#ldap-directories). A row names the account, what it holds,
+and where it was set up: **Hylki**, **GOA** or **Evolution**.
+
+A row's switch uses the address book in Hylki or leaves it out: of Contacts,
+the composer's suggestions, sender pictures, the
+[filters on Contacts](#filtering-on-contacts) and syncing. The switch is
+Hylki's own; GNOME Contacts and Evolution go on using the book. An account
+whose Contacts are switched off in GNOME Online Accounts has its switch
+greyed out, and says so.
+
+The arrow at the end of a row opens the address book's page. An account's
+page lists its address books, each with a switch of its own, under the
+account's switch. The Hylki book's page holds its import and export. A
+GNOME Online Accounts account's page has **Open Online Accounts**, where its
+sign-in is changed; a CardDAV account's and a directory's page is their form,
+with **Remove**.
+
+**Add Address Book…** offers a CardDAV server, iCloud, Nextcloud, Fastmail,
+Yahoo and an LDAP directory, set up in Hylki, and Google and Microsoft 365,
+which are added in GNOME Online Accounts and then listed here; the refresh
+button beside it looks again for one just added there. Every kind but the
+Hylki book is kept by Evolution Data Server; without it, the page says so.
+**Save new contacts in**, at the foot of the page, sets the book a contact
+made in Hylki goes to.
+
 ### The Hylki address book
 
 Hylki keeps an address book of its own, the **Hylki Address Book**, beside
@@ -480,20 +514,22 @@ book** row at the top of its form that picks where it is saved; it starts on
 the book the list shows, or on the default book when the list shows them
 all. A contact being edited stays in its book, which the form names.
 
-**Settings → Contacts** manages the Hylki book: how many contacts it holds,
-**Import vCard files**, **Export as a vCard file** (one `.vcf` file with every
-contact, which other apps can import) and **Delete all contacts**, which asks
-first and leaves the GNOME Contacts books alone. **Save new contacts in**
-sets the default book for contacts made in Hylki, from the Contacts view or
-with **Add Sender to Contacts**. Until it is set, a new contact goes to the
-first writable EDS book, or to the Hylki book when there is none.
+The Hylki book's page in **Settings → Contacts** shows how many contacts it
+holds, and has **Import vCard files**, **Export as a vCard file** (one `.vcf`
+file with every contact, which other apps can import) and **Delete all
+contacts**, which asks first and leaves the other books alone. **Save new
+contacts in**, on the same page as the list, sets the default book for
+contacts made in Hylki, from the Contacts view or with **Add Sender to
+Contacts**. Until it is set, a new contact goes to the first writable EDS
+book, or to the Hylki book when there is none.
 
 Importing reads `.vcf` files into the Hylki book, from Settings or from the
 import button in the Contacts view's header. A file can hold many contacts,
 in vCard 2.1, 3.0 or 4.0. A contact with the same ID as one already in the
 book updates it, and one without an ID is matched by its content, so
-importing a file twice adds nothing new. Entries with neither a name nor an
-address, and mailing lists, are skipped; truncated or oversized entries
+importing a file twice adds nothing new. A contact list in the file becomes
+a group (see [Contact groups](#contact-groups)). Entries with neither a name
+nor an address are skipped; truncated or oversized entries
 (over 5 MB) are counted as damaged; a second card with the same ID in one
 file is skipped, so the first is kept. Files over 50 MB are refused, and
 photos are used only when they are inside the file: nothing is fetched from
@@ -502,6 +538,43 @@ each, with the book named, and once in the composer's suggestions.
 
 The book is the file `local_contacts.db` in Hylki's data folder, kept apart
 from the mail cache, so clearing the cache leaves it alone.
+
+### Contact groups
+
+A group is a name for several people, such as a team or a club, that the
+composer offers like a contact. Typing part of its name in To, Cc or Bcc
+lists it among the suggestions with the number of people in it, and picking
+it adds a pill for each of them. People already in that field are not added
+twice.
+
+A group can be set to **Send as Bcc**. Picking it in any field then puts its
+people in Bcc, and opens the Bcc row, so they do not see each other's
+addresses. To still needs at least one address, your own for example.
+
+**New Group**, under the **+** button in the Contacts view, makes a group in
+the Hylki book. Add people by typing part of a name or address and picking
+from the matches under the field, or by typing or pasting addresses and
+pressing <kbd>Return</kbd>. The matches are the composer's suggestions: your
+contacts, and the addresses in the mail you have sent and received, marked
+with a clock. <kbd>↓</kbd> and <kbd>↑</kbd> move through them and
+<kbd>Return</kbd> adds the one highlighted. Anyone with an address can be in
+a group, not only people in your contacts. A contact's right-click menu has **Add to Group**,
+and a group's card has **New Message**, which writes to everyone in it. The
+group's pencil, at the top of its card, changes its name, its people and the
+Bcc switch.
+
+The lists made in Evolution, kept in the books of Evolution Data Server, are
+shown and offered too, and Evolution's **Hide addresses when sending mail to
+this list** is the same as **Send as Bcc**. They can be changed in Hylki as
+well. The groups of a CardDAV book written by other apps (vCard 4 `KIND:group`,
+and the groups of Apple Contacts and iCloud) are shown and offered with the
+people they name in the same book, but are changed in the app they came
+from.
+
+A group is saved as an Evolution list, so **Export as a vCard file** carries
+it to Evolution, and back. Groups are not counted as contacts in **Settings →
+Contacts**, and the people in a group do not count as contacts for the
+filters below.
 
 ### Filtering on Contacts
 
@@ -520,10 +593,55 @@ minute and after a contact changes.
 A version of Hylki from before these conditions reads them as a From
 address condition with no text, which matches nothing.
 
+### CardDAV accounts
+
+**Add Address Book…** in Settings → Contacts adds the address books on a
+CardDAV server, such as Nextcloud, iCloud, Fastmail, Radicale or a mail
+provider's, without GNOME Online Accounts or Evolution. Their contacts are listed in Contacts,
+in the book list above them, and suggested in the composer; a contact added
+or changed in Hylki is saved to the server.
+
+Pick **CardDAV Server**, or the service by name: iCloud, Fastmail and Yahoo
+fill in their server, and Nextcloud asks for yours. The form asks for:
+
+- **Server**: the server's address is enough for most services, such as
+  `nextcloud.example.org`, and Hylki finds the address books on it. A full
+  CardDAV address works too. A name without `https://` is taken as HTTPS;
+  write `http://` for a server without TLS, such as one on your own network.
+  For iCloud, use `contacts.icloud.com`.
+- **User name** and **Password**. A service that signs in with two steps
+  wants an app password made for Hylki: iCloud, Fastmail, and Nextcloud with
+  two-factor sign-in among them.
+
+Saving looks for the address books and says how many it found, or why it
+found none (a password the server refused, a server it could not reach). The
+account's row lists its address books by name, or what went wrong. Its page
+has the form, the address books with a switch each, and **Remove**, which
+removes the account and its address books from this computer, leaving the
+server as it is.
+
+Google and Microsoft 365 address books are added in GNOME Online Accounts
+instead, which **Add Address Book…** points to: Google takes no password over
+CardDAV, and Microsoft 365 has no CardDAV.
+
+An account is kept by Evolution Data Server, the service GNOME Contacts and
+Evolution keep their address books in, as one of Evolution's own collection
+accounts. Hylki adds no CardDAV client of its own, so an account set up in
+Evolution's collection accounts is listed here as well, and one added here
+shows in Evolution and GNOME Contacts. Evolution Data Server keeps the
+password in the keyring, signs in with it by itself and syncs the address
+books. While Hylki runs it keeps every address book that syncs with a server
+open, so they stay up to date on desktops with no GNOME Contacts to do it,
+and opening Contacts fetches what changed if that was more than five minutes
+ago. Away from GNOME, Evolution Data Server has to be installed: it is the
+`evolution-data-server` package on every major distribution and runs without
+GNOME. Without it, the page says so.
+
 ### LDAP directories
 
-Settings → LDAP Directories holds the directories the composer looks
-recipients up in. Once three characters of a name or address are typed in
+The directories the composer looks recipients up in are added in Settings →
+Contacts, with **Add Address Book…** → **LDAP Directory**, and listed there
+with the other address books. Once three characters of a name or address are typed in
 To, Cc or Bcc, each directory that is switched on is asked for people whose
 name, surname or address starts with them, and the answers join the
 suggestions from GNOME Contacts and your mail. Nothing is copied from the
@@ -566,8 +684,7 @@ why not (a password it refused, a server it could not reach or find, TLS
 that could not start). The check gives up after 30 seconds. A directory
 that fails during a search, such as one that needs a password neither
 Hylki nor Evolution has, says why under **In Directories** in Contacts, once
-in the status bar of each composer, and in its row in Settings → LDAP
-Directories. It is left alone for 30 seconds before it is asked again. The
+in the status bar of each composer, and in its row in Settings → Contacts. It is left alone for 30 seconds before it is asked again. The
 console ([the status bar](#the-status-bar) with **Settings → System → Console
 mode** on) records each directory's answer to a search: how many entries it
 found and how many of them have an address, and **Export log** saves it. The Flatpak
@@ -705,6 +822,42 @@ anything reading it did not. The recipient still gets them. In dark mode a
 quoted message that sets its own colors keeps the light ground it was
 designed for.
 
+A message that was replied to shows a reply arrow in the message list, one
+that was forwarded a forward arrow, and one that was both shows both. A
+conversation's row shows them for its newest message in the folder. The
+arrows are kept on the server, so a message answered from another client
+shows them too. The arrow appears as soon as a reply or forward is sent,
+and goes again if the send is undone or fails; a message that waits in the
+Outbox, or is sent later, marks its original when it goes. IMAP keeps them as the `\Answered` flag and the `$Forwarded` keyword,
+JMAP as `$answered` and `$forwarded`, and POP3 in Hylki only. Microsoft 365
+keeps only the last thing done to a message, as Outlook shows it, so a
+message replied to and then forwarded there shows the forward arrow alone.
+Mail already downloaded shows its arrows once it is fetched again.
+
+### Replies filed beside the original
+
+A copy of a sent reply goes with the rest of sent mail unless the account
+says otherwise. In **Mail Accounts → Edit → Special Folders**, **Save a copy
+of replies in** has two other choices:
+
+- **Folder of the original** files the copy of a reply in the folder of the
+  message it answers, so a conversation kept in a project folder keeps your
+  side of it there too. A reply to mail in the Inbox is filed in the Inbox.
+- **Folder of the original, not the Inbox** does the same, but a reply to
+  mail in the Inbox goes with sent mail.
+
+The folder is the one the original is in when the reply is sent, so a
+message moved while you were writing is followed. A reply goes with sent
+mail when the original is in Sent, Drafts, Templates, Trash or Junk, when
+it is no longer in the account, when it is in another account than the one
+the reply is sent from, and when the folder will not take the copy. On
+Gmail, a message under a label is answered into that label, not into All
+Mail. Forwards and new messages are not affected.
+
+It applies to IMAP and JMAP accounts. Microsoft 365 files its own copy in
+Sent Items, POP3 has no folders to file it in, and with **Server saves its
+own copy of sent mail** on, the server's copy is the only one.
+
 ### Drafts saved as you write
 
 A message being written is saved to the Drafts folder on its own every 30
@@ -715,6 +868,22 @@ reply leaves no draft. Each save replaces the one before, and **Save Draft**,
 saved. **Discard** on a new message removes the copy it left; on a draft you
 had saved before, the last automatic save stays. A save that fails, offline
 say, is tried again at the next one, without a message about it.
+
+### Undo Send
+
+A message sent waits five seconds before it goes, with **Undo** on offer
+in a notice at the foot of the window. Undo brings it back to the composer
+it was written in: a reply to the split beside its conversation, if that
+conversation is still open, anything else to a window. If it cannot be
+sent, the status bar says why. **Settings →
+Composing → Undo Send** sets the wait to 3, 5, 10, 20 or 30 seconds, or
+**Off** to send at once. Send Later does not wait: a scheduled message can
+be edited or removed in the Outbox until its time.
+
+While it waits and while it is being sent, the message is listed in the
+**Outbox**, where **Edit** and **Delete** bring it back to the composer and
+**Send** sends it without waiting. Quitting Hylki before the wait is over
+keeps it in the Outbox, and it is sent at the next start.
 
 ### Templates
 
@@ -1221,6 +1390,7 @@ the conversation's size rides at its end. The columns are:
 | Column | What it shows |
 | --- | --- |
 | Star | The star, lit when the message is starred |
+| Replied | An arrow when the message was replied to, another when it was forwarded |
 | Sender | Who it is from; in Sent, who it went to |
 | Recipients | Who it went to |
 | Correspondents | Everyone who wrote in the conversation, newest first, you as "me" |
@@ -1236,7 +1406,8 @@ Importance comes from the `X-Priority`, `Importance` and `Priority`
 headers, or from Microsoft 365. Mail already downloaded shows as normal
 until it is fetched again. Only Microsoft 365 has a due date, so Due Date
 takes room only in a list that holds Microsoft 365 mail. **Restore
-Defaults** goes back to star, sender, subject, tags, attachment and date.
+Defaults** goes back to star, replied, sender, subject, tags, attachment
+and date.
 
 **Column headings**, in the same group, names the columns above the list.
 Clicking a heading sorts the list by that column, and clicking it again
@@ -1288,10 +1459,16 @@ It is off unless switched on.
 
 The button beside the search field sets where a search looks, and the info
 button beside each choice in its popover says what that choice searches.
-**All folders (except trash & junk)**, the default, searches every folder of
-every account except Trash and Junk, unless the list is showing one of them. **Everywhere** takes in Trash and
-Junk too, and **This folder** only the folder on screen. In the first two,
-each result wears a pill with the name of the folder it is in.
+**All folders (except trash & junk)** searches every folder of every account
+except Trash and Junk, unless the list is showing one of them. **Everywhere**
+takes in Trash and Junk too, and **This folder** only the folder on screen.
+A search started in an Inbox, or in All Inboxes, looks in all folders; one
+started anywhere else looks in that folder, and the button changes it for as
+long as the folder is open. In all folders and everywhere, each result wears
+a pill with the name of the folder it is in, and a Gmail message filed under
+several labels is one result: its Inbox copy, else a label's, else All
+Mail's. Folders not opened since Hylki started are searched from the index
+Hylki keeps of them, which covers mail archived to Gmail's All Mail.
 
 The sort and filter button in the list's header opens a popover of two
 columns. **Sort by** orders the list by date, newest or oldest first, by
@@ -1439,6 +1616,27 @@ or 30 days) removes older ones a couple of minutes after Hylki starts and
 every six hours after. Either way the list of every message stays, so the
 message list and search are unchanged, and a removed message is fetched again
 when it is opened. Nothing on the server changes.
+
+### Offline and metered connections
+
+Hylki follows the desktop's network status (GNetworkMonitor, through the
+network portal in the Flatpak). While there is no network it makes no
+connections: the timed mail check, the push channels and Send Later wait, the
+Refresh button turns orange, and its tooltip says why. The status bar does not
+open by itself, but opened it explains the same. A message sent meanwhile
+goes to the Outbox, and what waits there is sent for every kind of account
+once the network is back. A server on the computer itself, such as Proton
+Mail Bridge on `127.0.0.1`, is still reached. A desktop can report no
+network when there is one (a network without a default route); clicking
+Refresh then tries the servers anyway for a minute.
+
+**Settings → General → Save data on metered connections**, on by default,
+holds back the work done ahead of you while the connection is metered:
+downloading the newest messages and attachments, indexing older mail for
+search, watching folders other than the Inbox, and fetching sender logos and
+Gravatar pictures. New mail still arrives, and whatever you open is
+fetched. It all resumes once the connection is no longer metered. Stored as
+`metered_save_data` in `privacy.toml`.
 
 ### Notifications
 

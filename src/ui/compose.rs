@@ -91,6 +91,11 @@ fn format_hint(format: ComposeFormat) -> String {
     }
 }
 
+/// The zoom of the body in Markdown, HTML and plain text, in percent: the
+/// session's, so the next composer opens at the size the last one was left
+/// at. Rich text stays at 100, where what is on screen is what is sent.
+static ZOOM: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(100);
+
 /// The narrowest the compose pane goes (its `adw::BreakpointBin` floor).
 const COMPOSE_MIN_WIDTH: i32 = 360;
 /// Fallback fold threshold when the toolbar could not be measured at init.
@@ -159,8 +164,32 @@ fn set_toggle_icon(btn: &gtk::Button, windowed: bool) {
 }
 
 /// Replace the recipient being typed with the chosen suggestion, as a pill.
-fn complete_field(row: &RecipientRow, sug: &Suggestion) {
-    row.complete(&sug.display());
+/// A group puts in its members, less those the field already has; one that
+/// hides its addresses puts them in Bcc, whichever field it was typed in.
+fn complete_field(row: &RecipientRow, bcc: &RecipientRow, sug: &Suggestion) {
+    let Some(group) = &sug.group else {
+        row.complete(&sug.display());
+        return;
+    };
+    let target = if group.hide_addresses { bcc } else { row };
+    let present: std::collections::HashSet<String> = crate::worker::parse_recipients(&target.text())
+        .into_iter()
+        .map(|(_, email)| email.to_lowercase())
+        .collect();
+    let members = group
+        .members
+        .iter()
+        .filter(|m| !present.contains(&m.email.to_lowercase()))
+        .map(|m| crate::worker::format_recipient(&m.name, &m.email))
+        .collect::<Vec<_>>()
+        .join(", ");
+    if target == row {
+        row.complete(&members);
+    } else {
+        row.complete("");
+        bcc.set_visible(true);
+        bcc.add_recipient(&members);
+    }
 }
 
 /// One selectable "from" account in the compose window.
@@ -201,6 +230,8 @@ pub struct ComposePrefill {
     /// id chain. Both stored bare (no angle brackets).
     pub in_reply_to: String,
     pub references: String,
+    /// For a forward, the forwarded message's Message-ID (#454).
+    pub forwards: String,
     /// When editing an existing draft, its origin (so saving/sending replaces it).
     pub draft_origin: Option<DraftOrigin>,
     /// Start with Encrypt (and so Sign) on: a reply to an encrypted message (#133).
@@ -345,6 +376,7 @@ pub struct Compose {
     /// Threading headers carried from the message being replied to.
     in_reply_to: String,
     references: String,
+    forwards: String,
     /// When editing an existing draft, its origin (replaced on save/send).
     draft_origin: Option<DraftOrigin>,
     /// Editing a template (#360), kept at `draft_origin`: Save puts it back,
@@ -393,6 +425,10 @@ pub struct Compose {
     /// formatting toolbar and sends no HTML part (#180); Markdown and HTML
     /// are written as source and converted on the way out.
     format: ComposeFormat,
+    /// Whether the body zooms (Ctrl+ / Ctrl- / Ctrl+0, Ctrl + the scroll
+    /// wheel): every format but rich text. Shared with the key and scroll
+    /// handlers, which have no model to ask.
+    zoomable: std::rc::Rc<std::cell::Cell<bool>>,
     /// The format chooser and preview toggle, which live at the end of the
     /// editor's formatting row rather than in the header.
     format_btn: gtk::Button,
@@ -517,6 +553,14 @@ pub enum ComposeInput {
     /// password of their own for every link, else one is generated per
     /// file.
     CloudUpload { paths: Vec<std::path::PathBuf>, account: crate::cloud::CloudAccount, link_password: Option<String> },
+    /// [`ComposeInput::CloudUpload`] with the account's sign-in read from the
+    /// keyring (`None`: not there).
+    CloudUploadSignedIn {
+        paths: Vec<std::path::PathBuf>,
+        account: crate::cloud::CloudAccount,
+        link_password: Option<String>,
+        password: Option<String>,
+    },
     /// One upload finished (in a thread): the link, or why not.
     CloudUploaded { name: String, result: Result<crate::cloud::ShareResult, String> },
     /// Take a link back out of the body.
@@ -643,6 +687,9 @@ pub enum ComposeInput {
     /// Ctrl+Z / Ctrl+Shift+Z (#200): step the composer's history back or
     /// forward — the body's text and the attachments, in one order.
     History { redo: bool },
+    /// Zoom the body one step in (1) or out (-1), or back to 100% (0).
+    /// Nothing in rich text.
+    Zoom(i8),
     /// The body's text history changed: WebKit gained or lost a step. The
     /// flag is whether it now has anything to take back.
     BodyHistory(bool),
@@ -1108,6 +1155,7 @@ impl Component for Compose {
         } = init;
         let in_reply_to = prefill.in_reply_to.clone();
         let references = prefill.references.clone();
+        let forwards = prefill.forwards.clone();
         let draft_origin = prefill.draft_origin.clone();
         let template = prefill.template && draft_origin.is_some();
         let outbox_origin = prefill.outbox_origin;
@@ -1163,6 +1211,20 @@ impl Component for Compose {
         });
         let editor = RichEditor::new(&content, remote_images.as_deref(), format == ComposeFormat::Plain);
         editor.set_formatting_visible(format == ComposeFormat::Rich);
+        let zoomable = std::rc::Rc::new(std::cell::Cell::new(format != ComposeFormat::Rich));
+        if zoomable.get() {
+            editor.set_zoom(ZOOM.load(std::sync::atomic::Ordering::Relaxed));
+        }
+        {
+            let z = zoomable.clone();
+            let s = sender.input_sender().clone();
+            editor.widget.add_controller(super::ctrl_scroll_zoom(
+                move || z.get(),
+                move |step| {
+                    let _ = s.send(ComposeInput::Zoom(step));
+                },
+            ));
+        }
         // A source format starts from the same content, written out as
         // source: a reply's quoted original becomes `> ` lines in Markdown,
         // or the HTML it already was.
@@ -1305,6 +1367,7 @@ impl Component for Compose {
             completion_open: std::rc::Rc::new(std::cell::Cell::new(false)),
             in_reply_to,
             references,
+            forwards,
             draft_origin,
             template,
             outbox_origin,
@@ -1326,6 +1389,7 @@ impl Component for Compose {
             sign_touched: false,
             sign_expected: None,
             format,
+            zoomable: zoomable.clone(),
             format_btn,
             translate_btn,
             signature_btn,
@@ -1726,6 +1790,7 @@ impl Component for Compose {
         let s = sender.clone();
         let open = model.completion_open.clone();
         let editor = model.editor.clone();
+        let zoomable = model.zoomable.clone();
         // Weak: the root owns this controller, so a strong root here would
         // be a cycle that kept a closed composer's whole widget tree alive,
         // its editor's WebKitWebProcess included (#221).
@@ -1759,6 +1824,17 @@ impl Component for Compose {
             {
                 editor.paste(!crate::config::load_privacy().paste_plain);
                 return Propagation::Stop;
+            }
+            // Ctrl+ / Ctrl- / Ctrl+0 zoom the body, as they zoom the reader,
+            // in the formats whose size is not part of the message. This
+            // is a composer window's; inline, the main window's own keys
+            // get there first and pass them on (app.rs).
+            if let Some(step) = zoom_key(keyval, state) {
+                if zoomable.get() {
+                    s.input(ComposeInput::Zoom(step));
+                    return Propagation::Stop;
+                }
+                return Propagation::Proceed;
             }
             // Ctrl+Enter sends (#238), as it does in Gmail, Apple Mail and
             // Thunderbird. Ahead of the suggestion list's own Enter, so a
@@ -1976,12 +2052,21 @@ impl Component for Compose {
             }
 
             ComposeInput::CloudUpload { paths, account, link_password } => {
-                let secret = if account.has_secret() {
-                    crate::config::load_cloud_password(&account.key())
-                } else {
-                    Some(String::new())
-                };
-                let Some(password) = secret else {
+                if !account.has_secret() {
+                    sender.input(ComposeInput::CloudUploadSignedIn { paths, account, link_password, password: Some(String::new()) });
+                    break 'handle;
+                }
+                // Off the main thread: the keyring may wait on its user.
+                let key = account.key();
+                let s = sender.input_sender().clone();
+                crate::config::keyring_then(
+                    move || crate::config::load_cloud_password(&key),
+                    move |password| s.emit(ComposeInput::CloudUploadSignedIn { paths, account, link_password, password }),
+                );
+            }
+
+            ComposeInput::CloudUploadSignedIn { paths, account, link_password, password } => {
+                let Some(password) = password else {
                     let parent = root.root().and_downcast::<gtk::Window>();
                     let d = adw::MessageDialog::new(
                         parent.as_ref(),
@@ -2247,6 +2332,21 @@ impl Component for Compose {
                 }
             }
 
+            ComposeInput::Zoom(step) => {
+                if !self.zoomable.get() {
+                    break 'handle;
+                }
+                use crate::config::READER_ZOOM_STEPS as STEPS;
+                let now = ZOOM.load(std::sync::atomic::Ordering::Relaxed);
+                let at = STEPS.iter().position(|&z| z == now).unwrap_or(5) as i32;
+                let zoom = match step {
+                    0 => 100,
+                    s => STEPS[(at + i32::from(s.signum())).clamp(0, STEPS.len() as i32 - 1) as usize],
+                };
+                ZOOM.store(zoom, std::sync::atomic::Ordering::Relaxed);
+                self.editor.set_zoom(zoom);
+            }
+
             ComposeInput::History { redo } => {
                 self.history_step(redo, widgets, &sender);
             }
@@ -2398,7 +2498,7 @@ impl Component for Compose {
                         let _ = s.send(ComposeInput::DirectoryLookup { field, token, generation });
                     });
                 }
-                self.show_completion(field, row);
+                self.show_completion(field, row, &widgets.bcc_row);
             }
 
             ComposeInput::DirectoriesKnown { graph, own_mail } => {
@@ -2460,7 +2560,7 @@ impl Component for Compose {
                 if generation == self.directory_generation && recipient_token(row) == token && !matches.is_empty() {
                     self.directory_matches = matches;
                     if recipient_focused(row) {
-                        self.show_completion(field, row);
+                        self.show_completion(field, row, &widgets.bcc_row);
                     }
                 }
             }
@@ -2508,7 +2608,7 @@ impl Component for Compose {
                 if !token.is_empty() {
                     let chosen = self.ranked_matches(&token).into_iter().nth(self.completion_selected);
                     if let Some(sug) = chosen {
-                        complete_field(row, &sug);
+                        complete_field(row, &widgets.bcc_row, &sug);
                     }
                 }
                 self.completion_open.set(false);
@@ -2803,6 +2903,8 @@ impl Component for Compose {
                 }
                 self.format = to;
                 self.editor.set_formatting_visible(to == ComposeFormat::Rich);
+                self.zoomable.set(to != ComposeFormat::Rich);
+                self.editor.set_zoom(if self.zoomable.get() { ZOOM.load(std::sync::atomic::Ordering::Relaxed) } else { 100 });
                 if let Some(zones) = &self.drop_zones {
                     zones.set_allow_inline(to == ComposeFormat::Rich);
                 }
@@ -3084,6 +3186,7 @@ impl Component for Compose {
                     out.outbox_origin = None;
                     out.in_reply_to.clear();
                     out.references.clear();
+                    out.forwards.clear();
                     out.send_at = None;
                     let _ = sender.output(ComposeOutput::SaveTemplate(Box::new(out)));
                     break 'handle;
@@ -3218,6 +3321,11 @@ fn same_from(a: &str, b: &str) -> bool {
 }
 
 impl Compose {
+    /// Whether the body zooms in its present format; see [`ComposeInput::Zoom`].
+    pub fn zooms(&self) -> bool {
+        self.zoomable.get()
+    }
+
     /// The From to put on the wire: the picked identity's (`None` for the
     /// account's own), or the one typed in (#347), which has to hold one
     /// address.
@@ -3560,6 +3668,7 @@ window.__hylkiDirty=true;})()"#
                 .collect(),
             in_reply_to: self.in_reply_to.clone(),
             references: self.references.clone(),
+            forwards: self.forwards.clone(),
             draft_origin: self.draft_origin.clone(),
             outbox_origin: self.outbox_origin,
             sign: self.sign,
@@ -3578,7 +3687,6 @@ window.__hylkiDirty=true;})()"#
     }
 
     fn ranked_matches(&self, token: &str) -> Vec<Suggestion> {
-        let q = token.to_lowercase();
         let narrowed = self.narrowed();
         let mut matches: Vec<Suggestion> = self
             .suggestions
@@ -3603,22 +3711,14 @@ window.__hylkiDirty=true;})()"#
                 .filter(|s| !known.contains(&s.email.to_lowercase()) && seen.insert(s.email.to_lowercase()))
                 .cloned(),
         );
-        matches.sort_by(|a, b| {
-            let pa = a.email.to_lowercase().starts_with(&q) || a.name.to_lowercase().starts_with(&q);
-            let pb = b.email.to_lowercase().starts_with(&q) || b.name.to_lowercase().starts_with(&q);
-            // Own addresses come after everyone else's, prefix match or not.
-            a.own.cmp(&b.own)
-                .then(pb.cmp(&pa))
-                .then(b.score.cmp(&a.score))
-                .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
-        });
+        crate::contacts::rank(&mut matches, token);
         matches.truncate(8);
         matches
     }
 
     /// Filter suggestions by the recipient fragment being typed and show them in
     /// a popover under the field; clicking one completes that recipient.
-    fn show_completion(&mut self, field: Field, row: &RecipientRow) {
+    fn show_completion(&mut self, field: Field, row: &RecipientRow, bcc: &RecipientRow) {
         let token = row.typed();
         if token.is_empty() {
             self.completion_open.set(false);
@@ -3655,7 +3755,9 @@ window.__hylkiDirty=true;})()"#
             item.set_margin_bottom(3);
             // Mark where the suggestion came from: a directory, the address
             // book, or mail history.
-            let icon = gtk::Image::from_icon_name(if sug.from_directory {
+            let icon = gtk::Image::from_icon_name(if sug.group.is_some() {
+                "system-users-symbolic"
+            } else if sug.from_directory {
                 "x-office-address-book-symbolic"
             } else if sug.from_contacts {
                 "avatar-default-symbolic"
@@ -3670,8 +3772,13 @@ window.__hylkiDirty=true;})()"#
             title.set_halign(gtk::Align::Start);
             title.set_xalign(0.0);
             text.append(&title);
-            if sug.name != sug.email {
-                let sub = gtk::Label::new(Some(&sug.email));
+            // A group says how many it reaches, and whether in Bcc.
+            let subtitle = match &sug.group {
+                Some(g) => crate::contacts::group_reach(g.members.len(), g.hide_addresses),
+                None => sug.email.clone(),
+            };
+            if sug.name != subtitle {
+                let sub = gtk::Label::new(Some(&subtitle));
                 sub.set_halign(gtk::Align::Start);
                 sub.set_xalign(0.0);
                 sub.add_css_class("dim-label");
@@ -3686,11 +3793,12 @@ window.__hylkiDirty=true;})()"#
 
             // Complete this recipient on click.
             let row2 = row.clone();
+            let bcc = bcc.clone();
             let pop = self.completion.downgrade();
             let sug = sug.clone();
             let gesture = gtk::GestureClick::new();
             gesture.connect_released(move |_, _, _, _| {
-                complete_field(&row2, &sug);
+                complete_field(&row2, &bcc, &sug);
                 if let Some(p) = pop.upgrade() {
                     p.popdown();
                 }
@@ -4290,6 +4398,25 @@ fn pick_send_time(parent: Option<&gtk::Window>, current: Option<i64>, sender: re
         }
     });
     dialog.present();
+}
+
+/// Ctrl+ (or Ctrl+=, for layouts where + needs Shift), Ctrl- and Ctrl+0,
+/// keypad included, as the zoom step they ask for: the reader's keys.
+fn zoom_key(keyval: gtk::gdk::Key, state: gtk::gdk::ModifierType) -> Option<i8> {
+    use gtk::gdk::Key;
+    if !state.contains(gtk::gdk::ModifierType::CONTROL_MASK) || state.contains(gtk::gdk::ModifierType::ALT_MASK) {
+        return None;
+    }
+    // By value, as the suggestion keys are.
+    if [Key::plus, Key::equal, Key::KP_Add].contains(&keyval) {
+        Some(1)
+    } else if [Key::minus, Key::KP_Subtract].contains(&keyval) {
+        Some(-1)
+    } else if [Key::_0, Key::KP_0].contains(&keyval) {
+        Some(0)
+    } else {
+        None
+    }
 }
 
 /// Whether keyboard focus is in a one-line text field of the composer — an

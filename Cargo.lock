@@ -1403,7 +1403,7 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "hylki"
-version = "1.44.0-beta.9"
+version = "1.44.0"
 dependencies = [
  "ammonia",
  "async-imap",
@@ -1655,6 +1655,7 @@ dependencies = [
  "dbus-secret-service",
  "log",
  "secret-service",
+ "zbus 4.4.0",
  "zeroize",
 ]
 
