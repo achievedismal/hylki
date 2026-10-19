@@ -293,6 +293,22 @@ msgstr "Impossibile salvare il messaggio: {e}"
 msgid "No address book available"
 msgstr "Nessuna rubrica disponibile"
 
+#, fuzzy
+msgid "Could not rename the address book: {e}"
+msgstr "Impossibile rinominare la cartella: {e}"
+
+#, fuzzy
+msgid "{n} contact was not copied: {e}"
+msgid_plural "{n} contacts were not copied: {e}"
+msgstr[0] "{n} contatto esportato in {path}"
+msgstr[1] "{n} contatti esportati in {path}"
+
+#, fuzzy
+msgid "{n} contact was not moved: {e}"
+msgid_plural "{n} contacts were not moved: {e}"
+msgstr[0] "{n} contatto esportato in {path}"
+msgstr[1] "{n} contatti esportati in {path}"
+
 msgid "Could not update contact: {e}"
 msgstr "Impossibile aggiornare il contatto: {e}"
 
@@ -1461,6 +1477,9 @@ msgstr[1] "{n} destinatari"
 msgid "CardDAV Address Book"
 msgstr "Rubrica CardDAV"
 
+msgid "Hylki cannot change this kind of group"
+msgstr ""
+
 msgid "{date} at {time}"
 msgstr "{date} alle {time}"
 
@@ -1511,7 +1530,8 @@ msgstr ""
 msgid "{name} did not answer: {error}"
 msgstr "{name} non ha risposto: {error}"
 
-msgid "A contact needs a name or an email address"
+#, fuzzy
+msgid "A contact needs a name, an email address or a phone number"
 msgstr "Un contatto necessita di un nome o di un indirizzo e-mail"
 
 msgid "The contact is too large"
@@ -3889,27 +3909,48 @@ msgstr ""
 msgid "Not found"
 msgstr "Non trovato"
 
-msgid "Open in GNOME Contacts"
-msgstr "Apri in GNOME Contatti"
-
 msgid "Search contacts"
 msgstr "Cerca contatti"
 
 msgid "No Contacts"
 msgstr "Nessun contatto"
 
-msgid "Add contacts in GNOME Contacts to see them here."
+#, fuzzy
+msgid "Add contacts in the Contacts view to see them here."
 msgstr "Aggiungi contatti in GNOME Contatti per vederli qui."
 
-msgid "Open GNOME Contacts"
-msgstr "Apri GNOME Contatti"
+msgid "Has Photo"
+msgstr ""
+
+#, fuzzy
+msgid "Has Email"
+msgstr "Email"
+
+#, fuzzy
+msgid "Has Phone"
+msgstr "Telefono"
+
+#, fuzzy
+msgid "Has Address"
+msgstr "Indirizzo"
+
+#, fuzzy
+msgid "Has Birthday"
+msgstr "Compleanno"
+
+msgid "Has Company"
+msgstr ""
+
+#, fuzzy
+msgid "Not in a Group"
+msgstr "Gruppo sinistra"
+
+msgid "Import vCard files into the Hylki address book"
+msgstr "Importa file vCard nella rubrica Hylki"
 
 #, fuzzy
 msgid "New contact or group"
 msgstr "Nuovo contatto"
-
-msgid "Import vCard files into the Hylki address book"
-msgstr "Importa file vCard nella rubrica Hylki"
 
 msgid "Loading Contacts…"
 msgstr "Caricamento contatti in corso…"
@@ -3923,21 +3964,93 @@ msgstr ""
 "vengono conservati nella rubrica di Hylki, e le rubriche di GNOME Contatti "
 "sono elencate qui."
 
-msgid "Sort contacts"
-msgstr "Ordina contatti"
+#, fuzzy
+msgid "Search contacts (Ctrl+F)"
+msgstr "Cerca contatti"
+
+#, fuzzy
+msgid "Sort and filter contacts"
+msgstr "Messaggi e-mail"
 
 msgid "Edit contact"
 msgstr "Modifica contatto"
 
-msgid "First name"
-msgstr "Nome"
-
-msgid "Last name"
-msgstr "Cognome"
+#, fuzzy
+msgid "Delete {n} Group?"
+msgid_plural "Delete {n} Groups?"
+msgstr[0] "Eliminare la tua chiave?"
+msgstr[1] "Eliminare la tua chiave?"
 
 #, fuzzy
-msgid "In Directories"
-msgstr "Directory LDAP"
+msgid ""
+"This will remove {n} group from your address books locally and on the "
+"server. The contacts are not removed."
+msgid_plural ""
+"This will remove {n} groups from your address books locally and on the "
+"server. The contacts are not removed."
+msgstr[0] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+msgstr[1] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+
+#, fuzzy
+msgid ""
+"This will remove {n} group from your address book. The contacts are not "
+"removed."
+msgid_plural ""
+"This will remove {n} groups from your address books. The contacts are not "
+"removed."
+msgstr[0] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+msgstr[1] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+
+#, fuzzy
+msgid "Delete {n} Contact?"
+msgid_plural "Delete {n} Contacts?"
+msgstr[0] "Eliminare il contatto?"
+msgstr[1] "Eliminare il contatto?"
+
+#, fuzzy
+msgid ""
+"This will remove {n} contact from your address books locally and on the "
+"server."
+msgid_plural ""
+"This will remove {n} contacts from your address books locally and on the "
+"server."
+msgstr[0] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+msgstr[1] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+
+#, fuzzy
+msgid "This will remove {n} contact from your address book."
+msgid_plural "This will remove {n} contacts from your address books."
+msgstr[0] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+msgstr[1] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+
+#, fuzzy
+msgid ""
+"This will remove the group {name} from your address book locally and on the "
+"server. The contacts are not removed."
+msgstr ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+
+msgid ""
+"This will remove the group {name} from your address book. The contacts are "
+"not removed."
+msgstr ""
 
 #, fuzzy
 msgid "Delete Group?"
@@ -3945,8 +4058,14 @@ msgstr "Eliminare la tua chiave?"
 
 #, fuzzy
 msgid ""
-"{name} is removed from your address book, and for a synced book, from the "
-"server too. The people in it are not."
+"This will remove the contact {name} from your address book locally and on "
+"the server."
+msgstr ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+
+#, fuzzy
+msgid "This will remove the contact {name} from your address book."
 msgstr ""
 "{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
 "dal server."
@@ -3954,30 +4073,108 @@ msgstr ""
 msgid "Delete Contact?"
 msgstr "Eliminare il contatto?"
 
+#, fuzzy
+msgid "Rename Address Book"
+msgstr "Rubrica"
+
 msgid ""
-"{name} is removed from your address book, and for a synced book, from the "
-"server too."
+"The name is used in Hylki only; GNOME Contacts and Evolution keep the book's "
+"own."
+msgstr ""
+
+msgid "Use Its Own Name"
+msgstr ""
+
+#, fuzzy
+msgid "Move Contact?"
+msgstr "Apri Contatti"
+
+#, fuzzy
+msgid ""
+"This will move {name} out of {from} and into {to}, locally and on the "
+"server. A group in {from} that holds the contact will no longer have it."
 msgstr ""
 "{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
 "dal server."
 
-msgid "All Address Books"
-msgstr "Tutte le rubriche"
+#, fuzzy
+msgid "Move {n} Contact?"
+msgid_plural "Move {n} Contacts?"
+msgstr[0] "Apri Contatti"
+msgstr[1] "Apri Contatti"
 
-msgid "Edit"
-msgstr "Modifica"
+#, fuzzy
+msgid ""
+"This will move {n} contact out of the address book it is in and into {to}, "
+"locally and on the server. A group there that holds it will no longer have "
+"it."
+msgid_plural ""
+"This will move {n} contacts out of the address books they are in and into "
+"{to}, locally and on the server. Groups there that hold them will no longer "
+"have them."
+msgstr[0] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
+msgstr[1] ""
+"{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, anche "
+"dal server."
 
-msgid "Add to Group"
-msgstr ""
+#, fuzzy
+msgid "Move"
+msgstr "Sposta in"
 
-msgid "Delete…"
-msgstr "Elimina…"
+#, fuzzy
+msgid "In Directories"
+msgstr "Directory LDAP"
 
 msgid "Type three letters or more to search the directory."
 msgstr ""
 
 msgid "Nobody in the directory matches."
 msgstr ""
+
+#, fuzzy
+msgid "Remove from Group"
+msgstr "Rimuovi dai preferiti"
+
+msgid "Add to Group"
+msgstr ""
+
+#, fuzzy
+msgid "Move to Address Book"
+msgstr "Rubrica"
+
+msgid "Delete…"
+msgstr "Elimina…"
+
+msgid "Edit"
+msgstr "Modifica"
+
+msgid "Open in GNOME Contacts"
+msgstr "Apri in GNOME Contatti"
+
+#, fuzzy
+msgid "{n} Group Selected"
+msgid_plural "{n} Groups Selected"
+msgstr[0] "Conferma eliminazione conversazione"
+msgstr[1] "Conferma eliminazione conversazione"
+
+#, fuzzy
+msgid "{n} Contact Selected"
+msgid_plural "{n} Contacts Selected"
+msgstr[0] "Conferma eliminazione conversazione"
+msgstr[1] "Conferma eliminazione conversazione"
+
+msgid "Move to…"
+msgstr "Sposta in…"
+
+#, fuzzy
+msgid "Move to another address book"
+msgstr "Salvare la directory?"
+
+#, fuzzy
+msgid "Selected"
+msgstr "Importa selezionati"
 
 msgid "View photo"
 msgstr "Visualizza foto"
@@ -4023,6 +4220,21 @@ msgstr "Invia tutti"
 msgid "Members do not see each other's addresses."
 msgstr ""
 
+#. An Apple group (iCloud's) holds cards of its own book.
+msgid ""
+"Groups in this address book hold its own contacts: anyone added who is not "
+"in it yet is added to it."
+msgstr ""
+
+msgid ""
+"Saving moves the group to this address book, with its people, and removes it "
+"from {book}."
+msgstr ""
+
+msgid ""
+"Groups here hold addresses, so people with no email address are left out."
+msgstr ""
+
 msgid "Edit Contact"
 msgstr "Modifica contatto"
 
@@ -4042,6 +4254,9 @@ msgstr "Organizzazione"
 msgid "Title"
 msgstr "Titolo"
 
+msgid "Another book moves the contact there when saved."
+msgstr ""
+
 msgid "Add email"
 msgstr "Aggiungi e-mail"
 
@@ -4055,6 +4270,10 @@ msgstr "Aggiungi sito web"
 msgid "Members"
 msgstr "Numeri di pagina"
 
+#, fuzzy
+msgid "No email address"
+msgstr "Indirizzo e-mail"
+
 msgid "No one is in this group yet."
 msgstr ""
 
@@ -4063,6 +4282,12 @@ msgstr ""
 
 msgid "This group names its members by contact, which Hylki does not edit."
 msgstr ""
+
+msgid "First name"
+msgstr "Nome"
+
+msgid "Last name"
+msgstr "Cognome"
 
 msgid "Import Contacts"
 msgstr "Importa contatti"
@@ -4076,6 +4301,70 @@ msgstr "Tutti i file"
 #, fuzzy
 msgid "Add a person by name or address"
 msgstr "Un contatto necessita di un nome o di un indirizzo e-mail"
+
+#, fuzzy
+msgid "No email address · {book}"
+msgstr "Indirizzo e-mail"
+
+msgid "No label"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "Work"
+msgstr ""
+
+msgid "Mobile"
+msgstr ""
+
+msgid "Fax"
+msgstr ""
+
+#, fuzzy
+msgid "Label"
+msgstr "Etichette"
+
+#, fuzzy
+msgid "Add address"
+msgstr "Indirizzo"
+
+msgid "Street"
+msgstr ""
+
+msgid "City"
+msgstr ""
+
+msgid "State or region"
+msgstr ""
+
+msgid "Postal code"
+msgstr ""
+
+msgid "Country"
+msgstr ""
+
+#, fuzzy
+msgid "No birthday"
+msgstr "Compleanno"
+
+msgid "Year"
+msgstr ""
+
+msgid "Change Photo…"
+msgstr ""
+
+#, fuzzy
+msgid "Remove Photo"
+msgstr "Rimuovi etichetta"
+
+#, fuzzy
+msgid "Choose a Photo"
+msgstr "Scegli una foto"
+
+#, fuzzy
+msgid "Directories"
+msgstr "Directory LDAP"
 
 #, fuzzy
 msgid "Use an app-specific password, not your usual one."
@@ -4191,6 +4480,9 @@ msgid ""
 "are changed there, and in Hylki's Contacts."
 msgstr ""
 
+msgid "Open GNOME Contacts"
+msgstr "Apri GNOME Contatti"
+
 #, fuzzy
 msgid "Set up in GNOME Online Accounts"
 msgstr "GNOME Account online"
@@ -4275,11 +4567,22 @@ msgstr ""
 msgid "Use in Hylki"
 msgstr "Apri Hylki"
 
+msgid ""
+"The name Hylki lists it by, here and in Contacts. Left blank, it is {own}."
+msgstr ""
+
+msgid ""
+"The name Hylki lists it by, here and under its address books in Contacts; "
+"GNOME Contacts and Evolution keep their own. Left blank, it is {own}."
+msgstr ""
+
 #, fuzzy
 msgid "Address books"
 msgstr "Rubrica"
 
-msgid "Switch off an address book to leave it out of Hylki."
+msgid ""
+"Rename an address book for Hylki, or switch it off to leave it out of Hylki. "
+"A name left blank is the book's own again."
 msgstr ""
 
 msgid "Sign-in"
@@ -4576,9 +4879,6 @@ msgstr "cartella sconosciuta"
 
 msgid "Mark as read"
 msgstr "Segna come letto"
-
-msgid "Move to…"
-msgstr "Sposta in…"
 
 msgid "Not spam"
 msgstr "Non è spam"
@@ -5772,6 +6072,14 @@ msgstr ""
 "Da quale lato di Posta in arrivo e delle righe account si trovano le frecce "
 "di espansione/compressione."
 
+msgid "Fold accounts with one click"
+msgstr ""
+
+msgid ""
+"A click anywhere on an account's name opens or closes its folders. Off, only "
+"its chevron or a double click does."
+msgstr ""
+
 msgid "Attachments in the sidebar"
 msgstr "Allegati nella barra laterale"
 
@@ -5781,15 +6089,6 @@ msgid ""
 msgstr ""
 "Un collegamento per sfogliare gli allegati di tutti gli account, fissato in "
 "fondo alla barra laterale."
-
-msgid "Contacts in the sidebar"
-msgstr "Contatti nella barra laterale"
-
-msgid ""
-"A shortcut that opens your contacts, pinned at the bottom of the sidebar."
-msgstr ""
-"Un collegamento che apre i tuoi contatti, fissato in fondo alla barra "
-"laterale."
 
 msgid "Expand the sidebar on hover"
 msgstr "Espandi la barra laterale al passaggio del mouse"
@@ -5846,58 +6145,6 @@ msgstr ""
 msgid "Inboxes"
 msgstr "Caselle in arrivo"
 
-msgid ""
-"A unified inbox combining every account, at the top of the sidebar. Only "
-"shown with more than one account."
-msgstr ""
-"Una posta in arrivo unificata che combina tutti gli account, in cima alla "
-"barra laterale. Mostrata solo con più di un account."
-
-msgid ""
-"Every account's starred folder as one list, opening to each account's own."
-msgstr ""
-"La cartella contrassegnati di ogni account come un unico elenco, che si apre "
-"su quella propria di ogni account."
-
-msgid "Every account's sent mail as one list, opening to each account's own."
-msgstr ""
-"La posta inviata di ogni account come un unico elenco, che si apre su quella "
-"propria di ogni account."
-
-msgid "Every account's drafts as one list, opening to each account's own."
-msgstr ""
-"Le bozze di ogni account come un unico elenco, che si apre su quelle proprie "
-"di ogni account."
-
-msgid "Every account's archive as one list, opening to each account's own."
-msgstr ""
-"L'archivio di ogni account come un unico elenco, che si apre su quello "
-"proprio di ogni account."
-
-msgid "Every account's junk mail as one list, opening to each account's own."
-msgstr ""
-"La posta indesiderata di ogni account come un unico elenco, che si apre su "
-"quella propria di ogni account."
-
-msgid "Every account's trash as one list, opening to each account's own."
-msgstr ""
-"Il cestino di ogni account come un unico elenco, che si apre su quello "
-"proprio di ogni account."
-
-msgid ""
-"List every folder your filter rules file into in a collapsible section of "
-"the unified view."
-msgstr ""
-"Elenca ogni cartella in cui le tue regole di filtro archiviano in una "
-"sezione comprimibile della vista unificata."
-
-msgid ""
-"The tags, each showing every account's mail with it. Each account keeps its "
-"own Tags section either way."
-msgstr ""
-"Le etichette, ognuna che mostra la posta di tutti gli account con essa. Ogni "
-"account mantiene comunque la propria sezione Etichette."
-
 msgid "Unread counts"
 msgstr "Conteggi non letti"
 
@@ -5909,17 +6156,26 @@ msgstr ""
 "compresse. Espanse, le righe sottostanti portano i conteggi. Inviati non "
 "mostra mai un conteggio."
 
+#, fuzzy
+msgid "Sections"
+msgstr "Azioni"
+
+#, fuzzy
+msgid "Section style"
+msgstr "Azioni"
+
 msgid "Filters placement"
 msgstr "Posizione filtri"
 
-msgid ""
-"Choose between appearing in a unified section, or a list above or below the "
-"accounts."
-msgstr ""
-"Scegli tra apparire in una sezione unificata, o un elenco sopra o sotto gli "
-"account."
-
 msgid "Tags placement"
+msgstr "Posizione etichette"
+
+#, fuzzy
+msgid "Favorites placement"
+msgstr "Posizione filtri"
+
+#, fuzzy
+msgid "Contacts placement"
 msgstr "Posizione etichette"
 
 msgid "Icon rail"
@@ -6948,8 +7204,13 @@ msgstr ""
 msgid "Software"
 msgstr "Software"
 
-msgid "In the unified section"
-msgstr "Nella sezione unificata"
+#, fuzzy
+msgid "Unified style"
+msgstr "Unificato"
+
+#, fuzzy
+msgid "Tree style"
+msgstr "Azioni"
 
 msgid "Above the accounts"
 msgstr "Sopra gli account"
@@ -7299,6 +7560,22 @@ msgstr "Inserisci link"
 msgid "Insert"
 msgstr "Inserisci"
 
+#, fuzzy
+msgid "Hylki, on this computer"
+msgstr "Su questo computer"
+
+#, fuzzy
+msgid "Rename…"
+msgstr "Rinomina"
+
+#, fuzzy
+msgid "Delete Group…"
+msgstr "Eliminare la tua chiave?"
+
+#, fuzzy
+msgid "Show or hide"
+msgstr "Mostra o nascondi le etichette"
+
 msgid "Favorites"
 msgstr "Preferiti"
 
@@ -7316,6 +7593,9 @@ msgstr "Nessun account ancora"
 
 msgid "New Message from Template…"
 msgstr "Nuovo messaggio da modello…"
+
+msgid "Show or hide folders"
+msgstr "Mostra o nascondi le cartelle"
 
 msgid "Mark Inbox as Read"
 msgstr "Segna la posta in arrivo come letta"
@@ -7340,9 +7620,6 @@ msgstr "Mostra o nascondi le sottocartelle"
 
 msgid "Show or hide labels"
 msgstr "Mostra o nascondi le etichette"
-
-msgid "Show or hide folders"
-msgstr "Mostra o nascondi le cartelle"
 
 msgid "Labels ({len})"
 msgstr "Etichette ({len})"
@@ -7374,6 +7651,10 @@ msgstr "Mostra ogni etichetta"
 msgid "Show each smart folder"
 msgstr "Mostra ogni cartella smart"
 
+#, fuzzy
+msgid "Show each address book"
+msgstr "Salvare la directory?"
+
 msgid "Long-press to expand or collapse"
 msgstr "Tieni premuto per espandere o comprimere"
 
@@ -7388,9 +7669,6 @@ msgstr "Modifica cartella smart…"
 
 msgid "Delete Smart Folder…"
 msgstr "Elimina cartella smart…"
-
-msgid "Show or hide filters"
-msgstr "Mostra o nascondi i filtri"
 
 msgid "Show or hide tags"
 msgstr "Mostra o nascondi le etichette"
@@ -8052,6 +8330,116 @@ msgstr "La posta in arrivo unificata in modalità chiara"
 
 msgid "Hyprlab"
 msgstr "Hyprlab"
+
+#, fuzzy
+#~ msgid "Like the accounts"
+#~ msgstr "Sopra gli account"
+
+#~ msgid "Show or hide filters"
+#~ msgstr "Mostra o nascondi i filtri"
+
+#~ msgid ""
+#~ "A unified inbox combining every account, at the top of the sidebar. Only "
+#~ "shown with more than one account."
+#~ msgstr ""
+#~ "Una posta in arrivo unificata che combina tutti gli account, in cima alla "
+#~ "barra laterale. Mostrata solo con più di un account."
+
+#~ msgid ""
+#~ "Every account's starred folder as one list, opening to each account's own."
+#~ msgstr ""
+#~ "La cartella contrassegnati di ogni account come un unico elenco, che si "
+#~ "apre su quella propria di ogni account."
+
+#~ msgid ""
+#~ "Every account's sent mail as one list, opening to each account's own."
+#~ msgstr ""
+#~ "La posta inviata di ogni account come un unico elenco, che si apre su "
+#~ "quella propria di ogni account."
+
+#~ msgid "Every account's drafts as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Le bozze di ogni account come un unico elenco, che si apre su quelle "
+#~ "proprie di ogni account."
+
+#~ msgid "Every account's archive as one list, opening to each account's own."
+#~ msgstr ""
+#~ "L'archivio di ogni account come un unico elenco, che si apre su quello "
+#~ "proprio di ogni account."
+
+#~ msgid ""
+#~ "Every account's junk mail as one list, opening to each account's own."
+#~ msgstr ""
+#~ "La posta indesiderata di ogni account come un unico elenco, che si apre "
+#~ "su quella propria di ogni account."
+
+#~ msgid "Every account's trash as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Il cestino di ogni account come un unico elenco, che si apre su quello "
+#~ "proprio di ogni account."
+
+#~ msgid ""
+#~ "List every folder your filter rules file into in a collapsible section of "
+#~ "the unified view."
+#~ msgstr ""
+#~ "Elenca ogni cartella in cui le tue regole di filtro archiviano in una "
+#~ "sezione comprimibile della vista unificata."
+
+#~ msgid ""
+#~ "The tags, each showing every account's mail with it. Each account keeps "
+#~ "its own Tags section either way."
+#~ msgstr ""
+#~ "Le etichette, ognuna che mostra la posta di tutti gli account con essa. "
+#~ "Ogni account mantiene comunque la propria sezione Etichette."
+
+#, fuzzy
+#~ msgid ""
+#~ "In the unified section, in a list above or below the accounts, or Off, "
+#~ "out of the sidebar."
+#~ msgstr ""
+#~ "Scegli tra apparire in una sezione unificata, o un elenco sopra o sotto "
+#~ "gli account."
+
+#~ msgid "In the unified section"
+#~ msgstr "Nella sezione unificata"
+
+#~ msgid "Contacts in the sidebar"
+#~ msgstr "Contatti nella barra laterale"
+
+#~ msgid ""
+#~ "A shortcut that opens your contacts, pinned at the bottom of the sidebar."
+#~ msgstr ""
+#~ "Un collegamento che apre i tuoi contatti, fissato in fondo alla barra "
+#~ "laterale."
+
+#, fuzzy
+#~ msgid "All Contacts"
+#~ msgstr "Contatti"
+
+#, fuzzy
+#~ msgid "Groups"
+#~ msgstr "Gruppo sinistra"
+
+#, fuzzy
+#~ msgid "Search groups"
+#~ msgstr "Filtri di ricerca"
+
+#, fuzzy
+#~ msgid "Choose which address book to search"
+#~ msgstr "Scegli le cartelle in cui cercare"
+
+#~ msgid "All Address Books"
+#~ msgstr "Tutte le rubriche"
+
+#~ msgid ""
+#~ "{name} is removed from your address book, and for a synced book, from the "
+#~ "server too."
+#~ msgstr ""
+#~ "{name} viene rimosso dalla rubrica, e per una rubrica sincronizzata, "
+#~ "anche dal server."
+
+#~ msgid "Sort contacts"
+#~ msgstr "Ordina contatti"
 
 #, fuzzy
 #~ msgid "From your mail accounts"

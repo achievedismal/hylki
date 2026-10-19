@@ -510,6 +510,14 @@ const CARRIED_BODY_LIMIT: usize = 64;
 /// Most messages one smart folder (#417) lists per account.
 const SMART_VIEW_LIMIT: usize = 5000;
 
+/// How many of a folder's newest messages a list not in memory shows at
+/// once, read from the index while the rest of the folder is.
+const LIST_NEWEST: usize = 300;
+
+/// How long after an account's folders arrive the unified rows' folders are
+/// read into memory: past the start's own rush of work.
+const PRELOAD_AFTER_SECS: u32 = 5;
+
 /// What a smart folder's conditions need besides the message itself, made
 /// on the main thread and taken to the one that reads the index.
 struct SmartContext {
@@ -761,6 +769,9 @@ pub struct AppModel {
     /// Inboxes, its Starred / Sent / Drafts for those rows, or every
     /// filter rule's folder for the Filtered Folders row.
     unified_view: UnifiedView,
+    /// The one account the unified view is narrowed to: an account's row
+    /// under the unified Starred row, for one with no Starred folder (#482).
+    unified_account: Option<u32>,
     /// (account, folder) → that folder's latest messages, for the unified
     /// view's merge.
     unified_slices: HashMap<(u32, u32), Vec<Message>>,
@@ -900,6 +911,9 @@ pub struct AppModel {
     favorites: Vec<String>,
     favorites_expanded: bool,
     smart_expanded: bool,
+    contacts_expanded: bool,
+    /// The accounts and books folded under the sidebar's Contacts row.
+    contacts_folded: Vec<String>,
     /// Account emails whose own Filtered Folders / Tags sections are open.
     filtered_expanded_accounts: Vec<String>,
     tags_expanded_accounts: Vec<String>,
@@ -979,8 +993,6 @@ pub struct AppModel {
     notification_buttons: config::NotificationButtons,
     /// Whether the sidebar's footer shows the "Attachments" row.
     show_attachments: bool,
-    /// Whether the sidebar's footer shows the "Contacts" shortcut row.
-    show_contacts: bool,
     /// Whether the settings window opens on Accounts (vs Preferences).
     settings_open_accounts: bool,
     /// The Settings category last shown this session, to reopen on.
@@ -1093,17 +1105,16 @@ pub struct AppModel {
     show_unified_pref: bool,
     /// Whether the collapsed "All Inboxes" row wears its total-unread chip.
     unified_chips: config::UnifiedChips,
-    /// Whether All Inboxes lists the folders that opted-in filter rules file
-    /// into, in its "Filtered Folders" section (Settings → Sidebar).
-    unified_filtered: bool,
-    /// Where the Filtered Folders and Tags sections sit (Settings → Sidebar).
+    /// Where the Filters, Tags, Favorites and Contacts sections sit
+    /// (Settings → Sidebar), and how they are drawn.
+    section_style: config::SectionStyle,
     filtered_placement: config::SectionPlacement,
     tags_placement: config::SectionPlacement,
+    favorites_placement: config::SectionPlacement,
+    contacts_placement: config::SectionPlacement,
     /// The unified section's Starred / Sent / Drafts rows (Settings →
     /// Sidebar → Unified).
     unified_kinds: config::UnifiedKinds,
-    /// Whether the unified section lists the tags.
-    unified_tags: bool,
     /// Whether the account sections are shown at all.
     show_accounts: bool,
     /// The main menu's "Show Accounts" check item, kept in step with the
@@ -1120,6 +1131,8 @@ pub struct AppModel {
     list_header_widgets: std::cell::OnceCell<ListHeaderWidgets>,
     /// Whether the sidebar's disclosure chevrons lead their rows.
     chevrons_left: bool,
+    /// Whether a click anywhere on an account's header folds it.
+    account_click_folds: bool,
     /// What the window shows at launch (#256).
     start_view: config::StartView,
     /// How accounts' folders are sorted, unless an account chooses
@@ -1159,6 +1172,20 @@ pub struct AppModel {
     smart_view_cache: HashMap<String, Vec<Message>>,
     smart_view_loading: bool,
     smart_view_dirty: bool,
+    /// The unified Starred view's read of the index (#482) is running, and
+    /// another is owed when it lands.
+    unified_starred_loading: bool,
+    unified_starred_dirty: bool,
+    /// The starred mail of the accounts with no Starred folder, by account,
+    /// with the folder path each message sits in: kept for the session, so
+    /// the unified Starred view opens at once (#482).
+    unified_starred_rows: HashMap<u32, Vec<(String, Message)>>,
+    unified_starred_due: bool,
+    /// A read of the unified rows' folders into memory is due (`Preload`).
+    preload_due: bool,
+    /// Unified rows still to build ahead for the message list (`PrebuildNext`).
+    prebuild_queue: Vec<UnifiedView>,
+    prebuild_due: bool,
     /// A count of the smart folders' unread mail is waiting to run, or
     /// running: syncs come in bursts, and one count covers a burst.
     smart_counts_due: bool,
@@ -1321,6 +1348,14 @@ pub struct AppModel {
     unified_dirty: std::cell::Cell<bool>,
     thread_links_due: std::cell::Cell<bool>,
     unified_emitted_at: std::cell::Cell<std::time::Instant>,
+    /// The fingerprint of the unified view's content the list has, when it
+    /// has the open view's: a merge that would hand it the same is skipped.
+    list_fp: std::cell::Cell<Option<u64>>,
+    /// The open unified view's folders whose slice is not copied from the
+    /// folder's cache yet: a view the list kept is shown first, and the
+    /// copies (tens of thousands of messages for an Archive) made after.
+    /// Until then the folder's cache stands for the slice.
+    unified_unfilled: std::collections::HashSet<(u32, u32)>,
     /// Gallery items per account inbox, merged for display.
     /// How many attachments the gallery's current query matches, carried
     /// between pages so only the first one pays for the COUNT.
@@ -1343,6 +1378,11 @@ pub struct AppModel {
     /// Every message currently selected (list rows or reader cards), newest
     /// report wins. Lets the toolbar's Delete act on the whole multi-selection.
     list_selection: Vec<(u32, u32)>,
+    /// The folder of each message in `list_selection` when the list made
+    /// it, `(account_id, folder_id, id)`. The id is a UID, which several
+    /// folders of the Filters view can share, so it is these that say which
+    /// message each row is (#481). Empty for cards picked in the reader.
+    list_slots: Vec<crate::ui::message_row::Slot>,
     /// How many rows Gmail's x has checked, while it is checking them
     /// (#392): they are acted on, not opened.
     checked: Option<usize>,
@@ -1456,6 +1496,8 @@ pub enum UnifiedView {
     Kind(FolderKind),
     /// Every filter rule's folder listed under All Inboxes.
     Filtered,
+    /// Every favorite folder.
+    Favorites,
 }
 
 /// One attachment of one message on the server, to be removed (#289).
@@ -1484,6 +1526,9 @@ pub enum AppMsg {
     /// / Sent / Drafts row (every account's folder of that kind), or its
     /// Filtered Folders row (every rule's folder).
     UnifiedSelected(UnifiedView),
+    /// An account's starred mail, for an account with no Starred folder
+    /// (#482): the unified Starred view narrowed to it.
+    AccountStarredSelected(u32),
     /// Show the attachments gallery (sidebar "Attachments" row).
     ShowAttachments,
     /// Show the Outbox (queued, unsent messages).
@@ -1538,7 +1583,7 @@ pub enum AppMsg {
     /// so what is on screen groups with what was found.
     RefsRepaired { account_id: u32, folder_id: u32 },
     /// The list's selection changed; the reader outlines the matching cards.
-    SelectionKeys(Vec<(u32, u32)>),
+    SelectionKeys(Vec<crate::ui::message_row::Slot>),
     /// Gmail's x checked rows, this many, or stopped checking (#392).
     ListChecked(Option<usize>),
     /// A composer asked for, built now that the busy pointer is drawn.
@@ -1610,6 +1655,9 @@ pub enum AppMsg {
     /// A message window's Move To: the folder picker over that window, at
     /// its point (x, y). The window closes once a folder is picked.
     PopoutMoveTo { key: (u32, u32), message: Box<Message>, x: f64, y: f64 },
+    /// A message window's single-key shortcut that needs the app (#392):
+    /// the window's message and the conversation it shows.
+    PopoutShortcut { action: Shortcut, message: Box<Message>, thread: Vec<Message> },
     /// A message window's drawer: delete this file from the server (#289),
     /// asking over that window first.
     DeletePopoutAttachment { key: (u32, u32), message: Box<Message>, attachment: Box<Attachment> },
@@ -1775,9 +1823,8 @@ pub enum AppMsg {
     /// The ⋯ of the message list header (Focus Mode): search, filters and
     /// sort as a menu.
     ListOverflowMenu,
-    /// An account's own Filtered Folders / Tags section was opened or
-    /// folded — record it with the layout.
-    ToggleAccountFiltered(u32),
+    /// An account's own Tags section was opened or folded: record it with
+    /// the layout.
     ToggleAccountTags(u32),
     /// The message list's visible-count text changed.
     ListCount(String),
@@ -1804,6 +1851,7 @@ pub enum AppMsg {
         trash: bool,
         favorites: bool,
         smart: bool,
+        contacts: bool,
     },
     /// A tag view's rows, read from the index off the main thread: the
     /// view they answer and, per message, its account and folder path.
@@ -2066,6 +2114,27 @@ pub enum AppMsg {
     SmartSelected(String),
     /// A smart folder's rows, read from the index off the main thread.
     SmartViewLoaded { id: String, rows: Vec<(u32, String, Message)> },
+    /// The starred mail of the accounts with no Starred folder, read from
+    /// the index for the unified Starred view (#482).
+    UnifiedStarredLoaded { rows: HashMap<u32, Vec<(String, Message)>> },
+    /// Read the starred mail of accounts with no Starred folder again (the
+    /// debounce ran out).
+    RefreshUnifiedStarred,
+    /// Merge the unified view for the list now: the list had not kept it.
+    EmitUnifiedNow,
+    /// Copy the unified view's folders into its slices (`unified_unfilled`).
+    FillUnifiedSlices,
+    /// Folders not in memory yet, read whole from the index off the main
+    /// thread: for the unified view being opened, or ahead of it (`Preload`).
+    UnifiedFoldersLoaded { lists: Vec<((u32, u32), Vec<Message>)> },
+    /// Read the folders the unified rows list into memory, off the main
+    /// thread, so the first visit after a start finds them there.
+    Preload,
+    /// Build the unified rows ahead for the message list, one at a time.
+    PrebuildViews,
+    PrebuildNext,
+    /// Push the sidebar's unread counts, put off from a view switch.
+    PushUnreadCounts,
     /// Count every smart folder's unread mail now (the debounce ran out).
     CountSmartFolders,
     SmartCounts(HashMap<String, u32>),
@@ -2079,7 +2148,7 @@ pub enum AppMsg {
     ToggleTagCurrent(String),
     /// A tag's number key, with the list rows selected when it was pressed
     /// (#416).
-    TagKey { n: u8, keys: Vec<(u32, u32)> },
+    TagKey { n: u8, slots: Vec<crate::ui::message_row::Slot> },
     /// Put the reader's target back in its Inbox (from Trash or Junk, #138).
     MoveToInbox,
     /// Pop the tag menu on the reader toolbar's tag button.
@@ -2189,6 +2258,9 @@ pub enum AppMsg {
     StatusBarShown(bool),
     ToggleNotifications,
     OpenContacts,
+    /// Contacts, asked for from a composer, which may be a window of its
+    /// own: the main window comes forward to show it.
+    ShowContactsPage,
     /// The background EDS read for the contacts view finished.
     ContactsLoaded(Vec<crate::contacts::ContactDetails>),
     /// The address books that sync with a server fetched what changed
@@ -2204,9 +2276,41 @@ pub enum AppMsg {
     /// A new contact, into the book picked in the editor (`None`: the
     /// default one).
     CreateContact { book_uid: Option<String>, vcard: String },
-    DeleteContact { book_uid: String, uid: String },
+    /// A group, new (`original` is `None`) or changed.
+    SaveGroup {
+        book_uid: String,
+        format: crate::contacts::GroupFormat,
+        original: Option<String>,
+        edit: crate::contacts::GroupEdit,
+    },
+    /// Contacts to delete, by book and UID.
+    DeleteContacts(Vec<(String, String)>),
+    /// A group to make in the book `to` and delete from `from`.
+    MoveGroup {
+        from: String,
+        uid: String,
+        to: String,
+        format: crate::contacts::GroupFormat,
+        edit: crate::contacts::GroupEdit,
+    },
+    /// Contacts to move to the book `to`: (book, UID, the card for `to`).
+    MoveContacts { to: String, cards: Vec<(String, String, String)> },
     /// A contact write finished (`Some` = the error to show).
     ContactWriteDone(Option<String>),
+    /// The Contacts page's books and groups, for the sidebars.
+    ContactTree(crate::ui::contacts_page::ContactTree),
+    /// Picked in the sidebar: what the contact list shows.
+    ContactScope(crate::ui::contacts_page::ContactScope),
+    /// Contacts dropped on a book or group in the sidebar.
+    ContactDrop { keys: Vec<(String, String)>, on: crate::ui::contacts_page::DropOn, moving: bool },
+    /// A right-click choice on a book or group in the sidebar.
+    ContactTreeAction(crate::ui::contacts_page::TreeAction),
+    /// Copy these cards into the book `to`.
+    CopyContacts { to: String, cards: Vec<String> },
+    /// The accounts and books folded under the sidebar's Contacts row.
+    ContactsFolded(Vec<String>),
+    /// Name an address book in Hylki (`None`: its own name again).
+    RenameBook { uid: String, name: Option<String> },
     /// `.vcf` files chosen in the Contacts page, to import into the Hylki book.
     ImportContacts(Vec<std::path::PathBuf>),
     /// The import finished.
@@ -2369,9 +2473,8 @@ impl SimpleComponent for AppModel {
                     #[name = "content_stack"]
                     gtk::Stack {
                         set_hexpand: true,
-                        set_transition_type: gtk::StackTransitionType::Crossfade,
                         // Swap the mail panes for the attachments gallery or
-                        // the contacts view.
+                        // the contacts view, at once: no transition.
                         #[watch]
                         set_visible_child_name: if model.showing_gallery {
                             "gallery"
@@ -2965,6 +3068,8 @@ impl SimpleComponent for AppModel {
         let trash_expanded = sidebar_state.trash_expanded;
         let favorites_expanded = sidebar_state.favorites_expanded;
         let smart_expanded = sidebar_state.smart_expanded;
+        let contacts_expanded = sidebar_state.contacts_expanded;
+        let contacts_folded = sidebar_state.contacts_folded.clone();
         let favorites = sidebar_state.favorites.clone();
 
         // Load accounts, then reconcile against GNOME Online Accounts: drop any
@@ -3005,7 +3110,6 @@ impl SimpleComponent for AppModel {
         // decided after the GOA reconcile, which can add accounts.
         let demo_data = demo_mode() && config.is_empty();
         let show_attachments = prefs.show_attachments;
-        let show_contacts = prefs.show_contacts;
         let start_view = prefs.start_view;
         let start = {
             use crate::ui::sidebar::StartTarget;
@@ -3036,8 +3140,9 @@ impl SimpleComponent for AppModel {
                 trash_expanded,
                 favorites_expanded,
                 smart_expanded,
+                contacts_expanded,
+                contacts_folded: contacts_folded.clone(),
                 show_attachments,
-                show_contacts,
                 start,
             })
             .forward(sender.input_sender(), sidebar_output_msg);
@@ -3065,8 +3170,9 @@ impl SimpleComponent for AppModel {
                 trash_expanded,
                 favorites_expanded,
                 smart_expanded,
+                contacts_expanded,
+                contacts_folded: contacts_folded.clone(),
                 show_attachments,
-                show_contacts,
                 start: None,
             })
             .forward(sender.input_sender(), sidebar_output_msg);
@@ -3080,6 +3186,7 @@ impl SimpleComponent for AppModel {
                     }
                     MessageListOutput::SelectionKeys(keys) => AppMsg::SelectionKeys(keys),
                     MessageListOutput::Checked(count) => AppMsg::ListChecked(count),
+                    MessageListOutput::ViewMissed => AppMsg::EmitUnifiedNow,
                     MessageListOutput::MoveMessages { account_id, dest, messages } => {
                         AppMsg::MoveMessagesTo { account_id, dest, messages }
                     }
@@ -3231,9 +3338,17 @@ impl SimpleComponent for AppModel {
                     ContactsPageOutput::CreateContact { book_uid, vcard } => {
                         AppMsg::CreateContact { book_uid, vcard }
                     }
-                    ContactsPageOutput::DeleteContact { book_uid, uid } => {
-                        AppMsg::DeleteContact { book_uid, uid }
+                    ContactsPageOutput::SaveGroup { book_uid, format, original, edit } => {
+                        AppMsg::SaveGroup { book_uid, format, original, edit }
                     }
+                    ContactsPageOutput::DeleteContacts(keys) => AppMsg::DeleteContacts(keys),
+                    ContactsPageOutput::MoveGroup { from, uid, to, format, edit } => {
+                        AppMsg::MoveGroup { from, uid, to, format, edit }
+                    }
+                    ContactsPageOutput::MoveContacts { to, cards } => AppMsg::MoveContacts { to, cards },
+                    ContactsPageOutput::CopyContacts { to, cards } => AppMsg::CopyContacts { to, cards },
+                    ContactsPageOutput::RenameBook { uid, name } => AppMsg::RenameBook { uid, name },
+                    ContactsPageOutput::Tree(tree) => AppMsg::ContactTree(tree),
                     ContactsPageOutput::ImportContacts(paths) => AppMsg::ImportContacts(paths),
                     ContactsPageOutput::WantSuggestions => AppMsg::ContactSuggestions,
                     ContactsPageOutput::ShowPhoto { name, data } => {
@@ -3434,6 +3549,7 @@ impl SimpleComponent for AppModel {
             attachment_cache: crate::ram_cache::RamCache::new(ATTACHMENT_CACHE_BUDGET),
             unified: false,
             unified_view: UnifiedView::Kind(FolderKind::Inbox),
+            unified_account: None,
             unified_slices: HashMap::new(),
             unified_boot_requested: HashSet::new(),
             sent_index_requested: HashSet::new(),
@@ -3463,6 +3579,7 @@ impl SimpleComponent for AppModel {
             listed_thread: Vec::new(),
             reader_focus_pending: false,
             list_selection: Vec::new(),
+            list_slots: Vec::new(),
             checked: None,
             compose_waiting: false,
             compose_now: false,
@@ -3534,6 +3651,8 @@ impl SimpleComponent for AppModel {
             favorites,
             favorites_expanded,
             smart_expanded,
+            contacts_expanded,
+            contacts_folded,
             filtered_expanded_accounts,
             tags_expanded_accounts,
             rail_dots: prefs.rail_dots,
@@ -3568,7 +3687,6 @@ impl SimpleComponent for AppModel {
             notification_content: prefs.notification_content,
             notification_buttons: config::load_notification_buttons(),
             show_attachments,
-            show_contacts,
             settings_open_accounts: prefs.settings_open_accounts,
             last_settings_page: None,
             list_count: String::new(),
@@ -3618,17 +3736,19 @@ impl SimpleComponent for AppModel {
             pgp_labels: prefs.pgp_labels,
             show_unified_pref: prefs.show_unified,
             unified_chips: config::load_unified_chips(),
-            unified_filtered: prefs.unified_filtered,
+            section_style: prefs.section_style,
             filtered_placement: prefs.filtered_placement,
             tags_placement: prefs.tags_placement,
+            favorites_placement: prefs.favorites_placement,
+            contacts_placement: prefs.contacts_placement,
             unified_kinds: prefs.unified_kinds,
-            unified_tags: prefs.unified_tags,
             show_accounts,
             show_accounts_action,
             focus,
             focus_action,
             list_header_widgets: std::cell::OnceCell::new(),
             chevrons_left: prefs.chevrons_left,
+            account_click_folds: prefs.account_click_folds,
             start_view,
             folder_sort: prefs.folder_sort,
             console_mode: prefs.console_mode,
@@ -3656,6 +3776,13 @@ impl SimpleComponent for AppModel {
             smart_view_cache: HashMap::new(),
             smart_view_loading: false,
             smart_view_dirty: false,
+            unified_starred_loading: false,
+            unified_starred_dirty: false,
+            unified_starred_rows: HashMap::new(),
+            unified_starred_due: false,
+            preload_due: false,
+            prebuild_queue: Vec::new(),
+            prebuild_due: false,
             smart_counts_due: false,
             smart_counts_running: false,
             keyword_sync_at: HashMap::new(),
@@ -3663,8 +3790,9 @@ impl SimpleComponent for AppModel {
             // Demo mode gets a cache that never touches disk, seeded with the
             // sample mail: the gallery's paging, search and sort are database
             // queries, so the demo has to run them against a real database or
-            // it would be exercising nothing.
-            cache: if demo_mode() {
+            // it would be exercising nothing. Not with real accounts: their
+            // workers keep the real one, and the lists read it.
+            cache: if demo_data {
                 let c = crate::cache::Cache::in_memory().ok();
                 if let Some(c) = c.as_ref() {
                     crate::backend::seed_demo_cache(c);
@@ -3744,6 +3872,8 @@ impl SimpleComponent for AppModel {
             unified_dirty: std::cell::Cell::new(false),
             thread_links_due: std::cell::Cell::new(false),
             unified_emitted_at: std::cell::Cell::new(std::time::Instant::now()),
+            list_fp: std::cell::Cell::new(None),
+            unified_unfilled: std::collections::HashSet::new(),
             gallery_total: 0,
             gallery_scan_left: HashMap::new(),
         };
@@ -3785,6 +3915,9 @@ impl SimpleComponent for AppModel {
         if !demo_mode() {
             sync_contact_books(&sender, false, 5000);
         }
+        // Contacts is read and listed in the background, so the first visit
+        // shows it at once (#477); a visit re-reads it to catch up.
+        reload_contacts(&sender, 4000);
         // Refresh visible avatars when the GNOME Contacts photo index
         // changes (first load finishing, or an EDS/CardDAV sync).
         crate::contacts::watch_photo_changes({
@@ -3887,6 +4020,7 @@ impl SimpleComponent for AppModel {
         model.message_list.emit(MessageListInput::SetHeadings(model.list_headings));
         model.message_list.emit(MessageListInput::SetColumnScroll(model.list_column_scroll));
         model.message_list.emit(MessageListInput::SetSearchPinned(model.list_search_open));
+        model.contacts_page.emit(ContactsPageInput::SetSearchPinned(model.list_search_open));
         model.message_list.emit(MessageListInput::SetColumnWidths(model.list_column_widths.clone()));
         model.sidebars_emit(SidebarInput::SetFocus {
             hide_accounts: model.focus.active(config::FocusPart::HideAccounts),
@@ -4604,7 +4738,7 @@ impl SimpleComponent for AppModel {
             let probe = model.message_list.model().selection_probe();
             // A tag key carries the rows selected as it is pressed (#416).
             let shortcut = move |action: Shortcut| match action {
-                Shortcut::Tag(n) => AppMsg::TagKey { n, keys: probe.keys() },
+                Shortcut::Tag(n) => AppMsg::TagKey { n, slots: probe.slots() },
                 action => AppMsg::Shortcut(action),
             };
             // The first key of a Gmail sequence (g or *) and when it came.
@@ -4669,15 +4803,15 @@ impl SimpleComponent for AppModel {
                     s.input(AppMsg::Shortcut(Shortcut::BackToList));
                     return gtk::glib::Propagation::Stop;
                 }
-                // Shift+Delete erases the selection, Thunderbird's key (#471),
-                // also without single-key shortcuts. The list catches it first
-                // when it has focus; this is the reader and the rest.
-                if shift
-                    && matches!(keyval, gtk::gdk::Key::Delete | gtk::gdk::Key::KP_Delete)
+                // Delete moves the selection to Trash and Shift+Delete erases
+                // it, Thunderbird's key (#471), also without single-key
+                // shortcuts. The list catches both first when it has focus;
+                // this is the reader and the rest (#486).
+                if matches!(keyval, gtk::gdk::Key::Delete | gtk::gdk::Key::KP_Delete)
                     && !focus_is_text(&window)
                     && !focus_in_compose(&window)
                 {
-                    s.input(shortcut(Shortcut::DeleteForever));
+                    s.input(shortcut(if shift { Shortcut::DeleteForever } else { Shortcut::Delete }));
                     return gtk::glib::Propagation::Stop;
                 }
                 if !enabled.get() || focus_is_text(&window) || focus_in_compose(&window) {
@@ -5093,30 +5227,42 @@ impl SimpleComponent for AppModel {
                 }
                 // HYLKI_SHOWCASE_UNIFIED=sent|starred|drafts|archive|junk|trash|smart opens that unified
                 // row at 3s, All Inboxes at 6s and the row again at 9s, so the
-                // timing logs show a cold and a warm open.
+                // timing logs show a cold and a warm open. starred@N picks the
+                // Nth account's row under Starred instead.
+                // HYLKI_SHOWCASE_UNIFIED_AT=<s> starts that at s seconds rather
+                // than 3, once a real profile's accounts have loaded.
                 if let Ok(which) = std::env::var("HYLKI_SHOWCASE_UNIFIED") {
+                    let at: u32 = std::env::var("HYLKI_SHOWCASE_UNIFIED_AT")
+                        .ok()
+                        .and_then(|v| v.parse().ok())
+                        .unwrap_or(3);
+                    let sub = which.strip_prefix("starred@").and_then(|n| n.parse::<i32>().ok());
                     let pick = move || match which.as_str() {
+                        _ if let Some(index) = sub => {
+                            SidebarInput::KindSubRowSelected { kind: FolderKind::Starred, index }
+                        }
                         "starred" => SidebarInput::UnifiedKindRowSelected(FolderKind::Starred),
                         "drafts" => SidebarInput::UnifiedKindRowSelected(FolderKind::Drafts),
                         "archive" => SidebarInput::UnifiedKindRowSelected(FolderKind::Archive),
                         "junk" => SidebarInput::UnifiedKindRowSelected(FolderKind::Junk),
                         "trash" => SidebarInput::UnifiedKindRowSelected(FolderKind::Trash),
                         "filtered" => SidebarInput::UnifiedFilteredSelected,
+                        "favorites" => SidebarInput::UnifiedFavoritesSelected,
                         "tags" => SidebarInput::UnifiedTagsSelected,
                         "smart" => SidebarInput::SmartRowSelected(0),
                         _ => SidebarInput::UnifiedKindRowSelected(FolderKind::Sent),
                     };
                     let sb = model.sidebar.sender().clone();
                     let p = pick.clone();
-                    gtk::glib::timeout_add_seconds_local_once(3, move || {
+                    gtk::glib::timeout_add_seconds_local_once(at, move || {
                         let _ = sb.send(p());
                     });
                     let sb = model.sidebar.sender().clone();
-                    gtk::glib::timeout_add_seconds_local_once(6, move || {
+                    gtk::glib::timeout_add_seconds_local_once(at + 3, move || {
                         let _ = sb.send(SidebarInput::SelectUnifiedRow);
                     });
                     let sb = model.sidebar.sender().clone();
-                    gtk::glib::timeout_add_seconds_local_once(9, move || {
+                    gtk::glib::timeout_add_seconds_local_once(at + 6, move || {
                         let _ = sb.send(pick());
                     });
                 }
@@ -5675,12 +5821,14 @@ impl SimpleComponent for AppModel {
                         }
                     });
                 }
-                // HYLKI_SHOWCASE_CONTACTS=list|new|group|search:<text>[@<n>]
+                // HYLKI_SHOWCASE_CONTACTS=list|new|group|search:<text>[@<n>]|filter:<n>|multi:<n>
                 // opens Contacts at 3s, and with "new" its editor for a new
                 // contact at 5s ("group": for a new group), or with "search:"
                 // types the text into its search
                 // then, so the directories are asked too (#307), and with
-                // "@<n>" picks entry n of the book filter at 6s.
+                // "@<n>" shows only book n of the filter at 6s; "filter:"
+                // turns on its nth "Show only" filter at 5s; "multi:"
+                // selects the first n entries at 5s.
                 if let Ok(which) = std::env::var("HYLKI_SHOWCASE_CONTACTS") {
                     let s = sender.clone();
                     gtk::glib::timeout_add_seconds_local_once(3, move || s.input(AppMsg::OpenContacts));
@@ -5692,6 +5840,18 @@ impl SimpleComponent for AppModel {
                             } else {
                                 ContactsPageInput::NewContact
                             });
+                        });
+                    } else if let Some(filter) =
+                        which.strip_prefix("filter:").and_then(|n| n.parse::<usize>().ok()).and_then(|n| {
+                            crate::ui::contacts_page::ContactFilter::ALL.get(n).copied()
+                        })
+                    {
+                        gtk::glib::timeout_add_seconds_local_once(5, move || {
+                            let _ = page.send(ContactsPageInput::SetFilter(filter, true));
+                        });
+                    } else if let Some(n) = which.strip_prefix("multi:").and_then(|n| n.parse::<u32>().ok()) {
+                        gtk::glib::timeout_add_seconds_local_once(5, move || {
+                            let _ = page.send(ContactsPageInput::SelectFirst(n));
                         });
                     } else if let Some(spec) = which.strip_prefix("search:") {
                         let (text, book) = match spec.rsplit_once('@') {
@@ -6162,7 +6322,11 @@ impl SimpleComponent for AppModel {
             }
 
             AppMsg::UnifiedSelected(view) => {
-                self.open_unified(view);
+                self.open_unified(view, &sender);
+            }
+
+            AppMsg::AccountStarredSelected(account_id) => {
+                self.open_unified_in(UnifiedView::Kind(FolderKind::Starred), Some(account_id), &sender);
             }
 
             AppMsg::FolderSelected { account_id, folder_id, name, path } => {
@@ -6223,7 +6387,7 @@ impl SimpleComponent for AppModel {
                         && self.unified_inboxes_shown()
                         && self.in_unified(account_id)
                     {
-                        self.open_unified(UnifiedView::Kind(FolderKind::Inbox));
+                        self.open_unified(UnifiedView::Kind(FolderKind::Inbox), &sender);
                     } else {
                         self.select_folder(account_id, folder_id, name, path);
                     }
@@ -6536,8 +6700,10 @@ impl SimpleComponent for AppModel {
                 trash,
                 favorites,
                 smart,
+                contacts,
             } => {
-                let now = (all_inboxes, filtered, tags, starred, sent, drafts, archive, junk, trash, favorites, smart);
+                let now =
+                    (all_inboxes, filtered, tags, starred, sent, drafts, archive, junk, trash, favorites, smart, contacts);
                 let was = (
                     self.unified_expanded,
                     self.filtered_expanded,
@@ -6550,6 +6716,7 @@ impl SimpleComponent for AppModel {
                     self.trash_expanded,
                     self.favorites_expanded,
                     self.smart_expanded,
+                    self.contacts_expanded,
                 );
                 if now != was {
                     self.unified_expanded = all_inboxes;
@@ -6563,6 +6730,7 @@ impl SimpleComponent for AppModel {
                     self.trash_expanded = trash;
                     self.favorites_expanded = favorites;
                     self.smart_expanded = smart;
+                    self.contacts_expanded = contacts;
                     self.save_sidebar_state();
                 }
             }
@@ -7309,6 +7477,10 @@ impl SimpleComponent for AppModel {
                 });
             }
 
+            AppMsg::PopoutShortcut { action, message, thread } => {
+                self.run_popout_shortcut(action, *message, thread, &sender);
+            }
+
             AppMsg::DeletePopoutAttachment { key, message, attachment } => {
                 let Some(window) = self.popouts.get(&key).map(|p| p.window.clone()) else { return };
                 let Some(path) = self.resolve_folder_path(&message) else { return };
@@ -7728,6 +7900,7 @@ impl SimpleComponent for AppModel {
                     for (account_id, folder_id, path) in reqs {
                         self.send_to(account_id, MailRequest::LoadMessages { folder_id, path });
                     }
+                    self.refresh_unified_starred(&sender);
                 } else {
                     match self.selected.clone() {
                         Some(sel) => self.send_to(sel.account_id, MailRequest::LoadMessages {
@@ -8533,6 +8706,7 @@ impl SimpleComponent for AppModel {
             AppMsg::Pref(PrefOutput::SetListSearchOpen(on)) => {
                 if pref!(self.list_search_open = on) {
                     self.message_list.emit(MessageListInput::SetSearchPinned(on));
+                    self.contacts_page.emit(ContactsPageInput::SetSearchPinned(on));
                 }
             }
             AppMsg::Pref(PrefOutput::SetGroupByDate(on)) => {
@@ -8600,12 +8774,6 @@ impl SimpleComponent for AppModel {
                 }
             }
 
-            AppMsg::Pref(PrefOutput::SetContactsRow(show)) => {
-                if pref!(self.show_contacts = show) {
-                    self.sidebars_emit(SidebarInput::SetContactsRow(show));
-                }
-            }
-
             AppMsg::Pref(PrefOutput::SetShowUnified(show)) => {
                 if pref!(self.show_unified_pref = show) {
                     // Rebuilds the sidebar with or without the unified section.
@@ -8619,21 +8787,8 @@ impl SimpleComponent for AppModel {
                 }
             }
 
-            AppMsg::Pref(PrefOutput::SetUnifiedFiltered(show)) => {
-                if pref!(self.unified_filtered = show) {
-                    // Adds or removes the Filtered Folders section.
-                    self.rebuild_sidebar();
-                }
-            }
-
             AppMsg::Pref(PrefOutput::SetUnifiedKinds(kinds)) => {
                 if pref!(self.unified_kinds = kinds) {
-                    self.rebuild_sidebar();
-                }
-            }
-
-            AppMsg::Pref(PrefOutput::SetUnifiedTags(show)) => {
-                if pref!(self.unified_tags = show) {
                     self.rebuild_sidebar();
                 }
             }
@@ -8651,18 +8806,6 @@ impl SimpleComponent for AppModel {
                 }
             }
 
-            AppMsg::ToggleAccountFiltered(account_id) => {
-                // The sidebar animated the toggle locally; record the state.
-                if let Some(email) = self.email_of(account_id) {
-                    if let Some(pos) = self.filtered_expanded_accounts.iter().position(|e| *e == email) {
-                        self.filtered_expanded_accounts.remove(pos);
-                    } else {
-                        self.filtered_expanded_accounts.push(email);
-                    }
-                    self.save_sidebar_state();
-                }
-            }
-
             AppMsg::ToggleAccountTags(account_id) => {
                 if let Some(email) = self.email_of(account_id) {
                     if let Some(pos) = self.tags_expanded_accounts.iter().position(|e| *e == email) {
@@ -8671,6 +8814,12 @@ impl SimpleComponent for AppModel {
                         self.tags_expanded_accounts.push(email);
                     }
                     self.save_sidebar_state();
+                }
+            }
+
+            AppMsg::Pref(PrefOutput::SetSectionStyle(style)) => {
+                if pref!(self.section_style = style) {
+                    self.rebuild_sidebar();
                 }
             }
 
@@ -8686,12 +8835,30 @@ impl SimpleComponent for AppModel {
                 }
             }
 
+            AppMsg::Pref(PrefOutput::SetFavoritesPlacement(p)) => {
+                if pref!(self.favorites_placement = p) {
+                    self.rebuild_sidebar();
+                }
+            }
+
+            AppMsg::Pref(PrefOutput::SetContactsPlacement(p)) => {
+                if pref!(self.contacts_placement = p) {
+                    self.rebuild_sidebar();
+                }
+            }
+
             AppMsg::Pref(PrefOutput::SetStartView(view)) => {
                 pref!(self.start_view = view);
             }
 
             AppMsg::Pref(PrefOutput::SetChevronsLeft(left)) => {
                 if pref!(self.chevrons_left = left) {
+                    self.rebuild_sidebar();
+                }
+            }
+
+            AppMsg::Pref(PrefOutput::SetAccountClickFolds(on)) => {
+                if pref!(self.account_click_folds = on) {
                     self.rebuild_sidebar();
                 }
             }
@@ -9854,6 +10021,84 @@ impl SimpleComponent for AppModel {
                 self.send_to(account_id, MailRequest::SaveDraft { message: out, folder_id, path, autosave: None, template: true });
             }
 
+            AppMsg::FillUnifiedSlices => self.fill_unified_slices(),
+
+            AppMsg::Preload => {
+                self.preload_due = false;
+                self.preload(&sender);
+            }
+
+            AppMsg::PrebuildViews => {
+                self.prebuild_due = false;
+                let mut views: Vec<UnifiedView> = Vec::new();
+                if self.multi_account() {
+                    if self.unified_inboxes_shown() {
+                        views.push(UnifiedView::Kind(FolderKind::Inbox));
+                    }
+                    // Starred is built from the flags of every folder, and
+                    // is small: its first visit builds it.
+                    views.extend(
+                        self.unified_kinds
+                            .listed()
+                            .into_iter()
+                            .filter(|k| *k != FolderKind::Starred)
+                            .map(UnifiedView::Kind),
+                    );
+                }
+                // Taken from the end: the Inboxes first.
+                views.reverse();
+                self.prebuild_queue = views;
+                self.prebuild_next(&sender);
+            }
+
+            AppMsg::PrebuildNext => self.prebuild_next(&sender),
+
+            AppMsg::UnifiedFoldersLoaded { lists } => {
+                let open = self.unified;
+                let mut landed = false;
+                for ((account_id, folder_id), messages) in lists {
+                    // The worker's own answer may have come first. An empty
+                    // folder is recorded as read too: building a unified row
+                    // ahead waits on all of its folders.
+                    if self.message_cache.get(&(account_id, folder_id)).is_some_and(|c| !c.is_empty()) {
+                        continue;
+                    }
+                    if messages.is_empty() {
+                        self.message_cache.entry((account_id, folder_id)).or_default();
+                        continue;
+                    }
+                    let messages = self.merge_local_tags(account_id, messages);
+                    let messages = self.apply_pending_seen(account_id, folder_id, messages);
+                    let messages = self.apply_pending_answers(account_id, folder_id, messages);
+                    let messages = self.apply_pending_tags(account_id, folder_id, messages);
+                    if open && self.is_unified_target(account_id, folder_id) {
+                        self.unified_unfilled.remove(&(account_id, folder_id));
+                        self.unified_slices.insert((account_id, folder_id), messages.clone());
+                        landed = true;
+                    } else if !open
+                        && self.selected.as_ref().is_some_and(|s| (s.account_id, s.folder_id) == (account_id, folder_id))
+                    {
+                        // The folder on show had only its newest so far.
+                        self.message_list.emit(MessageListInput::SetMessages { messages: messages.clone() });
+                    }
+                    self.message_cache.insert((account_id, folder_id), messages);
+                }
+                if landed {
+                    self.emit_unified();
+                    self.push_index_complete();
+                }
+                self.schedule_prebuild(&sender);
+            }
+
+            AppMsg::PushUnreadCounts => self.push_unread_counts(),
+
+            AppMsg::EmitUnifiedNow => {
+                self.list_fp.set(None);
+                if self.unified {
+                    self.emit_unified();
+                }
+            }
+
             AppMsg::EmitUnified => {
                 self.unified_emit_queued.set(false);
                 if self.thread_links_due.replace(false) {
@@ -10245,6 +10490,11 @@ impl SimpleComponent for AppModel {
                 crate::desktop::present_window(&self.window);
             }
 
+            AppMsg::ShowContactsPage => {
+                crate::desktop::present_window(&self.window);
+                sender.input(AppMsg::OpenContacts);
+            }
+
             AppMsg::OpenConsole => {
                 if self.console_mode {
                     self.notifications.emit(NotifyInput::ShowConsole);
@@ -10405,6 +10655,23 @@ impl SimpleComponent for AppModel {
                 }
             }
 
+            AppMsg::RefreshUnifiedStarred => {
+                self.unified_starred_due = false;
+                self.refresh_unified_starred(&sender);
+            }
+
+            AppMsg::UnifiedStarredLoaded { rows } => {
+                self.unified_starred_loading = false;
+                self.unified_starred_rows.extend(rows);
+                if self.fill_unified_starred() {
+                    self.unified_dirty.set(true);
+                    self.queue_unified_emit(&sender);
+                }
+                if std::mem::take(&mut self.unified_starred_dirty) {
+                    self.refresh_unified_starred(&sender);
+                }
+            }
+
             AppMsg::CountSmartFolders => {
                 self.smart_counts_due = false;
                 self.count_smart_folders(&sender);
@@ -10494,7 +10761,7 @@ impl SimpleComponent for AppModel {
                 self.toggle_tag(keyword, &targets);
             }
 
-            AppMsg::TagKey { n, keys } => {
+            AppMsg::TagKey { n, slots } => {
                 // Settings order, first nine. A number past the list does
                 // nothing rather than something surprising.
                 let Some(keyword) = self.tags.get(usize::from(n).saturating_sub(1)).map(|t| t.keyword.clone()) else {
@@ -10504,11 +10771,9 @@ impl SimpleComponent for AppModel {
                 // heard the list moved: the rows selected at the key press are
                 // the ones meant, or the tag lands on the row before and the
                 // next press takes it back off (#416).
+                let keys: Vec<(u32, u32)> = slots.iter().map(|&(a, _, id)| (a, id)).collect();
                 let targets = if !keys.is_empty() && keys != self.list_heard && keys != self.list_selection {
-                    keys.iter()
-                        .filter_map(|&(account_id, id)| self.shown_copy(account_id, id))
-                        .filter(|m| self.outbox_item(m.account_id, m.id).is_none())
-                        .collect()
+                    self.rows_at(&slots)
                 } else {
                     self.selected_targets()
                 };
@@ -10648,8 +10913,11 @@ impl SimpleComponent for AppModel {
 
             AppMsg::OpenListSearch => {
                 // Ctrl+F routes by focus (#102/#103): in the reader it finds
-                // within the message, everywhere else it searches the list.
-                if self.reader_has_focus() && self.current.is_some() {
+                // within the message, everywhere else it searches the list
+                // shown, Contacts' included.
+                if self.showing_contacts {
+                    self.contacts_page.emit(ContactsPageInput::FocusSearch);
+                } else if self.reader_has_focus() && self.current.is_some() {
                     self.message_view.emit(MessageViewInput::OpenFind);
                 } else {
                     self.message_list.emit(MessageListInput::FocusSearch);
@@ -11263,6 +11531,10 @@ impl SimpleComponent for AppModel {
                         self.send_to(account_id, MailRequest::LoadMessages { folder_id, path });
                     }
                 }
+                self.schedule_preload(&sender);
+                if self.flag_starred_accounts().contains(&account_id) {
+                    self.refresh_unified_starred(&sender);
+                }
                 self.index_sent_folders(account_id);
                 // A unified view merges one folder per account, and this
                 // account's folders may only now have arrived — so the set the
@@ -11676,6 +11948,7 @@ impl SimpleComponent for AppModel {
                                 .get(&(account_id, folder_id))
                                 .is_some_and(|s| *s == messages);
                         if !same_slice {
+                            self.unified_unfilled.remove(&(account_id, folder_id));
                             self.unified_slices.insert((account_id, folder_id), messages);
                             // Accounts answer one after another, a large or
                             // slow one in several goes: one merge for the lot
@@ -11695,6 +11968,16 @@ impl SimpleComponent for AppModel {
                     self.refresh_tag_view(&sender);
                 } else if self.smart_view.is_some() {
                     self.refresh_smart_view(&sender);
+                }
+                if !unchanged && self.flag_starred_accounts().contains(&account_id) {
+                    // The index just took this folder's flags: read them
+                    // again now for the view on show, else once a sync's
+                    // burst of folders has passed.
+                    if self.starred_by_flag().is_empty() {
+                        self.refresh_unified_starred_soon(&sender);
+                    } else {
+                        self.refresh_unified_starred(&sender);
+                    }
                 }
                 self.schedule_smart_counts(&sender);
                 // The reader's message was removed by this sync (deleted/moved on
@@ -11993,7 +12276,9 @@ impl SimpleComponent for AppModel {
                 }
             }
 
-            AppMsg::SelectionKeys(keys) => {
+            AppMsg::SelectionKeys(slots) => {
+                let keys: Vec<(u32, u32)> = slots.iter().map(|&(a, _, id)| (a, id)).collect();
+                self.list_slots = slots;
                 self.list_heard = keys.clone();
                 self.list_selection = keys.clone();
                 self.selection_from_cards = false;
@@ -12015,6 +12300,7 @@ impl SimpleComponent for AppModel {
 
             AppMsg::SelectCards(keys) => {
                 self.list_selection = keys.clone();
+                self.list_slots.clear();
                 self.selection_from_cards = !keys.is_empty();
                 // Reading is click-driven: scrolling past a conversation
                 // message no longer marks it, so an arriving reply stays
@@ -12313,35 +12599,40 @@ impl SimpleComponent for AppModel {
             }
 
             AppMsg::OpenContacts => {
-                self.close_sidebar_peek();
                 self.mirror_selection(crate::ui::sidebar::Sel::Contacts);
-                self.showing_outbox = false;
-                self.leave_gallery();
-                self.showing_contacts = true;
-                // Read EDS off the UI thread (SQLite + photo decoding); the
-                // page shows its loading face until the list lands.
-                self.contacts_page.emit(ContactsPageInput::SetLoading);
-                reload_contacts(&sender, 0);
-                if !demo_mode() {
-                    sync_contact_books(&sender, false, 0);
+                self.show_contacts_view(&sender);
+            }
+
+            AppMsg::ContactTree(tree) => {
+                self.sidebar.emit(SidebarInput::SetContactTree(tree.clone()));
+                self.peek_sidebar.emit(SidebarInput::SetContactTree(tree));
+            }
+
+            AppMsg::ContactScope(scope) => {
+                // A book or group under the sidebar's Contacts row opens
+                // Contacts on it.
+                if !self.showing_contacts {
+                    self.show_contacts_view(&sender);
+                } else {
+                    self.close_sidebar_peek();
                 }
+                self.contacts_page.emit(ContactsPageInput::SetScope(scope));
             }
 
             AppMsg::ContactBooksSynced => {
                 // EDS writes what it fetched just after the sync returns.
-                if self.showing_contacts {
-                    reload_contacts(&sender, 1500);
-                }
+                // Read even while Contacts is hidden: the page keeps its
+                // list between visits, and this keeps that list current.
+                reload_contacts(&sender, 1500);
                 if self.filters.iter().any(|r| r.needs_contacts()) {
                     self.saved_addresses.refresh();
                 }
             }
 
             AppMsg::Pref(PrefOutput::ContactSourcesChanged) => {
-                // A book switched on or off counts at once everywhere.
-                if self.showing_contacts {
-                    reload_contacts(&sender, 0);
-                }
+                // A book switched on or off, or renamed, counts at once
+                // everywhere, the sidebar's Contacts list among them.
+                reload_contacts(&sender, 0);
                 if self.filters.iter().any(|r| r.needs_contacts()) {
                     self.saved_addresses.refresh();
                 }
@@ -12401,16 +12692,109 @@ impl SimpleComponent for AppModel {
                 });
             }
 
-            AppMsg::DeleteContact { book_uid, uid } => {
+            AppMsg::SaveGroup { book_uid, format, original, edit } => {
                 let s = sender.clone();
                 std::thread::spawn(move || {
-                    let result = crate::contacts::delete_contact(&book_uid, &uid);
+                    let result = crate::contacts::save_group(&book_uid, format, original.as_deref(), edit);
                     s.input(AppMsg::ContactWriteDone(result.err()));
+                });
+            }
+
+            AppMsg::DeleteContacts(keys) => {
+                let s = sender.clone();
+                std::thread::spawn(move || {
+                    // One call per book.
+                    let mut by_book: Vec<(String, Vec<String>)> = Vec::new();
+                    for (book, uid) in keys {
+                        match by_book.iter_mut().find(|(b, _)| *b == book) {
+                            Some((_, uids)) => uids.push(uid),
+                            None => by_book.push((book, vec![uid])),
+                        }
+                    }
+                    let err = by_book
+                        .iter()
+                        .filter_map(|(book, uids)| crate::contacts::delete_contacts(book, uids).err())
+                        .next();
+                    s.input(AppMsg::ContactWriteDone(err));
+                });
+            }
+
+            AppMsg::MoveGroup { from, uid, to, format, edit } => {
+                let s = sender.clone();
+                std::thread::spawn(move || {
+                    let result = crate::contacts::move_group(&from, &uid, &to, format, edit);
+                    s.input(AppMsg::ContactWriteDone(result.err()));
+                });
+            }
+
+            AppMsg::ContactDrop { keys, on, moving } => {
+                self.contacts_page.emit(ContactsPageInput::DropContacts { keys, on, moving });
+            }
+
+            AppMsg::ContactTreeAction(action) => {
+                self.close_sidebar_peek();
+                self.contacts_page.emit(ContactsPageInput::Tree(action));
+            }
+
+            AppMsg::ContactsFolded(keys) => {
+                self.contacts_folded = keys;
+                self.save_sidebar_state();
+            }
+
+            AppMsg::RenameBook { uid, name } => {
+                if let Err(e) = crate::contact_sources::set_name(&uid, name.as_deref()) {
+                    self.notifications.emit(NotifyInput::Push {
+                        text: i18n_f("Could not rename the address book: {e}", &[("e", &e)]),
+                        error: true,
+                        connectivity: false,
+                    });
+                }
+                // Every name of the book is read again with the books.
+                reload_contacts(&sender, 0);
+            }
+
+            AppMsg::CopyContacts { to, cards } => {
+                let s = sender.clone();
+                std::thread::spawn(move || {
+                    let failed: Vec<String> =
+                        cards.iter().filter_map(|card| crate::contacts::create_contact(&to, card).err()).collect();
+                    let err = failed.first().map(|e| {
+                        let n = failed.len() as u32;
+                        ni18n_f(
+                            "{n} contact was not copied: {e}",
+                            "{n} contacts were not copied: {e}",
+                            n,
+                            &[("n", &n.to_string()), ("e", e)],
+                        )
+                    });
+                    s.input(AppMsg::ContactWriteDone(err));
+                });
+            }
+
+            AppMsg::MoveContacts { to, cards } => {
+                let s = sender.clone();
+                std::thread::spawn(move || {
+                    let failed: Vec<String> = cards
+                        .iter()
+                        .filter_map(|(book, uid, vcard)| crate::contacts::move_contact(book, uid, vcard, &to).err())
+                        .collect();
+                    let err = failed.first().map(|e| {
+                        let n = failed.len() as u32;
+                        ni18n_f(
+                            "{n} contact was not moved: {e}",
+                            "{n} contacts were not moved: {e}",
+                            n,
+                            &[("n", &n.to_string()), ("e", e)],
+                        )
+                    });
+                    s.input(AppMsg::ContactWriteDone(err));
                 });
             }
 
             AppMsg::ContactWriteDone(err) => {
                 if let Some(e) = err {
+                    // What was taken off the list may still be there.
+                    self.contacts_page.emit(ContactsPageInput::WriteFailed);
                     self.notifications.emit(NotifyInput::Push {
                         text: i18n_f("Could not update contact: {e}", &[("e", &(e).to_string())]),
                         error: true,
@@ -12489,7 +12873,9 @@ fn reload_contacts(sender: &ComponentSender<AppModel>, delay_ms: u64) {
             s.input(AppMsg::ContactBooksLoaded { books: crate::contacts::demo_books(), local_count: 1 });
             return;
         }
-        s.input(AppMsg::ContactsLoaded(crate::contacts::read_contact_details()));
+        let contacts = crate::contacts::read_contact_details();
+        crate::avatar::retain_photo_thumbnails(&contacts.iter().map(|c| c.photo_key).collect());
+        s.input(AppMsg::ContactsLoaded(contacts));
         s.input(AppMsg::ContactBooksLoaded {
             books: crate::contacts::writable_books(),
             local_count: crate::local_contacts::count(),
@@ -12816,7 +13202,6 @@ impl AppModel {
             notification_content: self.notification_content,
             notification_buttons: self.notification_buttons.to_list(),
             show_attachments: self.show_attachments,
-            show_contacts: self.show_contacts,
             settings_open_accounts: self.settings_open_accounts,
             card_actions_hover: self.card_actions_hover,
             card_actions_auto: self.card_actions_auto,
@@ -12882,13 +13267,15 @@ impl AppModel {
             show_unified: self.show_unified_pref,
             unified_chip: self.unified_chips.all_inboxes,
             unified_chips: self.unified_chips,
-            unified_filtered: self.unified_filtered,
             unified_kinds: self.unified_kinds,
-            unified_tags: self.unified_tags,
             show_accounts: self.show_accounts,
+            section_style: self.section_style,
             filtered_placement: self.filtered_placement,
             tags_placement: self.tags_placement,
+            favorites_placement: self.favorites_placement,
+            contacts_placement: self.contacts_placement,
             chevrons_left: self.chevrons_left,
+            account_click_folds: self.account_click_folds,
             console_mode: self.console_mode,
             status_bar_top: self.status_bar_top,
             read_mark: self.read_mark,
@@ -12903,6 +13290,11 @@ impl AppModel {
 
     /// Carry out a single-key shortcut.
     fn run_shortcut(&mut self, action: Shortcut, sender: &ComponentSender<Self>) {
+        // Contacts covers the list and the reader: a key there must not
+        // act on mail out of sight, Delete outside its list above all.
+        if self.showing_contacts && action.acts_on_selection() {
+            return;
+        }
         // Checking rows with none checked: say why the key did nothing
         // (#392).
         if self.checked == Some(0) && action.acts_on_selection() {
@@ -12927,6 +13319,7 @@ impl AppModel {
                     self.message_list.emit(MessageListInput::FocusList);
                 }
             }
+            Shortcut::Search if self.showing_contacts => self.contacts_page.emit(ContactsPageInput::FocusSearch),
             Shortcut::Search => self.message_list.emit(MessageListInput::FocusSearch),
             // The open message's own view, not the reader's first page,
             // which is the "No message selected" one and takes no focus.
@@ -13000,7 +13393,7 @@ impl AppModel {
                     _ => self.unified_kinds.has(kind),
                 };
                 if merged {
-                    self.open_unified(UnifiedView::Kind(kind));
+                    self.open_unified(UnifiedView::Kind(kind), sender);
                 } else {
                     sender.input(AppMsg::ShowcaseFolder { kind, account: None });
                 }
@@ -13242,6 +13635,70 @@ impl AppModel {
             // Not in a conversation: moving through the list is what someone
             // pressing "next" almost certainly meant.
             self.message_list.emit(MessageListInput::MoveSelection(delta));
+        }
+    }
+
+    /// The keys a message window hands over (#392): what reaches past its
+    /// own message, to the rest of its conversation or to the app. Gmail's
+    /// keys take the whole conversation, as they do in the main window.
+    fn run_popout_shortcut(
+        &mut self,
+        action: Shortcut,
+        m: Message,
+        thread: Vec<Message>,
+        sender: &ComponentSender<Self>,
+    ) {
+        let whole = self.gmail_keys.get() && thread.len() > 1;
+        // The window's copies are as it opened; the flags may have moved.
+        let thread: Vec<Message> = thread
+            .into_iter()
+            .map(|t| self.shown_copy(t.account_id, t.id).unwrap_or(t))
+            .collect();
+        let row = |action| AppMsg::RowAction { action, message: Box::new(m.clone()), conversation: thread.clone() };
+        match action {
+            Shortcut::Reply | Shortcut::InWindow(WindowCompose::Reply) => sender.input(row(RowAction::Reply)),
+            Shortcut::ReplyAll | Shortcut::InWindow(WindowCompose::ReplyAll) => sender.input(row(RowAction::ReplyAll)),
+            Shortcut::Forward | Shortcut::InWindow(WindowCompose::Forward) => sender.input(row(RowAction::Forward)),
+            Shortcut::Archive | Shortcut::ArchiveAndStep(_) => {
+                if whole {
+                    // What the list row stands for: the members filed with
+                    // the window's message, not a reply kept in Sent.
+                    let members =
+                        thread.into_iter().filter(|t| (t.account_id, t.folder_id) == (m.account_id, m.folder_id)).collect();
+                    self.apply_bulk_move(BulkAction::Archive, members);
+                } else {
+                    self.move_to(m, FolderKind::Archive);
+                }
+            }
+            Shortcut::MarkRead(read) => {
+                let mut targets = match (whole, read) {
+                    (false, _) => vec![self.shown_copy(m.account_id, m.id).unwrap_or(m)],
+                    (true, true) => thread,
+                    (true, false) => thread
+                        .into_iter()
+                        .filter(|t| {
+                            !matches!(self.folder_kind(t.account_id, t.folder_id), Some(FolderKind::Sent | FolderKind::Drafts))
+                        })
+                        .collect(),
+                };
+                targets.retain(|t| t.unread == read);
+                if !targets.is_empty() {
+                    self.user_set_flags(read_label(read), &targets, FlagKind::Read, read);
+                }
+            }
+            Shortcut::MarkUnreadFrom => {
+                // The window picks no card, so the message read from is the
+                // newest, as in the main window with none picked.
+                let newest = thread.into_iter().max_by_key(|t| (t.timestamp, t.uid)).unwrap_or(m);
+                self.user_set_flags(read_label(false), &[newest], FlagKind::Read, false);
+            }
+            Shortcut::DeleteForever => self.confirm_purge(vec![m], sender),
+            Shortcut::Undo
+            | Shortcut::Compose
+            | Shortcut::InWindow(WindowCompose::New)
+            | Shortcut::Shortcuts
+            | Shortcut::Refresh => self.run_shortcut(action, sender),
+            _ => {}
         }
     }
 
@@ -14701,12 +15158,45 @@ impl AppModel {
         if !self.many_selected() {
             return Vec::new();
         }
+        if !self.selection_from_cards && self.list_slots.len() == self.list_selection.len() {
+            return self.rows_at(&self.list_slots);
+        }
         self.list_selection
             .iter()
             .filter_map(|&(account_id, id)| self.shown_copy(account_id, id))
             // A queued message has no server flags to set.
             .filter(|m| self.outbox_item(m.account_id, m.id).is_none())
             .collect()
+    }
+
+    /// The messages of these list rows, each from its own folder: a UID
+    /// alone could find another folder's message, and in the Filters view
+    /// every selected row but the open one did (#481).
+    fn rows_at(&self, slots: &[crate::ui::message_row::Slot]) -> Vec<Message> {
+        slots
+            .iter()
+            .filter_map(|&(account_id, folder_id, id)| self.shown_copy_in(account_id, folder_id, id))
+            // A queued message has no server flags to set.
+            .filter(|m| self.outbox_item(m.account_id, m.id).is_none())
+            .collect()
+    }
+
+    /// `shown_copy`, held to one folder.
+    fn shown_copy_in(&self, account_id: u32, folder_id: u32, id: u32) -> Option<Message> {
+        let same = |m: &&Message| m.account_id == account_id && m.folder_id == folder_id && m.id == id;
+        self.current
+            .iter()
+            .chain(self.current_thread.iter())
+            .find(same)
+            .or_else(|| {
+                self.message_cache
+                    .get(&(account_id, folder_id))
+                    .into_iter()
+                    .chain(self.unified_slices.get(&(account_id, folder_id)))
+                    .flatten()
+                    .find(same)
+            })
+            .cloned()
     }
 
     /// The freshest copy of a message the window is showing: the open one,
@@ -15016,6 +15506,8 @@ impl AppModel {
             favorites: self.favorites.clone(),
             favorites_expanded: self.favorites_expanded,
             smart_expanded: self.smart_expanded,
+            contacts_expanded: self.contacts_expanded,
+            contacts_folded: self.contacts_folded.clone(),
             filtered_expanded_accounts: self.filtered_expanded_accounts.clone(),
             tags_expanded_accounts: self.tags_expanded_accounts.clone(),
         });
@@ -15181,6 +15673,21 @@ impl AppModel {
     /// overlay mode. The docked rail is not involved: it keeps its rows,
     /// header and width throughout and stays clickable beside the panel.
     /// `animate` is advisory — libadwaita animates the overlay itself.
+    /// Show Contacts in place of the mail panes, read afresh.
+    fn show_contacts_view(&mut self, sender: &ComponentSender<Self>) {
+        self.close_sidebar_peek();
+        self.showing_outbox = false;
+        self.leave_gallery();
+        self.showing_contacts = true;
+        // Read EDS off the UI thread (SQLite + photo decoding); the page
+        // shows its loading face until the list lands.
+        self.contacts_page.emit(ContactsPageInput::SetLoading);
+        reload_contacts(sender, 0);
+        if !demo_mode() {
+            sync_contact_books(sender, false, 0);
+        }
+    }
+
     fn set_sidebar_peek(&mut self, open: bool, animate: bool) {
         let Some(peek) = self.peek_split.clone() else { return };
         tracing::info!(
@@ -15286,6 +15793,15 @@ impl AppModel {
 
     /// Update the sidebar's unread badges in place (no rebuild), derived from the
     /// loaded message lists. Cheap enough to call on every read/sync.
+    /// `push_unread_counts` once the view switch has been drawn: it walks
+    /// every folder, and the counts can wait a frame where the list cannot.
+    fn push_unread_counts_later(&self, sender: &ComponentSender<Self>) {
+        let s = sender.input_sender().clone();
+        gtk::glib::idle_add_local_once(move || {
+            let _ = s.send(AppMsg::PushUnreadCounts);
+        });
+    }
+
     fn push_unread_counts(&self) {
         let folders = self.folder_unread.clone();
         let unified = self.unified_unread();
@@ -15568,7 +16084,6 @@ impl AppModel {
                     has_filters,
                     collapsed: self.collapsed.contains(email),
                     custom_expanded: self.folders_expanded.contains(email),
-                    filtered_expanded: self.filtered_expanded_accounts.contains(email),
                     tags_expanded: self.tags_expanded_accounts.contains(email),
                     color,
                     emoji,
@@ -15603,18 +16118,21 @@ impl AppModel {
             sections,
             show_unified,
             unified_kinds,
-            unified_tags: self.unified_tags,
             show_accounts: self.show_accounts,
             unified_chips: self.unified_chips,
             chevrons_left: self.chevrons_left,
+            account_click_folds: self.account_click_folds,
             rail_dots: self.rail_dots_now(),
             rail_fold: self.rail_fold,
             unified_unread,
             unified_folders,
             favorite_folders,
             tags: self.tags.clone(),
+            section_style: self.section_style,
             filtered_placement: self.filtered_placement,
             tags_placement: self.tags_placement,
+            favorites_placement: self.favorites_placement,
+            contacts_placement: self.contacts_placement,
             smart_folders: self.smart_folders.iter().map(|f| (f.id.clone(), f.name.clone())).collect(),
         });
 
@@ -16326,46 +16844,60 @@ impl AppModel {
         let listed = match view {
             UnifiedView::Kind(FolderKind::Inbox) => self.unified_inboxes_shown(),
             UnifiedView::Kind(kind) => self.multi_account() && self.unified_kinds.has(kind),
-            UnifiedView::Filtered => self.unified_filtered,
+            UnifiedView::Filtered => self.filtered_shown(),
+            UnifiedView::Favorites => self.favorites_placement.shown() && !self.favorites.is_empty(),
         };
         if listed {
             // A reconnect has emptied the account list; each account's
             // folders asks for its slice again as they arrive.
             self.unified_boot_requested.clear();
-            self.open_unified(view);
+            let account = self.unified_account.filter(|a| self.in_unified(*a));
+            self.open_unified_in(view, account, sender);
         }
     }
 
     /// Open a unified view (Inboxes, Starred, Sent, …, Filtered): the merged
     /// list of every account's folder of that kind. What clicking the
     /// sidebar row does; a notification click lands here too.
-    fn open_unified(&mut self, view: UnifiedView) {
+    fn open_unified(&mut self, view: UnifiedView, sender: &ComponentSender<Self>) {
+        self.open_unified_in(view, None, sender);
+    }
+
+    /// Open a unified view, narrowed to one account when `account` names one.
+    fn open_unified_in(&mut self, view: UnifiedView, account: Option<u32>, sender: &ComponentSender<Self>) {
         let t_open = std::time::Instant::now();
         if view == UnifiedView::Kind(FolderKind::Inbox) && !demo_mode() {
             config::save_last_view(config::LastView::default());
         }
         self.close_sidebar_peek();
         self.mirror_selection(match view {
+            UnifiedView::Kind(kind) if let Some(acc) = account => crate::ui::sidebar::Sel::UnifiedKindRow(kind, acc),
             UnifiedView::Kind(FolderKind::Inbox) => crate::ui::sidebar::Sel::Unified,
             UnifiedView::Kind(kind) => crate::ui::sidebar::Sel::UnifiedKind(kind),
             UnifiedView::Filtered => crate::ui::sidebar::Sel::UnifiedFiltered,
+            UnifiedView::Favorites => crate::ui::sidebar::Sel::UnifiedFavorites,
         });
         self.leave_gallery();
         self.showing_contacts = false;
         self.showing_outbox = false;
         // Another view's slices are another view's: start afresh
         // (the loads below refill them).
-        if self.unified_view != view {
-            self.unified_slices.clear();
+        if self.unified_view != view || self.unified_account != account {
+            // Freed after the switch is drawn: an Archive's slices are tens
+            // of thousands of messages.
+            let mut old = Some(std::mem::take(&mut self.unified_slices));
+            gtk::glib::idle_add_local_once(move || drop(old.take()));
             self.unified_boot_requested.clear();
         }
+        self.unified_unfilled.clear();
         self.unified_view = view;
+        self.unified_account = account;
         self.unified = true;
         self.tag_view = None;
         self.smart_view = None;
         self.selected = None;
         if self.seen_counts {
-            self.push_unread_counts();
+            self.push_unread_counts_later(sender);
         }
         self.current = None;
         self.current_thread.clear();
@@ -16376,7 +16908,7 @@ impl AppModel {
         self.message_list.emit(MessageListInput::SetSelected(None));
         self.message_list.emit(MessageListInput::ResetPaging);
         self.message_list.emit(MessageListInput::SetScope(default_scope(view == UnifiedView::Kind(FolderKind::Inbox))));
-        self.message_list.emit(MessageListInput::SetColorize(true));
+        self.message_list.emit(MessageListInput::SetColorize(account.is_none()));
         // A Sent view's rows all come from you — name the recipients.
         self.message_list.emit(MessageListInput::SetShowRecipient(
             view == UnifiedView::Kind(FolderKind::Sent),
@@ -16399,6 +16931,7 @@ impl AppModel {
         // offline — was simply absent from "All Inboxes", while its own
         // Inbox, served from cache, still listed its mail. Each account's
         // slice is replaced when its load lands.
+        let mut unseen: Vec<(u32, u32, String)> = Vec::new();
         for (account_id, folder_id, path) in &reqs {
             // A folder not seen since launch (only inboxes are primed
             // at startup): the on-disk index has it as last synced,
@@ -16408,41 +16941,85 @@ impl AppModel {
                 .message_cache
                 .get(&(*account_id, *folder_id))
                 .is_some_and(|c| !c.is_empty());
+            // Its newest messages now, from the index, and the rest off the
+            // main thread: an Archive is tens of thousands of rows, and the
+            // click would wait on all of them. The newest are this view's
+            // alone; the folder's own list is only ever the whole folder.
             if !seen {
-                let from_disk = self
+                let newest = self
                     .cache
                     .as_ref()
-                    .map(|c| c.load_messages(*account_id, path, *folder_id))
+                    .map(|c| c.load_newest(*account_id, path, *folder_id, LIST_NEWEST))
                     .unwrap_or_default();
-                if !from_disk.is_empty() {
-                    let from_disk = self.merge_local_tags(*account_id, from_disk);
-                    let from_disk = self.apply_pending_seen(*account_id, *folder_id, from_disk);
-                    let from_disk = self.apply_pending_answers(*account_id, *folder_id, from_disk);
-                    let from_disk = self.apply_pending_tags(*account_id, *folder_id, from_disk);
-                    self.message_cache.insert((*account_id, *folder_id), from_disk);
+                // Nothing newest is nothing at all.
+                if !newest.is_empty() {
+                    let newest = self.merge_local_tags(*account_id, newest);
+                    let newest = self.apply_pending_seen(*account_id, *folder_id, newest);
+                    let newest = self.apply_pending_answers(*account_id, *folder_id, newest);
+                    let newest = self.apply_pending_tags(*account_id, *folder_id, newest);
+                    self.unified_slices.insert((*account_id, *folder_id), newest);
+                    unseen.push((*account_id, *folder_id, path.clone()));
                 }
             }
-            if let Some(cached) = self.message_cache.get(&(*account_id, *folder_id)) {
-                if !cached.is_empty() {
-                    self.unified_slices.insert((*account_id, *folder_id), cached.clone());
-                }
-            }
+            // Copied from the folder's cache below, or after the frame when
+            // the list has the view kept.
+            self.unified_unfilled.insert((*account_id, *folder_id));
         }
         // Forget folders that no longer contribute (an account
         // removed or disabled, a rule gone, since the last visit).
         let live: std::collections::HashSet<(u32, u32)> =
             reqs.iter().map(|(a, f, _)| (*a, *f)).collect();
         self.unified_slices.retain(|k, _| live.contains(k));
-        if self.unified_slices.is_empty() {
+        self.unified_unfilled.retain(|k| self.message_cache.get(k).is_some_and(|c| !c.is_empty()));
+        self.fill_unified_starred();
+        // The list keeps the views it showed as built: one whose content is
+        // the same as then comes back at once, without a merge or a regroup.
+        let key = self.unified_view_key();
+        self.list_fp.set(None);
+        if self.unified_slices.is_empty() && self.unified_unfilled.is_empty() {
+            self.message_list.emit(MessageListInput::SetView { key: Some(key), fp: 0, restore: false });
             self.message_list
                 .emit(MessageListInput::SetLoading);
         } else {
-            self.emit_unified();
+            let fp = self.unified_fp();
+            let kept = self.message_list.model().has_view(key, fp);
+            if !kept {
+                tracing::debug!("unified: not kept by the list ({})", self.message_list.model().view_miss(key, fp));
+            }
+            self.message_list.emit(MessageListInput::SetView { key: Some(key), fp, restore: kept });
+            if kept {
+                self.list_fp.set(Some(fp));
+                let s = sender.input_sender().clone();
+                gtk::glib::idle_add_local_once(move || {
+                    let _ = s.send(AppMsg::FillUnifiedSlices);
+                });
+            } else {
+                self.fill_unified_slices();
+                self.emit_unified();
+            }
         }
         // Request every account's inbox; each result replaces that
         // account's slice as it arrives.
         for (account_id, folder_id, path) in reqs {
             self.send_to(account_id, MailRequest::LoadMessages { folder_id, path });
+        }
+        if view == UnifiedView::Kind(FolderKind::Starred) {
+            self.refresh_unified_starred(sender);
+        }
+        if !unseen.is_empty() && self.cache.is_some() {
+            let s = sender.input_sender().clone();
+            std::thread::spawn(move || {
+                let t = std::time::Instant::now();
+                let lists: Vec<((u32, u32), Vec<Message>)> = match crate::cache::Cache::open() {
+                    Ok(cache) => unseen
+                        .into_iter()
+                        .map(|(a, f, path)| ((a, f), cache.load_messages(a, &path, f)))
+                        .collect(),
+                    Err(_) => Vec::new(),
+                };
+                tracing::debug!("unified: {} folders read from the index in {:?}", lists.len(), t.elapsed());
+                let _ = s.send(AppMsg::UnifiedFoldersLoaded { lists });
+            });
         }
         self.push_index_complete();
         tracing::info!(
@@ -16791,7 +17368,24 @@ impl AppModel {
             Some(cached) => self.message_list.emit(MessageListInput::SetMessages {
                 messages: cached.clone(),
             }),
-            None => self.message_list.emit(MessageListInput::SetLoading),
+            None => {
+                // Not in memory: the folder's newest from the index at once,
+                // the whole of it when the account answers.
+                let newest = self
+                    .cache
+                    .as_ref()
+                    .map(|c| c.load_newest(account_id, &path, folder_id, LIST_NEWEST))
+                    .unwrap_or_default();
+                if newest.is_empty() {
+                    self.message_list.emit(MessageListInput::SetLoading);
+                } else {
+                    let newest = self.merge_local_tags(account_id, newest);
+                    let newest = self.apply_pending_seen(account_id, folder_id, newest);
+                    let newest = self.apply_pending_answers(account_id, folder_id, newest);
+                    let newest = self.apply_pending_tags(account_id, folder_id, newest);
+                    self.message_list.emit(MessageListInput::SetMessages { messages: newest });
+                }
+            }
         }
         self.push_index_complete();
         self.send_to(account_id, MailRequest::LoadMessages { folder_id, path });
@@ -17152,6 +17746,8 @@ impl AppModel {
             reader_default: self.effective_reader_default(),
             tags: self.tags.clone(),
             pgp_labels: self.pgp_labels,
+            single_key: self.single_key.clone(),
+            gmail_keys: self.gmail_keys.clone(),
         };
 
         let controller = MessageWindow::builder()
@@ -17166,6 +17762,9 @@ impl AppModel {
                 }
                 MessageWindowOutput::LoadAttachments(message) => AppMsg::LoadAttachmentsFor(message),
                 MessageWindowOutput::MoveTo { message, x, y } => AppMsg::PopoutMoveTo { key, message, x, y },
+                MessageWindowOutput::Shortcut { action, message, thread } => {
+                    AppMsg::PopoutShortcut { action, message, thread }
+                }
                 MessageWindowOutput::SetTag { message, keyword, add } => AppMsg::SetTag { message, keyword, add },
                 MessageWindowOutput::DeleteAttachment { message, attachment } => {
                     AppMsg::DeletePopoutAttachment { key, message, attachment }
@@ -18013,7 +18612,7 @@ impl AppModel {
             prefill,
             accounts,
             selected,
-            suggestions: crate::contacts::suggestions(&own),
+            own_addresses: own,
             windowed,
             can_toggle,
             compact: false,
@@ -18048,6 +18647,7 @@ impl AppModel {
                     AppMsg::Pref(PrefOutput::SetSpellcheckLangs(langs))
                 }
                 ComposeOutput::DirectoryError(text) => AppMsg::DirectoryError(text),
+                ComposeOutput::ShowContacts => AppMsg::ShowContactsPage,
             })
     }
 
@@ -20824,11 +21424,161 @@ impl AppModel {
         });
     }
 
+    /// `PrebuildViews` shortly, once for however many folder reads land
+    /// meanwhile.
+    fn schedule_prebuild(&mut self, sender: &ComponentSender<Self>) {
+        if std::mem::replace(&mut self.prebuild_due, true) {
+            return;
+        }
+        let s = sender.input_sender().clone();
+        gtk::glib::timeout_add_seconds_local_once(2, move || {
+            let _ = s.send(AppMsg::PrebuildViews);
+        });
+    }
+
+    /// Hand the message list the next unified row to build ahead: one whose
+    /// folders are all in memory, not on show, and not kept as it is. The
+    /// next follows a moment later, so the window keeps drawing between.
+    fn prebuild_next(&mut self, sender: &ComponentSender<Self>) {
+        while let Some(view) = self.prebuild_queue.pop() {
+            let UnifiedView::Kind(kind) = view else { continue };
+            let key = view_key_of(view, None);
+            if self.unified && self.unified_view_key() == key {
+                continue;
+            }
+            let targets: Vec<(u32, u32)> = self
+                .accounts
+                .iter()
+                .filter(|a| self.in_unified(a.id))
+                .filter_map(|a| self.folder_of_kind(a.id, kind).map(|f| (a.id, f.id)))
+                .collect();
+            if targets.is_empty() || targets.iter().any(|k| !self.message_cache.contains_key(k)) {
+                continue;
+            }
+            let content = || targets.iter().filter_map(|k| self.message_cache.get(k)).flatten();
+            let fp = content_fp(content());
+            if self.message_list.model().has_view(key, fp) {
+                continue;
+            }
+            let mut messages: Vec<Message> = content().cloned().collect();
+            messages.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            tracing::debug!("prebuild: {view:?}, {} messages", messages.len());
+            self.message_list.emit(MessageListInput::Prebuild { key, fp, messages });
+            let s = sender.input_sender().clone();
+            gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(300), move || {
+                let _ = s.send(AppMsg::PrebuildNext);
+            });
+            return;
+        }
+    }
+
+    /// `preload` a few seconds from now, once for however many accounts'
+    /// folders arrive meanwhile.
+    fn schedule_preload(&mut self, sender: &ComponentSender<Self>) {
+        if std::mem::replace(&mut self.preload_due, true) {
+            return;
+        }
+        let s = sender.input_sender().clone();
+        gtk::glib::timeout_add_seconds_local_once(PRELOAD_AFTER_SECS, move || {
+            let _ = s.send(AppMsg::Preload);
+        });
+    }
+
+    /// Read the folders the unified rows merge (Inboxes, Sent, Drafts,
+    /// Archive and the rest switched on, every account in the unified
+    /// section) into memory off the main thread, those not there yet. The
+    /// first visit to a row after a start then opens from memory as later
+    /// ones do; the folders were going to be held from that visit on anyway.
+    fn preload(&mut self, sender: &ComponentSender<Self>) {
+        if self.cache.is_none() || demo_mode() && self.config.is_empty() {
+            return;
+        }
+        let mut kinds = self.unified_kinds.listed();
+        kinds.push(FolderKind::Inbox);
+        let wanted: Vec<(u32, u32, String)> = self
+            .accounts
+            .iter()
+            .filter(|a| self.in_unified(a.id))
+            .flat_map(|a| self.folders.get(&a.id).into_iter().flatten())
+            .filter(|f| kinds.contains(&f.kind))
+            .filter(|f| !self.message_cache.contains_key(&(f.account_id, f.id)))
+            .map(|f| (f.account_id, f.id, f.path.clone()))
+            .collect();
+        if wanted.is_empty() {
+            self.schedule_prebuild(sender);
+            return;
+        }
+        let s = sender.input_sender().clone();
+        std::thread::spawn(move || {
+            let t = std::time::Instant::now();
+            let lists: Vec<((u32, u32), Vec<Message>)> = match crate::cache::Cache::open() {
+                Ok(cache) => wanted.into_iter().map(|(a, f, path)| ((a, f), cache.load_messages(a, &path, f))).collect(),
+                Err(_) => Vec::new(),
+            };
+            tracing::debug!(
+                "preload: {} folders, {} messages, read in {:?}",
+                lists.len(),
+                lists.iter().map(|(_, l)| l.len()).sum::<usize>(),
+                t.elapsed()
+            );
+            let _ = s.send(AppMsg::UnifiedFoldersLoaded { lists });
+        });
+    }
+
+    /// The open unified view, as one number: which view, and for which
+    /// account when narrowed to one.
+    fn unified_view_key(&self) -> u64 {
+        view_key_of(self.unified_view, self.unified_account)
+    }
+
+    /// What the unified view holds, as one number: every message's place,
+    /// state and tags, whatever order the slices are in. A few milliseconds
+    /// for tens of thousands of messages, against a merge and a regrouping
+    /// many times that.
+    fn unified_fp(&self) -> u64 {
+        content_fp(self.unified_content())
+    }
+
+    /// Every message of the open unified view: its slices, and for a folder
+    /// not copied yet, the folder's cache.
+    fn unified_content(&self) -> impl Iterator<Item = &Message> {
+        let filled = self
+            .unified_slices
+            .iter()
+            .filter(|(k, _)| !self.unified_unfilled.contains(k))
+            .flat_map(|(_, v)| v.iter());
+        let unfilled = self.unified_unfilled.iter().filter_map(|k| self.message_cache.get(k)).flat_map(|v| v.iter());
+        filled.chain(unfilled)
+    }
+
+    /// Copy the folders `open_unified_in` left to the folder caches into
+    /// the unified slices.
+    fn fill_unified_slices(&mut self) {
+        let t = std::time::Instant::now();
+        for key in std::mem::take(&mut self.unified_unfilled) {
+            match self.message_cache.get(&key) {
+                Some(c) if !c.is_empty() => {
+                    self.unified_slices.insert(key, c.clone());
+                }
+                _ => {
+                    self.unified_slices.remove(&key);
+                }
+            }
+        }
+        tracing::debug!("unified: slices filled in {:?}", t.elapsed());
+    }
+
     fn emit_unified(&self) {
         let t = std::time::Instant::now();
+        let fp = self.unified_fp();
+        if self.list_fp.get() == Some(fp) && self.message_list.model().view_key() == Some(self.unified_view_key()) {
+            tracing::debug!("unified: unchanged, not merged ({:?})", t.elapsed());
+            return;
+        }
+        self.list_fp.set(Some(fp));
+        self.message_list.emit(MessageListInput::SetViewFp(fp));
         self.unified_emitted_at.set(t);
-        let mut merged: Vec<Message> =
-            self.unified_slices.values().flatten().cloned().collect();
+        let mut merged: Vec<Message> = self.unified_content().cloned().collect();
         merged.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
         tracing::debug!("unified: merged {} messages in {:?}", merged.len(), t.elapsed());
         self.message_list.emit(MessageListInput::SetMessages { messages: merged });
@@ -21528,16 +22278,17 @@ impl AppModel {
             notification_content: self.notification_content,
             notification_buttons: self.notification_buttons,
             show_attachments: self.show_attachments,
-            show_contacts: self.show_contacts,
             show_unified: self.show_unified_pref,
             unified_chips: self.unified_chips,
-            unified_filtered: self.unified_filtered,
             unified_kinds: self.unified_kinds,
-            unified_tags: self.unified_tags,
             show_accounts: self.show_accounts,
+            section_style: self.section_style,
             filtered_placement: self.filtered_placement,
             tags_placement: self.tags_placement,
+            favorites_placement: self.favorites_placement,
+            contacts_placement: self.contacts_placement,
             chevrons_left: self.chevrons_left,
+            account_click_folds: self.account_click_folds,
             start_view: self.start_view,
             folder_sort: self.folder_sort,
             console_mode: self.console_mode,
@@ -22192,6 +22943,7 @@ impl AppModel {
         let Some(path) = self.resolve_folder_path(m) else {
             return;
         };
+        self.note_flag_star(m, &path, starred);
         self.send_to(m.account_id, MailRequest::SetFlagged { path, uid: m.uid, flagged: starred });
         self.message_list
             .emit(MessageListInput::SetStarred { slot: (m.account_id, m.folder_id, m.id), starred });
@@ -22461,6 +23213,11 @@ impl AppModel {
         if let Some(msgs) = self.message_cache.get_mut(&(m.account_id, m.folder_id)) {
             msgs.retain(|x| x.uid != m.uid);
         }
+        if let Some(path) = self.folder_path(m.account_id, m.folder_id) {
+            if let Some(rows) = self.unified_starred_rows.get_mut(&m.account_id) {
+                rows.retain(|(p, x)| *p != path || x.uid != m.uid);
+            }
+        }
         // The Drafts chip counts every draft, so leaving that folder always
         // drops it by one; elsewhere only unread mail is counted.
         if m.unread || self.is_drafts_folder(m.account_id, m.folder_id) {
@@ -22521,6 +23278,7 @@ impl AppModel {
         self.current_thread.remove(pos);
         self.listed_thread.retain(|k| *k != key);
         self.list_selection.retain(|k| *k != key);
+        self.list_slots.retain(|&(a, f, id)| (a, f, id) != (m.account_id, m.folder_id, m.id));
         self.list_heard.retain(|k| *k != key);
         let was_current = self.current.as_ref().is_some_and(|c| (c.account_id, c.id) == key);
         if was_current {
@@ -22532,6 +23290,7 @@ impl AppModel {
         // toolbar still has a message to act on.
         if let Some(c) = self.current.as_ref().filter(|_| self.list_selection.is_empty()) {
             self.list_selection = vec![(c.account_id, c.id)];
+            self.list_slots = vec![(c.account_id, c.folder_id, c.id)];
             self.list_heard = self.list_selection.clone();
             self.selection_from_cards = false;
             self.message_view.emit(MessageViewInput::SetSelectedCards(self.list_selection.clone()));
@@ -23726,13 +24485,19 @@ impl AppModel {
         self.folders.get(&account_id)?.iter().find(|f| f.kind == kind)
     }
 
+    /// Whether an account's mail belongs in the open unified view: it is in
+    /// the unified section, and the view is not narrowed to another one.
+    fn in_unified_view(&self, account_id: u32) -> bool {
+        self.in_unified(account_id) && self.unified_account.is_none_or(|a| a == account_id)
+    }
+
     /// The folders the open unified view merges: (account, folder id, path).
     fn unified_targets(&self) -> Vec<(u32, u32, String)> {
         match self.unified_view {
             UnifiedView::Kind(kind) => self
                 .accounts
                 .iter()
-                .filter(|a| self.in_unified(a.id))
+                .filter(|a| self.in_unified_view(a.id))
                 .filter_map(|a| self.folder_of_kind(a.id, kind).map(|f| (a.id, f.id, f.path.clone())))
                 .collect(),
             UnifiedView::Filtered => self
@@ -23740,6 +24505,162 @@ impl AppModel {
                 .into_iter()
                 .map(|r| (r.account_id, r.folder.id, r.folder.path))
                 .collect(),
+            UnifiedView::Favorites => self
+                .favorite_folder_refs()
+                .into_iter()
+                .map(|r| (r.account_id, r.folder.id, r.folder.path))
+                .collect(),
+        }
+    }
+
+    /// The accounts in the unified section that keep a star as a flag on
+    /// each message, wherever it is filed, with no Starred folder (#482):
+    /// most servers (Gmail and Proton Bridge have one). An account whose
+    /// folders are not known yet waits for them: it may turn out to have one.
+    fn flag_starred_accounts(&self) -> Vec<u32> {
+        if !self.unified_kinds.has(FolderKind::Starred) {
+            return Vec::new();
+        }
+        self.accounts
+            .iter()
+            .filter(|a| self.in_unified(a.id))
+            .filter(|a| self.folders.get(&a.id).is_some_and(|f| !f.is_empty()))
+            .filter(|a| self.folder_of_kind(a.id, FolderKind::Starred).is_none())
+            .map(|a| a.id)
+            .collect()
+    }
+
+    /// Those of [`flag_starred_accounts`] the open unified Starred view
+    /// lists, none when another view is open.
+    fn starred_by_flag(&self) -> Vec<u32> {
+        if !self.unified || self.unified_view != UnifiedView::Kind(FolderKind::Starred) {
+            return Vec::new();
+        }
+        let mut ids = self.flag_starred_accounts();
+        ids.retain(|a| self.unified_account.is_none_or(|x| x == *a));
+        ids
+    }
+
+    /// Read the starred mail of every account in [`flag_starred_accounts`]
+    /// from the on-disk index off the main thread, every folder but Trash
+    /// and Junk, answering with [`AppMsg::UnifiedStarredLoaded`]. It runs
+    /// whether or not the view is open, so opening it lists the mail at once.
+    fn refresh_unified_starred(&mut self, sender: &ComponentSender<Self>) {
+        let accounts = self.flag_starred_accounts();
+        if accounts.is_empty() || demo_mode() && self.config.is_empty() {
+            return;
+        }
+        if self.unified_starred_loading {
+            self.unified_starred_dirty = true;
+            return;
+        }
+        self.unified_starred_loading = true;
+        let scope: Vec<(u32, Vec<String>)> = accounts
+            .into_iter()
+            .map(|id| {
+                let skip = self.folders.get(&id).into_iter().flatten();
+                let skip = skip.filter(|f| matches!(f.kind, FolderKind::Trash | FolderKind::Junk));
+                (id, skip.map(|f| f.path.clone()).collect())
+            })
+            .collect();
+        let s = sender.input_sender().clone();
+        std::thread::spawn(move || {
+            let t = std::time::Instant::now();
+            let mut rows: HashMap<u32, Vec<(String, Message)>> = HashMap::new();
+            if let Ok(cache) = crate::cache::Cache::open() {
+                let starred = config::SmartPrefilter { starred: Some(true), ..Default::default() };
+                for (account_id, exclude) in scope {
+                    let found = cache.smart_scan(account_id, None, &exclude, starred, SMART_VIEW_LIMIT, |_| true);
+                    rows.insert(account_id, found);
+                }
+            }
+            tracing::debug!("unified starred: read the index in {:?}", t.elapsed());
+            let _ = s.send(AppMsg::UnifiedStarredLoaded { rows });
+        });
+    }
+
+    /// `refresh_unified_starred` a few seconds from now, once for however
+    /// many folders sync meanwhile.
+    fn refresh_unified_starred_soon(&mut self, sender: &ComponentSender<Self>) {
+        if std::mem::replace(&mut self.unified_starred_due, true) {
+            return;
+        }
+        let s = sender.input_sender().clone();
+        gtk::glib::timeout_add_seconds_local_once(5, move || {
+            let _ = s.send(AppMsg::RefreshUnifiedStarred);
+        });
+    }
+
+    /// Fill the open unified Starred view's slices from
+    /// `unified_starred_rows`, under the folder each message sits in, so
+    /// starring, moving and reading it go through that folder as anywhere
+    /// else. Whether the slices changed.
+    fn fill_unified_starred(&mut self) -> bool {
+        let flagged = self.starred_by_flag();
+        if flagged.is_empty() {
+            return false;
+        }
+        let mut found: Vec<Message> = Vec::new();
+        for account_id in &flagged {
+            let Some(folders) = self.folders.get(account_id) else { continue };
+            for (path, m) in self.unified_starred_rows.get(account_id).into_iter().flatten() {
+                if !m.starred {
+                    continue;
+                }
+                let Some(f) = folders.iter().find(|f| f.path == *path) else { continue };
+                let mut m = m.clone();
+                m.folder_id = f.id;
+                // A folder open this session knows better what was read,
+                // replied to or tagged since the index was read; the star
+                // is this list's own, which starring keeps.
+                if let Some(c) = self.message_cache.get(&(m.account_id, f.id)).and_then(|ms| ms.iter().find(|c| c.uid == m.uid)) {
+                    m.unread = c.unread;
+                    m.answered = c.answered;
+                    m.forwarded = c.forwarded;
+                    m.keywords = c.keywords.clone();
+                    m.labels = c.labels.clone();
+                }
+                found.push(m);
+            }
+        }
+        // One row for a message filed twice, the inbox copy where there is one.
+        let inbox_first = |m: &Message| self.folder_kind(m.account_id, m.folder_id) != Some(FolderKind::Inbox);
+        found.sort_by(|a, b| b.timestamp.cmp(&a.timestamp).then_with(|| inbox_first(a).cmp(&inbox_first(b))));
+        let mut seen: std::collections::HashSet<(u32, String)> = std::collections::HashSet::new();
+        found.retain(|m| m.message_id.is_empty() || seen.insert((m.account_id, m.message_id.clone())));
+        let mut slices: HashMap<(u32, u32), Vec<Message>> = HashMap::new();
+        for m in found {
+            slices.entry((m.account_id, m.folder_id)).or_default().push(m);
+        }
+        let mut fresh: HashMap<(u32, u32), Vec<Message>> = HashMap::new();
+        for ((account_id, folder_id), messages) in slices {
+            let messages = self.apply_pending_seen(account_id, folder_id, messages);
+            let messages = self.apply_pending_answers(account_id, folder_id, messages);
+            let messages = self.apply_pending_tags(account_id, folder_id, messages);
+            fresh.insert((account_id, folder_id), messages);
+        }
+        let held = self.unified_slices.iter().filter(|((a, _), _)| flagged.contains(a));
+        let same = held.clone().count() == fresh.len() && held.into_iter().all(|(k, v)| fresh.get(k) == Some(v));
+        if same {
+            return false;
+        }
+        self.unified_slices.retain(|(a, _), _| !flagged.contains(a));
+        self.unified_slices.extend(fresh);
+        true
+    }
+
+    /// Keep a star set or taken off here in `unified_starred_rows`, so the
+    /// unified Starred view opens with it before the index is read again.
+    fn note_flag_star(&mut self, m: &Message, path: &str, starred: bool) {
+        let Some(rows) = self.unified_starred_rows.get_mut(&m.account_id) else { return };
+        match rows.iter_mut().find(|(p, r)| p == path && r.uid == m.uid) {
+            Some((_, r)) => r.starred = starred,
+            None if starred => {
+                let mut r = m.clone();
+                r.starred = true;
+                rows.push((path.to_string(), r));
+            }
+            None => {}
         }
     }
 
@@ -23747,11 +24668,15 @@ impl AppModel {
     fn is_unified_target(&self, account_id: u32, folder_id: u32) -> bool {
         match self.unified_view {
             UnifiedView::Kind(kind) => {
-                self.in_unified(account_id)
+                self.in_unified_view(account_id)
                     && self.folder_of_kind(account_id, kind).is_some_and(|f| f.id == folder_id)
             }
             UnifiedView::Filtered => self
                 .unified_folder_refs()
+                .iter()
+                .any(|r| r.account_id == account_id && r.folder.id == folder_id),
+            UnifiedView::Favorites => self
+                .favorite_folder_refs()
                 .iter()
                 .any(|r| r.account_id == account_id && r.folder.id == folder_id),
         }
@@ -23829,9 +24754,14 @@ impl AppModel {
             .collect()
     }
 
+    /// Whether the Filters section is in the sidebar.
+    fn filtered_shown(&self) -> bool {
+        self.filtered_placement.shown()
+    }
+
     fn unified_folder_refs(&self) -> Vec<UnifiedFolderRef> {
         let mut out: Vec<UnifiedFolderRef> = Vec::new();
-        if !self.unified_filtered {
+        if !self.filtered_shown() {
             return out;
         }
         for email in self.ordered_emails() {
@@ -24035,6 +24965,13 @@ impl AppModel {
         for cache in [&mut self.message_cache, &mut self.unified_slices] {
             if let Some(msgs) = cache.get_mut(&(account_id, folder_id)) {
                 if let Some(m) = msgs.iter_mut().find(|m| m.id == message_id) {
+                    m.unread = unread;
+                }
+            }
+        }
+        if let Some(path) = self.folder_path(account_id, folder_id) {
+            if let Some(rows) = self.unified_starred_rows.get_mut(&account_id) {
+                if let Some((_, m)) = rows.iter_mut().find(|(p, m)| *p == path && m.id == message_id) {
                     m.unread = unread;
                 }
             }
@@ -24430,7 +25367,7 @@ pub enum GoTarget {
 /// for them: support.google.com/mail/answer/6594. j/k move a cursor without
 /// opening, o or Enter opens, and the action keys are Gmail's. The digits
 /// still toggle tags. `g` and `*` start a sequence (`gmail_sequence`).
-fn gmail_shortcut_for(key: gtk::gdk::Key, shift: bool) -> Option<Shortcut> {
+pub(crate) fn gmail_shortcut_for(key: gtk::gdk::Key, shift: bool) -> Option<Shortcut> {
     use gtk::gdk::Key;
     let action = match key {
         Key::j => Shortcut::MoveCursor(1),
@@ -24495,7 +25432,7 @@ fn gmail_sequence(first: char, key: gtk::gdk::Key) -> Option<Shortcut> {
 /// Keys the reader keeps while it has focus, because they scroll it or move
 /// through its links. Letters and the rest go to the shortcuts, so a click
 /// in a message no longer turns them off (#392).
-fn reader_keeps(key: gtk::gdk::Key) -> bool {
+pub(crate) fn reader_keeps(key: gtk::gdk::Key) -> bool {
     use gtk::gdk::Key;
     matches!(
         key,
@@ -24505,7 +25442,7 @@ fn reader_keeps(key: gtk::gdk::Key) -> bool {
 }
 
 /// The shortcut for a key press, if any. `shift` distinguishes `r` from `R`.
-fn shortcut_for(key: gtk::gdk::Key, shift: bool) -> Option<Shortcut> {
+pub(crate) fn shortcut_for(key: gtk::gdk::Key, shift: bool) -> Option<Shortcut> {
     use gtk::gdk::Key;
     let action = match key {
         Key::j | Key::Down => Shortcut::NextMessage,
@@ -24718,14 +25655,14 @@ const SHORTCUT_HELP: &[(&str, &[(&str, &str)])] = &[
 /// Whether a keystroke should be left to the widget that has focus. Typing in a
 /// search field, an address row or the composer must never archive mail, and the
 /// message view is a web view that handles its own keys (find, scrolling).
-fn focus_takes_keys(window: &adw::ApplicationWindow) -> bool {
+pub(crate) fn focus_takes_keys(window: &impl IsA<gtk::Window>) -> bool {
     focus_matches(window, true)
 }
 
 /// Whether focus is in something being typed into. Narrower than
 /// [`focus_takes_keys`]: Escape means "back out" while reading a message, but in
 /// a search field it means "clear the search", which is the field's business.
-fn focus_is_text(window: &adw::ApplicationWindow) -> bool {
+pub(crate) fn focus_is_text(window: &impl IsA<gtk::Window>) -> bool {
     focus_matches(window, false)
 }
 
@@ -24742,7 +25679,7 @@ fn focus_in_compose(window: &adw::ApplicationWindow) -> bool {
     false
 }
 
-fn focus_matches(window: &adw::ApplicationWindow, include_web_view: bool) -> bool {
+fn focus_matches(window: &impl IsA<gtk::Window>, include_web_view: bool) -> bool {
     let Some(focus) = gtk::prelude::GtkWindowExt::focus(window) else {
         return false;
     };
@@ -25033,6 +25970,34 @@ fn follow_motion_setting() {
 /// Whether things on screen should move (see [`follow_motion_setting`]).
 fn motion_wanted() -> bool {
     gtk::Settings::default().is_some_and(|s| s.is_gtk_enable_animations())
+}
+
+/// A unified view, and the account it is narrowed to, as one number: the
+/// key the message list keeps it under.
+fn view_key_of(view: UnifiedView, account: Option<u32>) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    format!("{view:?}{account:?}").hash(&mut h);
+    h.finish()
+}
+
+/// What a list holds, as one number: every message's place, state and
+/// tags, whatever order they come in. A few milliseconds for tens of
+/// thousands of messages, against a merge and a regrouping many times that.
+fn content_fp<'a>(msgs: impl Iterator<Item = &'a Message>) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut sum = 0u64;
+    let mut n = 0u64;
+    for m in msgs {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        (m.account_id, m.folder_id, m.uid, m.id, m.timestamp).hash(&mut h);
+        (m.unread, m.starred, m.answered, m.forwarded).hash(&mut h);
+        (&m.keywords, &m.labels, m.subject.len(), m.preview.len(), m.from_addr.len()).hash(&mut h);
+        (m.message_id.len(), m.references.len()).hash(&mut h);
+        sum = sum.wrapping_add(h.finish());
+        n += 1;
+    }
+    sum ^ n.rotate_left(32)
 }
 
 fn demo_mode() -> bool {
@@ -25532,8 +26497,12 @@ fn sidebar_output_msg(out: SidebarOutput) -> AppMsg {
         SidebarOutput::UnifiedKindSelected(kind) => {
             AppMsg::UnifiedSelected(UnifiedView::Kind(kind))
         }
+        SidebarOutput::AccountStarredSelected(account_id) => AppMsg::AccountStarredSelected(account_id),
         SidebarOutput::UnifiedFilteredSelected => {
             AppMsg::UnifiedSelected(UnifiedView::Filtered)
+        }
+        SidebarOutput::UnifiedFavoritesSelected => {
+            AppMsg::UnifiedSelected(UnifiedView::Favorites)
         }
         SidebarOutput::UnifiedTagsSelected => {
             AppMsg::TagSelected { keyword: None, account: None }
@@ -25542,13 +26511,16 @@ fn sidebar_output_msg(out: SidebarOutput) -> AppMsg {
         SidebarOutput::TagSelected { keyword, account } => {
             AppMsg::TagSelected { keyword: Some(keyword), account }
         }
-        SidebarOutput::ToggleAccountFiltered(id) => AppMsg::ToggleAccountFiltered(id),
         SidebarOutput::ToggleAccountTags(id) => AppMsg::ToggleAccountTags(id),
         SidebarOutput::AttachmentsSelected => AppMsg::ShowAttachments,
         SidebarOutput::ContactsClicked => AppMsg::OpenContacts,
         SidebarOutput::RefreshRequested => AppMsg::Refresh,
         SidebarOutput::StatusBarRequested => AppMsg::ToggleNotifications,
         SidebarOutput::OpenGnomeContacts => AppMsg::LaunchGnomeContacts,
+        SidebarOutput::ContactScope(scope) => AppMsg::ContactScope(scope),
+        SidebarOutput::ContactDrop { keys, on, moving } => AppMsg::ContactDrop { keys, on, moving },
+        SidebarOutput::ContactTreeAction(action) => AppMsg::ContactTreeAction(action),
+        SidebarOutput::ContactsFolded(keys) => AppMsg::ContactsFolded(keys),
         SidebarOutput::OutboxSelected => AppMsg::ShowOutbox,
         SidebarOutput::FolderSelected { account_id, folder_id, name, path } => {
             AppMsg::FolderSelected { account_id, folder_id, name, path }
@@ -25568,6 +26540,7 @@ fn sidebar_output_msg(out: SidebarOutput) -> AppMsg {
             trash,
             favorites,
             smart,
+            contacts,
         } => AppMsg::SidebarSectionsOpen {
             all_inboxes,
             filtered,
@@ -25580,6 +26553,7 @@ fn sidebar_output_msg(out: SidebarOutput) -> AppMsg {
             trash,
             favorites,
             smart,
+            contacts,
         },
         SidebarOutput::FolderNodeCollapsed { account_id, path, collapsed } => {
             AppMsg::FolderNodeCollapsed { account_id, path, collapsed }

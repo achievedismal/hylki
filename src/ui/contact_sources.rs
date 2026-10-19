@@ -18,9 +18,11 @@ use crate::directory::{self, Directory, Security};
 use crate::i18n::{i18n, i18n_f, i18n_noop, ni18n_f};
 
 /// What the editor page shows.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Editing {
-    Source(usize),
+    /// A source's page, by its ID: its place in the list can change as
+    /// the list is read again.
+    Source(String),
     Add,
 }
 
@@ -119,6 +121,9 @@ pub enum ContactSourcesInput {
     AddKind(u32),
     Toggle { index: usize, on: bool },
     ToggleBook { book: String, on: bool },
+    /// A name given in Hylki to an account or an address book, by its ID
+    /// (`None`: its own name again).
+    Rename { id: String, name: Option<String> },
     SaveClicked,
     CloseEditor,
     RemoveCurrent,
@@ -358,12 +363,15 @@ impl SimpleComponent for ContactSources {
                 self.add_btn.set_sensitive(eds);
                 self.no_eds.set_visible(!eds);
                 self.rebuild(&sender);
-                // An open page about a source follows it, unless it holds a
-                // form being typed in.
-                if let Some(Editing::Source(i)) = self.editing {
-                    if self.save_action.borrow().is_none() && i < self.sources.len() {
-                        self.open_source(i, &sender);
-                    }
+                // An open page about a source follows it, wherever it is
+                // listed now, unless it holds a form being typed in.
+                let at = match &self.editing {
+                    Some(Editing::Source(id)) => self.sources.iter().position(|s| s.id == *id),
+                    _ => None,
+                };
+                let typing = self.save_action.borrow().is_some();
+                if let (Some(i), false) = (at, typing) {
+                    self.open_source(i, &sender);
                 }
             }
             ContactSourcesInput::SetBooks(books) => {
@@ -411,6 +419,10 @@ impl SimpleComponent for ContactSources {
                     let _ = s.send(ContactSourcesInput::Done { error, found: None, checked: None });
                 });
             }
+            ContactSourcesInput::Rename { id, name } => {
+                let error = sources::set_name(&id, name.as_deref()).err();
+                sender.input(ContactSourcesInput::Done { error, found: None, checked: None });
+            }
             ContactSourcesInput::SaveClicked => {
                 let action = self.save_action.borrow().clone();
                 if let Some(f) = action {
@@ -425,8 +437,10 @@ impl SimpleComponent for ContactSources {
                 self.close_editor();
             }
             ContactSourcesInput::RemoveCurrent => {
-                if let Some(Editing::Source(i)) = self.editing {
-                    sender.input(ContactSourcesInput::ConfirmRemove(i));
+                if let Some(Editing::Source(id)) = &self.editing {
+                    if let Some(i) = self.sources.iter().position(|s| s.id == *id) {
+                        sender.input(ContactSourcesInput::ConfirmRemove(i));
+                    }
                 }
             }
             ContactSourcesInput::ConfirmRemove(i) => {
@@ -611,13 +625,14 @@ impl ContactSources {
     /// The page about one source.
     fn open_source(&mut self, index: usize, sender: &ComponentSender<Self>) {
         let Some(source) = self.sources.get(index).cloned() else { return };
-        self.editing = Some(Editing::Source(index));
+        self.editing = Some(Editing::Source(source.id.clone()));
         *self.save_action.borrow_mut() = None;
         self.editor_page.set_title(&source.title);
         let removable = matches!(source.kind, Kind::CardDav(_) | Kind::Ldap(_));
         self.remove_btn.set_visible(removable);
         let page = gtk::Box::new(gtk::Orientation::Vertical, 24);
         page.append(&source_header(&source));
+        page.append(&name_group(&source, sender.input_sender().clone()));
         if let Some(why) = &source.paused {
             let note = adw::PreferencesGroup::new();
             note.set_description(Some(why));
@@ -862,21 +877,65 @@ fn info_group(title: &str, text: &str, button: &str, open: fn()) -> adw::Prefere
     group
 }
 
-/// A source's address books, each with its own switch.
+/// A name typed for something whose own name is `own`, as kept: `None`
+/// when it is left blank or is the own name again.
+fn given_name(typed: &str, own: &str) -> Option<String> {
+    let typed = typed.trim();
+    (!typed.is_empty() && typed != own).then(|| typed.to_string())
+}
+
+/// The name the account goes by in Hylki: here, and under its address
+/// books in Contacts. GNOME and Evolution keep theirs.
+fn name_group(source: &Source, sender: relm4::Sender<ContactSourcesInput>) -> adw::PreferencesGroup {
+    let group = adw::PreferencesGroup::new();
+    let own = [("own", source.own_title.as_str())];
+    group.set_description(Some(&match source.kind {
+        Kind::Hylki => i18n_f("The name Hylki lists it by, here and in Contacts. Left blank, it is {own}.", &own),
+        _ => i18n_f(
+            "The name Hylki lists it by, here and under its address books in Contacts; GNOME Contacts and Evolution keep their own. Left blank, it is {own}.",
+            &own,
+        ),
+    }));
+    let row = adw::EntryRow::new();
+    row.set_title(&i18n("Name"));
+    row.set_text(&source.title);
+    row.set_show_apply_button(true);
+    let (s, id, own) = (sender, source.id.clone(), source.own_title.clone());
+    row.connect_apply(move |r| {
+        let _ = s.send(ContactSourcesInput::Rename { id: id.clone(), name: given_name(&r.text(), &own) });
+    });
+    group.add(&row);
+    group
+}
+
+/// A source's address books, each with its name in Hylki and its own
+/// switch.
 fn books_group(source: &Source, sender: relm4::Sender<ContactSourcesInput>) -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Address books"));
-    group.set_description(Some(&i18n("Switch off an address book to leave it out of Hylki.")));
+    group.set_description(Some(&i18n(
+        "Rename an address book for Hylki, or switch it off to leave it out of Hylki. A name left blank is the book's own again.",
+    )));
     for book in &source.books {
-        let row = adw::SwitchRow::new();
-        row.set_title(&gtk::glib::markup_escape_text(if book.name.is_empty() { &book.uid } else { &book.name }));
-        row.set_active(book.on);
-        // The account's own switch decides first.
-        row.set_sensitive(source.on);
-        let (s, uid) = (sender.clone(), book.uid.clone());
-        row.connect_active_notify(move |r| {
-            let _ = s.send(ContactSourcesInput::ToggleBook { book: uid.clone(), on: r.is_active() });
+        let row = adw::EntryRow::new();
+        row.set_title(&gtk::glib::markup_escape_text(&book.name));
+        row.set_text(book.shown());
+        row.set_show_apply_button(true);
+        let (s, uid, own) = (sender.clone(), book.uid.clone(), book.name.clone());
+        row.connect_apply(move |r| {
+            let _ = s.send(ContactSourcesInput::Rename { id: uid.clone(), name: given_name(&r.text(), &own) });
         });
+        let switch = gtk::Switch::new();
+        switch.set_valign(gtk::Align::Center);
+        switch.set_active(book.on);
+        switch.set_tooltip_text(Some(&i18n("Use in Hylki")));
+        // The account's own switch decides first.
+        switch.set_sensitive(source.on);
+        let (s, uid) = (sender.clone(), book.uid.clone());
+        switch.connect_active_notify(move |w| {
+            let _ = s.send(ContactSourcesInput::ToggleBook { book: uid.clone(), on: w.is_active() });
+        });
+        row.add_suffix(&switch);
         group.add(&row);
     }
     group

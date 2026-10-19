@@ -300,6 +300,22 @@ msgstr "Az üzenet nem frissíthető: {e}"
 msgid "No address book available"
 msgstr "Nem érhető el címjegyzék"
 
+#, fuzzy
+msgid "Could not rename the address book: {e}"
+msgstr "A mappa nem nevezhető át: {e}"
+
+#, fuzzy
+msgid "{n} contact was not copied: {e}"
+msgid_plural "{n} contacts were not copied: {e}"
+msgstr[0] "A napló exportálva ide: {display}"
+msgstr[1] "A napló exportálva ide: {display}"
+
+#, fuzzy
+msgid "{n} contact was not moved: {e}"
+msgid_plural "{n} contacts were not moved: {e}"
+msgstr[0] "A napló exportálva ide: {display}"
+msgstr[1] "A napló exportálva ide: {display}"
+
 msgid "Could not update contact: {e}"
 msgstr "A névjegy nem frissíthető: {e}"
 
@@ -1501,6 +1517,9 @@ msgstr[1] "{n} címzett"
 msgid "CardDAV Address Book"
 msgstr "CardDAV címjegyzék"
 
+msgid "Hylki cannot change this kind of group"
+msgstr ""
+
 msgid "{date} at {time}"
 msgstr "{date} {time} órakor"
 
@@ -1548,7 +1567,7 @@ msgstr ""
 msgid "{name} did not answer: {error}"
 msgstr "{name} nem válaszolt: {error}"
 
-msgid "A contact needs a name or an email address"
+msgid "A contact needs a name, an email address or a phone number"
 msgstr ""
 
 msgid "The contact is too large"
@@ -3966,27 +3985,47 @@ msgstr ""
 msgid "Not found"
 msgstr "Nem jelenik meg"
 
-msgid "Open in GNOME Contacts"
-msgstr "Megnyitás a GNOME Névjegyekben"
-
 msgid "Search contacts"
 msgstr "Névjegyek keresése"
 
 msgid "No Contacts"
 msgstr "Nincsenek névjegyek"
 
-msgid "Add contacts in GNOME Contacts to see them here."
+#, fuzzy
+msgid "Add contacts in the Contacts view to see them here."
 msgstr "Adjon hozzá névjegyeket a GNOME Névjegyekben a megtekintésükhöz."
 
-msgid "Open GNOME Contacts"
-msgstr "GNOME Névjegyek megnyitása"
+msgid "Has Photo"
+msgstr ""
+
+#, fuzzy
+msgid "Has Email"
+msgstr "E-mail"
+
+#, fuzzy
+msgid "Has Phone"
+msgstr "Telefon"
+
+#, fuzzy
+msgid "Has Address"
+msgstr "Cím"
+
+msgid "Has Birthday"
+msgstr ""
+
+msgid "Has Company"
+msgstr ""
+
+#, fuzzy
+msgid "Not in a Group"
+msgstr "Bal oldali csoport"
+
+msgid "Import vCard files into the Hylki address book"
+msgstr ""
 
 #, fuzzy
 msgid "New contact or group"
 msgstr "Új névjegy"
-
-msgid "Import vCard files into the Hylki address book"
-msgstr ""
 
 msgid "Loading Contacts…"
 msgstr "Névjegyek betöltése…"
@@ -3997,57 +4036,180 @@ msgid ""
 "here too."
 msgstr ""
 
-msgid "Sort contacts"
-msgstr "Névjegyek rendezése"
+#, fuzzy
+msgid "Search contacts (Ctrl+F)"
+msgstr "Névjegyek keresése"
+
+#, fuzzy
+msgid "Sort and filter contacts"
+msgstr "{n} db üzenet"
 
 msgid "Edit contact"
 msgstr "Névjegy szerkesztése"
 
-msgid "First name"
-msgstr "Keresztnév"
+#, fuzzy
+msgid "Delete {n} Group?"
+msgid_plural "Delete {n} Groups?"
+msgstr[0] "Törli a kulcsát?"
+msgstr[1] "Törli a kulcsát?"
 
-msgid "Last name"
-msgstr "Vezetéknév"
+msgid ""
+"This will remove {n} group from your address books locally and on the "
+"server. The contacts are not removed."
+msgid_plural ""
+"This will remove {n} groups from your address books locally and on the "
+"server. The contacts are not removed."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"This will remove {n} group from your address book. The contacts are not "
+"removed."
+msgid_plural ""
+"This will remove {n} groups from your address books. The contacts are not "
+"removed."
+msgstr[0] ""
+msgstr[1] ""
 
 #, fuzzy
-msgid "In Directories"
-msgstr "LDAP Mappák"
+msgid "Delete {n} Contact?"
+msgid_plural "Delete {n} Contacts?"
+msgstr[0] "Törli a névjegyet?"
+msgstr[1] "Törli a névjegyet?"
+
+msgid ""
+"This will remove {n} contact from your address books locally and on the "
+"server."
+msgid_plural ""
+"This will remove {n} contacts from your address books locally and on the "
+"server."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "This will remove {n} contact from your address book."
+msgid_plural "This will remove {n} contacts from your address books."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"This will remove the group {name} from your address book locally and on the "
+"server. The contacts are not removed."
+msgstr ""
+
+msgid ""
+"This will remove the group {name} from your address book. The contacts are "
+"not removed."
+msgstr ""
 
 #, fuzzy
 msgid "Delete Group?"
 msgstr "Törli a kulcsát?"
 
 msgid ""
-"{name} is removed from your address book, and for a synced book, from the "
-"server too. The people in it are not."
+"This will remove the contact {name} from your address book locally and on "
+"the server."
+msgstr ""
+
+msgid "This will remove the contact {name} from your address book."
 msgstr ""
 
 msgid "Delete Contact?"
 msgstr "Törli a névjegyet?"
 
+#, fuzzy
+msgid "Rename Address Book"
+msgstr "Címjegyzék"
+
 msgid ""
-"{name} is removed from your address book, and for a synced book, from the "
-"server too."
+"The name is used in Hylki only; GNOME Contacts and Evolution keep the book's "
+"own."
+msgstr ""
+
+msgid "Use Its Own Name"
 msgstr ""
 
 #, fuzzy
-msgid "All Address Books"
-msgstr "Címjegyzék"
+msgid "Move Contact?"
+msgstr "Névjegyek megnyitása"
 
-msgid "Edit"
-msgstr "Szerkesztés"
-
-msgid "Add to Group"
+msgid ""
+"This will move {name} out of {from} and into {to}, locally and on the "
+"server. A group in {from} that holds the contact will no longer have it."
 msgstr ""
 
-msgid "Delete…"
-msgstr "Törlés…"
+#, fuzzy
+msgid "Move {n} Contact?"
+msgid_plural "Move {n} Contacts?"
+msgstr[0] "Névjegyek megnyitása"
+msgstr[1] "Névjegyek megnyitása"
+
+msgid ""
+"This will move {n} contact out of the address book it is in and into {to}, "
+"locally and on the server. A group there that holds it will no longer have "
+"it."
+msgid_plural ""
+"This will move {n} contacts out of the address books they are in and into "
+"{to}, locally and on the server. Groups there that hold them will no longer "
+"have them."
+msgstr[0] ""
+msgstr[1] ""
+
+#, fuzzy
+msgid "Move"
+msgstr "Áthelyezés ide"
+
+#, fuzzy
+msgid "In Directories"
+msgstr "LDAP Mappák"
 
 msgid "Type three letters or more to search the directory."
 msgstr ""
 
 msgid "Nobody in the directory matches."
 msgstr ""
+
+#, fuzzy
+msgid "Remove from Group"
+msgstr "Szűrő eltávolítása"
+
+msgid "Add to Group"
+msgstr ""
+
+#, fuzzy
+msgid "Move to Address Book"
+msgstr "Címjegyzék"
+
+msgid "Delete…"
+msgstr "Törlés…"
+
+msgid "Edit"
+msgstr "Szerkesztés"
+
+msgid "Open in GNOME Contacts"
+msgstr "Megnyitás a GNOME Névjegyekben"
+
+#, fuzzy
+msgid "{n} Group Selected"
+msgid_plural "{n} Groups Selected"
+msgstr[0] "Beszélgetés törlésének megerősítése"
+msgstr[1] "Beszélgetés törlésének megerősítése"
+
+#, fuzzy
+msgid "{n} Contact Selected"
+msgid_plural "{n} Contacts Selected"
+msgstr[0] "Beszélgetés törlésének megerősítése"
+msgstr[1] "Beszélgetés törlésének megerősítése"
+
+msgid "Move to…"
+msgstr "Áthelyezés…"
+
+#, fuzzy
+msgid "Move to another address book"
+msgstr "El akarod menteni a könyvtárat?"
+
+#, fuzzy
+msgid "Selected"
+msgstr "Kijelöltek importálása"
 
 msgid "View photo"
 msgstr "Fénykép megtekintése"
@@ -4094,6 +4256,21 @@ msgstr "Összes küldése"
 msgid "Members do not see each other's addresses."
 msgstr ""
 
+#. An Apple group (iCloud's) holds cards of its own book.
+msgid ""
+"Groups in this address book hold its own contacts: anyone added who is not "
+"in it yet is added to it."
+msgstr ""
+
+msgid ""
+"Saving moves the group to this address book, with its people, and removes it "
+"from {book}."
+msgstr ""
+
+msgid ""
+"Groups here hold addresses, so people with no email address are left out."
+msgstr ""
+
 msgid "Edit Contact"
 msgstr "Névjegy szerkesztése"
 
@@ -4114,6 +4291,9 @@ msgstr "Fordította"
 msgid "Title"
 msgstr ""
 
+msgid "Another book moves the contact there when saved."
+msgstr ""
+
 msgid "Add email"
 msgstr "E-mail hozzáadása"
 
@@ -4126,6 +4306,10 @@ msgstr "Webhely hozzáadása"
 msgid "Members"
 msgstr ""
 
+#, fuzzy
+msgid "No email address"
+msgstr "E-mail-cím"
+
 msgid "No one is in this group yet."
 msgstr ""
 
@@ -4134,6 +4318,12 @@ msgstr ""
 
 msgid "This group names its members by contact, which Hylki does not edit."
 msgstr ""
+
+msgid "First name"
+msgstr "Keresztnév"
+
+msgid "Last name"
+msgstr "Vezetéknév"
 
 #, fuzzy
 msgid "Import Contacts"
@@ -4148,6 +4338,68 @@ msgstr "Minden fájl"
 
 msgid "Add a person by name or address"
 msgstr ""
+
+#, fuzzy
+msgid "No email address · {book}"
+msgstr "E-mail-cím"
+
+msgid "No label"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "Work"
+msgstr ""
+
+msgid "Mobile"
+msgstr ""
+
+msgid "Fax"
+msgstr ""
+
+msgid "Label"
+msgstr ""
+
+#, fuzzy
+msgid "Add address"
+msgstr "Cím"
+
+msgid "Street"
+msgstr ""
+
+msgid "City"
+msgstr ""
+
+msgid "State or region"
+msgstr ""
+
+msgid "Postal code"
+msgstr ""
+
+msgid "Country"
+msgstr ""
+
+msgid "No birthday"
+msgstr ""
+
+msgid "Year"
+msgstr ""
+
+msgid "Change Photo…"
+msgstr ""
+
+#, fuzzy
+msgid "Remove Photo"
+msgstr "Címke eltávolítása"
+
+#, fuzzy
+msgid "Choose a Photo"
+msgstr "Kép választása"
+
+#, fuzzy
+msgid "Directories"
+msgstr "LDAP Mappák"
 
 #, fuzzy
 msgid "Use an app-specific password, not your usual one."
@@ -4263,6 +4515,9 @@ msgid ""
 "are changed there, and in Hylki's Contacts."
 msgstr ""
 
+msgid "Open GNOME Contacts"
+msgstr "GNOME Névjegyek megnyitása"
+
 #, fuzzy
 msgid "Set up in GNOME Online Accounts"
 msgstr "Megtalálható a GNOME Online-fiókok között"
@@ -4341,11 +4596,22 @@ msgstr ""
 msgid "Use in Hylki"
 msgstr "Hylki megnyitása"
 
+msgid ""
+"The name Hylki lists it by, here and in Contacts. Left blank, it is {own}."
+msgstr ""
+
+msgid ""
+"The name Hylki lists it by, here and under its address books in Contacts; "
+"GNOME Contacts and Evolution keep their own. Left blank, it is {own}."
+msgstr ""
+
 #, fuzzy
 msgid "Address books"
 msgstr "Címjegyzék"
 
-msgid "Switch off an address book to leave it out of Hylki."
+msgid ""
+"Rename an address book for Hylki, or switch it off to leave it out of Hylki. "
+"A name left blank is the book's own again."
 msgstr ""
 
 msgid "Sign-in"
@@ -4651,9 +4917,6 @@ msgstr "Minden mappa megjelenítése"
 
 msgid "Mark as read"
 msgstr "Megjelölés olvasottként"
-
-msgid "Move to…"
-msgstr "Áthelyezés…"
 
 msgid "Not spam"
 msgstr "Nem levélszemét"
@@ -5864,6 +6127,14 @@ msgstr ""
 "A „Bejövő levelek” és a fióksorok melyik oldalán helyezkednek el a kibontás/"
 "összecsukás nyilak."
 
+msgid "Fold accounts with one click"
+msgstr ""
+
+msgid ""
+"A click anywhere on an account's name opens or closes its folders. Off, only "
+"its chevron or a double click does."
+msgstr ""
+
 msgid "Attachments in the sidebar"
 msgstr "Mellékletek az oldalsávban"
 
@@ -5873,15 +6144,6 @@ msgid ""
 msgstr ""
 "Az oldalsáv alján rögzített parancsikon, amellyel minden fiók mellékletei "
 "között böngészhet."
-
-msgid "Contacts in the sidebar"
-msgstr "Névjegyek az oldalsávban"
-
-msgid ""
-"A shortcut that opens your contacts, pinned at the bottom of the sidebar."
-msgstr ""
-"Egy gyorsbillentyű, amely megnyitja a névjegyeket, és az oldalsáv alján van "
-"rögzítve."
 
 msgid "Expand the sidebar on hover"
 msgstr "Oldalsáv kibontása rámutatáskor"
@@ -5936,60 +6198,6 @@ msgstr ""
 msgid "Inboxes"
 msgstr "Beérkezett üzenetek"
 
-msgid ""
-"A unified inbox combining every account, at the top of the sidebar. Only "
-"shown with more than one account."
-msgstr ""
-"Egységes beérkezett nézet, amely minden fiókot egyesít az oldalsáv tetején. "
-"Csak egynél több fiók esetén jelenik meg."
-
-msgid ""
-"Every account's starred folder as one list, opening to each account's own."
-msgstr ""
-"Minden fiók „Kiemelt” mappája egyetlen listaként jelenik meg, amelyből az "
-"egyes fiókok saját listája nyitható meg."
-
-msgid "Every account's sent mail as one list, opening to each account's own."
-msgstr ""
-"Minden fiók elküldött levelei egyetlen listában jelennek meg, amely az egyes "
-"fiókok saját listájára nyílik."
-
-msgid "Every account's drafts as one list, opening to each account's own."
-msgstr ""
-"Minden fiók vázlatai egyetlen listában jelennek meg, amely az egyes fiókok "
-"saját vázlataihoz nyílik."
-
-msgid "Every account's archive as one list, opening to each account's own."
-msgstr ""
-"Minden fiók archívuma egyetlen listában jelenik meg, amelyből az egyes "
-"fiókok saját archívumai nyithatók meg."
-
-#, fuzzy
-msgid "Every account's junk mail as one list, opening to each account's own."
-msgstr ""
-"Minden fiók elküldött levelei egyetlen listában jelennek meg, amely az egyes "
-"fiókok saját listájára nyílik."
-
-#, fuzzy
-msgid "Every account's trash as one list, opening to each account's own."
-msgstr ""
-"Minden fiók vázlatai egyetlen listában jelennek meg, amely az egyes fiókok "
-"saját vázlataihoz nyílik."
-
-msgid ""
-"List every folder your filter rules file into in a collapsible section of "
-"the unified view."
-msgstr ""
-"Sorold fel az összes mappát, amelybe a szűrőszabály-fájl bejegyzéseket "
-"helyez el, az egységes nézet összecsukható szakaszában."
-
-msgid ""
-"The tags, each showing every account's mail with it. Each account keeps its "
-"own Tags section either way."
-msgstr ""
-"A címkék, amelyek mindegyike az adott fiók összes e-mailjét tartalmazza. "
-"Minden fióknak mindkét esetben megvan a saját „Címkék” szakasza."
-
 msgid "Unread counts"
 msgstr "Olvasatlanok száma"
 
@@ -6001,17 +6209,26 @@ msgstr ""
 "össze vannak hajtva. Kinyitva az alatta lévő sorok tartalmazzák a számokat. "
 "A „Küldve” állapot soha nem jelenít meg ilyet."
 
+#, fuzzy
+msgid "Sections"
+msgstr "Műveletek"
+
+#, fuzzy
+msgid "Section style"
+msgstr "Műveletek"
+
 msgid "Filters placement"
 msgstr "A szűrők elhelyezése"
 
-msgid ""
-"Choose between appearing in a unified section, or a list above or below the "
-"accounts."
-msgstr ""
-"Választhat, hogy a bejegyzés egy egységes szakaszban jelenjen-e meg, vagy a "
-"fiókok felett vagy alatt található listában."
-
 msgid "Tags placement"
+msgstr "Címkék elhelyezése"
+
+#, fuzzy
+msgid "Favorites placement"
+msgstr "A szűrők elhelyezése"
+
+#, fuzzy
+msgid "Contacts placement"
 msgstr "Címkék elhelyezése"
 
 msgid "Icon rail"
@@ -7033,8 +7250,13 @@ msgstr ""
 msgid "Software"
 msgstr ""
 
-msgid "In the unified section"
-msgstr "Az összevont részben"
+#, fuzzy
+msgid "Unified style"
+msgstr "Egységes"
+
+#, fuzzy
+msgid "Tree style"
+msgstr "Műveletek"
 
 msgid "Above the accounts"
 msgstr "A fiókok felett"
@@ -7404,6 +7626,22 @@ msgstr "Hivatkozás Beszúrása"
 msgid "Insert"
 msgstr "Beszúrás"
 
+#, fuzzy
+msgid "Hylki, on this computer"
+msgstr "Ezen a számítógépen"
+
+#, fuzzy
+msgid "Rename…"
+msgstr "Átnevezés"
+
+#, fuzzy
+msgid "Delete Group…"
+msgstr "Törli a kulcsát?"
+
+#, fuzzy
+msgid "Show or hide"
+msgstr "Címkék megjelenítése vagy elrejtése"
+
 msgid "Favorites"
 msgstr ""
 
@@ -7421,6 +7659,9 @@ msgstr "Még nincsenek fiókok"
 
 msgid "New Message from Template…"
 msgstr ""
+
+msgid "Show or hide folders"
+msgstr "Mappák megjelenítése vagy elrejtése"
 
 msgid "Mark Inbox as Read"
 msgstr "Beérkezett megjelölése olvasottként"
@@ -7446,9 +7687,6 @@ msgstr "Almappák megjelenítése vagy elrejtése"
 #, fuzzy
 msgid "Show or hide labels"
 msgstr "Címkék megjelenítése vagy elrejtése"
-
-msgid "Show or hide folders"
-msgstr "Mappák megjelenítése vagy elrejtése"
 
 #, fuzzy
 msgid "Labels ({len})"
@@ -7482,6 +7720,10 @@ msgstr "Minden címke megjelenítése"
 msgid "Show each smart folder"
 msgstr "Minden mappa megjelenítése"
 
+#, fuzzy
+msgid "Show each address book"
+msgstr "El akarod menteni a könyvtárat?"
+
 msgid "Long-press to expand or collapse"
 msgstr "Hosszú gombnyomással kibontható vagy összecsukható"
 
@@ -7498,9 +7740,6 @@ msgstr "Szűrő szerkesztése…"
 #, fuzzy
 msgid "Delete Smart Folder…"
 msgstr "Mappa törlése…"
-
-msgid "Show or hide filters"
-msgstr "Szűrők megjelenítése vagy elrejtése"
 
 msgid "Show or hide tags"
 msgstr "Címkék megjelenítése vagy elrejtése"
@@ -8172,6 +8411,112 @@ msgstr "Az egységes beérkező levelek mappa világos üzemmódban"
 
 msgid "Hyprlab"
 msgstr "Hyprlab"
+
+#, fuzzy
+#~ msgid "Like the accounts"
+#~ msgstr "A fiókok felett"
+
+#~ msgid "Show or hide filters"
+#~ msgstr "Szűrők megjelenítése vagy elrejtése"
+
+#~ msgid ""
+#~ "A unified inbox combining every account, at the top of the sidebar. Only "
+#~ "shown with more than one account."
+#~ msgstr ""
+#~ "Egységes beérkezett nézet, amely minden fiókot egyesít az oldalsáv "
+#~ "tetején. Csak egynél több fiók esetén jelenik meg."
+
+#~ msgid ""
+#~ "Every account's starred folder as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Minden fiók „Kiemelt” mappája egyetlen listaként jelenik meg, amelyből az "
+#~ "egyes fiókok saját listája nyitható meg."
+
+#~ msgid ""
+#~ "Every account's sent mail as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Minden fiók elküldött levelei egyetlen listában jelennek meg, amely az "
+#~ "egyes fiókok saját listájára nyílik."
+
+#~ msgid "Every account's drafts as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Minden fiók vázlatai egyetlen listában jelennek meg, amely az egyes "
+#~ "fiókok saját vázlataihoz nyílik."
+
+#~ msgid "Every account's archive as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Minden fiók archívuma egyetlen listában jelenik meg, amelyből az egyes "
+#~ "fiókok saját archívumai nyithatók meg."
+
+#, fuzzy
+#~ msgid ""
+#~ "Every account's junk mail as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Minden fiók elküldött levelei egyetlen listában jelennek meg, amely az "
+#~ "egyes fiókok saját listájára nyílik."
+
+#, fuzzy
+#~ msgid "Every account's trash as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Minden fiók vázlatai egyetlen listában jelennek meg, amely az egyes "
+#~ "fiókok saját vázlataihoz nyílik."
+
+#~ msgid ""
+#~ "List every folder your filter rules file into in a collapsible section of "
+#~ "the unified view."
+#~ msgstr ""
+#~ "Sorold fel az összes mappát, amelybe a szűrőszabály-fájl bejegyzéseket "
+#~ "helyez el, az egységes nézet összecsukható szakaszában."
+
+#~ msgid ""
+#~ "The tags, each showing every account's mail with it. Each account keeps "
+#~ "its own Tags section either way."
+#~ msgstr ""
+#~ "A címkék, amelyek mindegyike az adott fiók összes e-mailjét tartalmazza. "
+#~ "Minden fióknak mindkét esetben megvan a saját „Címkék” szakasza."
+
+#, fuzzy
+#~ msgid ""
+#~ "In the unified section, in a list above or below the accounts, or Off, "
+#~ "out of the sidebar."
+#~ msgstr ""
+#~ "Választhat, hogy a bejegyzés egy egységes szakaszban jelenjen-e meg, vagy "
+#~ "a fiókok felett vagy alatt található listában."
+
+#~ msgid "In the unified section"
+#~ msgstr "Az összevont részben"
+
+#~ msgid "Contacts in the sidebar"
+#~ msgstr "Névjegyek az oldalsávban"
+
+#~ msgid ""
+#~ "A shortcut that opens your contacts, pinned at the bottom of the sidebar."
+#~ msgstr ""
+#~ "Egy gyorsbillentyű, amely megnyitja a névjegyeket, és az oldalsáv alján "
+#~ "van rögzítve."
+
+#, fuzzy
+#~ msgid "All Contacts"
+#~ msgstr "Névjegyek"
+
+#, fuzzy
+#~ msgid "Groups"
+#~ msgstr "Bal oldali csoport"
+
+#, fuzzy
+#~ msgid "Search groups"
+#~ msgstr "Keresési szűrők"
+
+#, fuzzy
+#~ msgid "Choose which address book to search"
+#~ msgstr "Válassza ki a keresendő mappákat"
+
+#, fuzzy
+#~ msgid "All Address Books"
+#~ msgstr "Címjegyzék"
+
+#~ msgid "Sort contacts"
+#~ msgstr "Névjegyek rendezése"
 
 #, fuzzy
 #~ msgid "From your mail accounts"

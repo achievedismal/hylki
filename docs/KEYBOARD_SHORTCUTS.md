@@ -100,6 +100,13 @@ none selected says that a selection is needed.
 its own. A <kbd>g</kbd> or <kbd>*</kbd> waits a second and a half for the key
 that follows.
 
+A message window takes the same keys for its own conversation:
+<kbd>n</kbd>, <kbd>p</kbd>, <kbd>;</kbd> and <kbd>:</kbd> move through it,
+and the action keys act on it as they do on an open conversation in the main
+window. <kbd>u</kbd> and <kbd>Esc</kbd> close the window, as archiving or
+marking it unread does. The list's keys, <kbd>g</kbd> and <kbd>*</kbd> do
+nothing there.
+
 With several messages selected, in the list or as cards of a conversation,
 archive, delete, spam, star, read and tag keys act on all of them. A
 conversation's row stands for every message of it the folder holds, so
@@ -145,7 +152,8 @@ These work with or without single-key shortcuts too:
 | --- | --- |
 | <kbd>Ctrl+K</kbd> | Command palette: type to find an action, a folder, a view, a tag or a smart folder, and Enter runs it; start with `>` for actions only |
 | <kbd>Ctrl+Shift+K</kbd> | Command palette with `>` already typed: actions only |
-| <kbd>Delete</kbd> <kbd>Backspace</kbd> | Delete the selected messages, with the list focused |
+| <kbd>Delete</kbd> | Delete the selected messages, or the message you are reading, in the main window or its own |
+| <kbd>Backspace</kbd> | Delete the selected messages, with the list focused |
 | <kbd>Shift+Delete</kbd> | Delete the selected messages permanently, without going to Trash, after asking |
 | <kbd>Ctrl+F</kbd> | Search the message list |
 | <kbd>Ctrl+P</kbd> | Print the message you are reading |
@@ -166,8 +174,13 @@ In the attachment drawer, <kbd>Space</kbd> or <kbd>Enter</kbd> previews the
 highlighted attachment. In the attachments gallery's preview, <kbd>←</kbd> and
 <kbd>→</kbd> step to the previous and next one, and <kbd>Esc</kbd> closes it.
 
-In the Contacts view, <kbd>Delete</kbd> asks to delete the contact shown,
-while the contact list has the focus. In a group's form, <kbd>↓</kbd> and
+In the Contacts view, <kbd>Ctrl+F</kbd> and <kbd>/</kbd> open its search
+and <kbd>Esc</kbd> closes it, as in the message list. <kbd>Ctrl</kbd> or
+<kbd>Shift</kbd> and a click select several contacts, and <kbd>Ctrl+A</kbd>
+all of them. <kbd>Delete</kbd> asks to delete the contact shown, or those
+selected, while the contact list has the focus. Contacts dragged onto an
+address book in the sidebar are copied there, or moved with <kbd>Ctrl</kbd>
+held as they are dropped. In a group's form, <kbd>↓</kbd> and
 <kbd>↑</kbd> move through the people matching what is typed in the field
 that adds them, <kbd>Enter</kbd> adds the one highlighted, and <kbd>Esc</kbd>
 puts the matches away.

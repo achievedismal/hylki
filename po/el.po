@@ -296,6 +296,22 @@ msgstr "Δεν ήταν δυνατή η αποθήκευση του μηνύμα
 msgid "No address book available"
 msgstr "Δεν υπάρχει διαθέσιμο βιβλίο διευθύνσεων"
 
+#, fuzzy
+msgid "Could not rename the address book: {e}"
+msgstr "Δεν ήταν δυνατή η μετονομασία φακέλου: {e}"
+
+#, fuzzy
+msgid "{n} contact was not copied: {e}"
+msgid_plural "{n} contacts were not copied: {e}"
+msgstr[0] "Εξήχθη {n} επαφή στο {path}"
+msgstr[1] "Εξήχθησαν {n} επαφές στο {path}"
+
+#, fuzzy
+msgid "{n} contact was not moved: {e}"
+msgid_plural "{n} contacts were not moved: {e}"
+msgstr[0] "Εξήχθη {n} επαφή στο {path}"
+msgstr[1] "Εξήχθησαν {n} επαφές στο {path}"
+
 msgid "Could not update contact: {e}"
 msgstr "Αδυναμία ενημέρωσης επαφής: {e}"
 
@@ -1450,6 +1466,9 @@ msgstr[1] "{n} παραλήπτες"
 msgid "CardDAV Address Book"
 msgstr "Βιβλίο διευθύνσεων CardDAV"
 
+msgid "Hylki cannot change this kind of group"
+msgstr ""
+
 msgid "{date} at {time}"
 msgstr "{date} στις {time}"
 
@@ -1503,7 +1522,8 @@ msgstr ""
 msgid "{name} did not answer: {error}"
 msgstr "Το {name} δεν αποκρίθηκε: {error}"
 
-msgid "A contact needs a name or an email address"
+#, fuzzy
+msgid "A contact needs a name, an email address or a phone number"
 msgstr "Μια επαφή χρειάζεται όνομα ή διεύθυνση email"
 
 msgid "The contact is too large"
@@ -3896,27 +3916,48 @@ msgstr ""
 msgid "Not found"
 msgstr "Δεν βρέθηκε"
 
-msgid "Open in GNOME Contacts"
-msgstr "Άνοιγμα στις Επαφές GNOME"
-
 msgid "Search contacts"
 msgstr "Αναζήτηση επαφών"
 
 msgid "No Contacts"
 msgstr "Δεν υπάρχουν επαφές"
 
-msgid "Add contacts in GNOME Contacts to see them here."
+#, fuzzy
+msgid "Add contacts in the Contacts view to see them here."
 msgstr "Προσθέστε επαφές στις Επαφές GNOME για να τις βλέπετε εδώ."
 
-msgid "Open GNOME Contacts"
-msgstr "Άνοιγμα Επαφών GNOME"
+msgid "Has Photo"
+msgstr ""
+
+#, fuzzy
+msgid "Has Email"
+msgstr "Email"
+
+#, fuzzy
+msgid "Has Phone"
+msgstr "Τηλέφωνο"
+
+#, fuzzy
+msgid "Has Address"
+msgstr "Διεύθυνση"
+
+#, fuzzy
+msgid "Has Birthday"
+msgstr "Γενέθλια"
+
+msgid "Has Company"
+msgstr ""
+
+#, fuzzy
+msgid "Not in a Group"
+msgstr "Αριστερή ομάδα"
+
+msgid "Import vCard files into the Hylki address book"
+msgstr "Εισαγωγή αρχείων vCard στο βιβλίο διευθύνσεων του Hylki"
 
 #, fuzzy
 msgid "New contact or group"
 msgstr "Νέα επαφή"
-
-msgid "Import vCard files into the Hylki address book"
-msgstr "Εισαγωγή αρχείων vCard στο βιβλίο διευθύνσεων του Hylki"
 
 msgid "Loading Contacts…"
 msgstr "Φόρτωση επαφών..."
@@ -3930,20 +3971,93 @@ msgstr ""
 "διατηρούνται στο δικό του βιβλίο διευθύνσεων του Hylki, ενώ εδώ εμφανίζονται "
 "και τα βιβλία διευθύνσεων των Επαφών GNOME."
 
-msgid "Sort contacts"
+#, fuzzy
+msgid "Search contacts (Ctrl+F)"
+msgstr "Αναζήτηση επαφών"
+
+#, fuzzy
+msgid "Sort and filter contacts"
 msgstr "Ταξινόμηση επαφών"
 
 msgid "Edit contact"
 msgstr "Επεξεργασία επαφής"
 
-msgid "First name"
-msgstr "Όνομα"
+#, fuzzy
+msgid "Delete {n} Group?"
+msgid_plural "Delete {n} Groups?"
+msgstr[0] "Διαγραφή του κλειδιού σας;"
+msgstr[1] "Διαγραφή του κλειδιού σας;"
 
-msgid "Last name"
-msgstr "Επώνυμο"
+#, fuzzy
+msgid ""
+"This will remove {n} group from your address books locally and on the "
+"server. The contacts are not removed."
+msgid_plural ""
+"This will remove {n} groups from your address books locally and on the "
+"server. The contacts are not removed."
+msgstr[0] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+msgstr[1] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
 
-msgid "In Directories"
-msgstr "Στους καταλόγους"
+#, fuzzy
+msgid ""
+"This will remove {n} group from your address book. The contacts are not "
+"removed."
+msgid_plural ""
+"This will remove {n} groups from your address books. The contacts are not "
+"removed."
+msgstr[0] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+msgstr[1] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+
+#, fuzzy
+msgid "Delete {n} Contact?"
+msgid_plural "Delete {n} Contacts?"
+msgstr[0] "Διαγραφή επαφής;"
+msgstr[1] "Διαγραφή επαφής;"
+
+#, fuzzy
+msgid ""
+"This will remove {n} contact from your address books locally and on the "
+"server."
+msgid_plural ""
+"This will remove {n} contacts from your address books locally and on the "
+"server."
+msgstr[0] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+msgstr[1] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+
+#, fuzzy
+msgid "This will remove {n} contact from your address book."
+msgid_plural "This will remove {n} contacts from your address books."
+msgstr[0] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+msgstr[1] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+
+#, fuzzy
+msgid ""
+"This will remove the group {name} from your address book locally and on the "
+"server. The contacts are not removed."
+msgstr ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+
+msgid ""
+"This will remove the group {name} from your address book. The contacts are "
+"not removed."
+msgstr ""
 
 #, fuzzy
 msgid "Delete Group?"
@@ -3951,8 +4065,14 @@ msgstr "Διαγραφή του κλειδιού σας;"
 
 #, fuzzy
 msgid ""
-"{name} is removed from your address book, and for a synced book, from the "
-"server too. The people in it are not."
+"This will remove the contact {name} from your address book locally and on "
+"the server."
+msgstr ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+
+#, fuzzy
+msgid "This will remove the contact {name} from your address book."
 msgstr ""
 "Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
 "βιβλίο, και από τον διακομιστή."
@@ -3960,30 +4080,107 @@ msgstr ""
 msgid "Delete Contact?"
 msgstr "Διαγραφή επαφής;"
 
+#, fuzzy
+msgid "Rename Address Book"
+msgstr "Βιβλίο διευθύνσεων"
+
 msgid ""
-"{name} is removed from your address book, and for a synced book, from the "
-"server too."
+"The name is used in Hylki only; GNOME Contacts and Evolution keep the book's "
+"own."
+msgstr ""
+
+msgid "Use Its Own Name"
+msgstr ""
+
+#, fuzzy
+msgid "Move Contact?"
+msgstr "Άνοιγμα Επαφών"
+
+#, fuzzy
+msgid ""
+"This will move {name} out of {from} and into {to}, locally and on the "
+"server. A group in {from} that holds the contact will no longer have it."
 msgstr ""
 "Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
 "βιβλίο, και από τον διακομιστή."
 
-msgid "All Address Books"
-msgstr "Όλα τα βιβλία διευθύνσεων"
+#, fuzzy
+msgid "Move {n} Contact?"
+msgid_plural "Move {n} Contacts?"
+msgstr[0] "Άνοιγμα Επαφών"
+msgstr[1] "Άνοιγμα Επαφών"
 
-msgid "Edit"
-msgstr "Επεξεργασία"
+#, fuzzy
+msgid ""
+"This will move {n} contact out of the address book it is in and into {to}, "
+"locally and on the server. A group there that holds it will no longer have "
+"it."
+msgid_plural ""
+"This will move {n} contacts out of the address books they are in and into "
+"{to}, locally and on the server. Groups there that hold them will no longer "
+"have them."
+msgstr[0] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
+msgstr[1] ""
+"Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+"βιβλίο, και από τον διακομιστή."
 
-msgid "Add to Group"
-msgstr ""
+#, fuzzy
+msgid "Move"
+msgstr "Μετακίνηση σε"
 
-msgid "Delete…"
-msgstr "Διαγραφή…"
+msgid "In Directories"
+msgstr "Στους καταλόγους"
 
 msgid "Type three letters or more to search the directory."
 msgstr ""
 
 msgid "Nobody in the directory matches."
 msgstr ""
+
+#, fuzzy
+msgid "Remove from Group"
+msgstr "Αφαίρεση από τα Αγαπημένα"
+
+msgid "Add to Group"
+msgstr ""
+
+#, fuzzy
+msgid "Move to Address Book"
+msgstr "Βιβλίο διευθύνσεων"
+
+msgid "Delete…"
+msgstr "Διαγραφή…"
+
+msgid "Edit"
+msgstr "Επεξεργασία"
+
+msgid "Open in GNOME Contacts"
+msgstr "Άνοιγμα στις Επαφές GNOME"
+
+#, fuzzy
+msgid "{n} Group Selected"
+msgid_plural "{n} Groups Selected"
+msgstr[0] "Εισαγωγή επιλεγμένων"
+msgstr[1] "Εισαγωγή επιλεγμένων"
+
+#, fuzzy
+msgid "{n} Contact Selected"
+msgid_plural "{n} Contacts Selected"
+msgstr[0] "Εισαγωγή επιλεγμένων"
+msgstr[1] "Εισαγωγή επιλεγμένων"
+
+msgid "Move to…"
+msgstr "Μετακίνηση σε…"
+
+#, fuzzy
+msgid "Move to another address book"
+msgstr "Αποθήκευση του καταλόγου;"
+
+#, fuzzy
+msgid "Selected"
+msgstr "Εισαγωγή επιλεγμένων"
 
 msgid "View photo"
 msgstr "Προβολή φωτογραφίας"
@@ -4028,6 +4225,21 @@ msgstr "Αποστολή όλων"
 msgid "Members do not see each other's addresses."
 msgstr ""
 
+#. An Apple group (iCloud's) holds cards of its own book.
+msgid ""
+"Groups in this address book hold its own contacts: anyone added who is not "
+"in it yet is added to it."
+msgstr ""
+
+msgid ""
+"Saving moves the group to this address book, with its people, and removes it "
+"from {book}."
+msgstr ""
+
+msgid ""
+"Groups here hold addresses, so people with no email address are left out."
+msgstr ""
+
 msgid "Edit Contact"
 msgstr "Επεξεργασία επαφής"
 
@@ -4047,6 +4259,9 @@ msgstr "Οργανισμός"
 msgid "Title"
 msgstr "Τίτλος"
 
+msgid "Another book moves the contact there when saved."
+msgstr ""
+
 msgid "Add email"
 msgstr "Προσθήκη email"
 
@@ -4060,6 +4275,10 @@ msgstr "Προσθήκη ιστοτόπου"
 msgid "Members"
 msgstr "Αριθμοί σελίδων"
 
+#, fuzzy
+msgid "No email address"
+msgstr "Διεύθυνση email"
+
 msgid "No one is in this group yet."
 msgstr ""
 
@@ -4068,6 +4287,12 @@ msgstr ""
 
 msgid "This group names its members by contact, which Hylki does not edit."
 msgstr ""
+
+msgid "First name"
+msgstr "Όνομα"
+
+msgid "Last name"
+msgstr "Επώνυμο"
 
 msgid "Import Contacts"
 msgstr "Εισαγωγή επαφών"
@@ -4081,6 +4306,70 @@ msgstr "Όλα τα αρχεία"
 #, fuzzy
 msgid "Add a person by name or address"
 msgstr "Μια επαφή χρειάζεται όνομα ή διεύθυνση email"
+
+#, fuzzy
+msgid "No email address · {book}"
+msgstr "Διεύθυνση email"
+
+msgid "No label"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "Work"
+msgstr ""
+
+msgid "Mobile"
+msgstr ""
+
+msgid "Fax"
+msgstr ""
+
+#, fuzzy
+msgid "Label"
+msgstr "Ετικέτες"
+
+#, fuzzy
+msgid "Add address"
+msgstr "Διεύθυνση"
+
+msgid "Street"
+msgstr ""
+
+msgid "City"
+msgstr ""
+
+msgid "State or region"
+msgstr ""
+
+msgid "Postal code"
+msgstr ""
+
+msgid "Country"
+msgstr ""
+
+#, fuzzy
+msgid "No birthday"
+msgstr "Γενέθλια"
+
+msgid "Year"
+msgstr ""
+
+msgid "Change Photo…"
+msgstr ""
+
+#, fuzzy
+msgid "Remove Photo"
+msgstr "Αφαίρεση ετικέτας"
+
+#, fuzzy
+msgid "Choose a Photo"
+msgstr "Επιλογή εικόνας"
+
+#, fuzzy
+msgid "Directories"
+msgstr "Στους καταλόγους"
 
 #, fuzzy
 msgid "Use an app-specific password, not your usual one."
@@ -4198,6 +4487,9 @@ msgid ""
 "are changed there, and in Hylki's Contacts."
 msgstr ""
 
+msgid "Open GNOME Contacts"
+msgstr "Άνοιγμα Επαφών GNOME"
+
 #, fuzzy
 msgid "Set up in GNOME Online Accounts"
 msgstr "Βρέθηκε στους Διαδικτυακούς λογαριασμούς GNOME"
@@ -4283,11 +4575,22 @@ msgstr ""
 msgid "Use in Hylki"
 msgstr "Άνοιγμα Hylki"
 
+msgid ""
+"The name Hylki lists it by, here and in Contacts. Left blank, it is {own}."
+msgstr ""
+
+msgid ""
+"The name Hylki lists it by, here and under its address books in Contacts; "
+"GNOME Contacts and Evolution keep their own. Left blank, it is {own}."
+msgstr ""
+
 #, fuzzy
 msgid "Address books"
 msgstr "Βιβλίο διευθύνσεων"
 
-msgid "Switch off an address book to leave it out of Hylki."
+msgid ""
+"Rename an address book for Hylki, or switch it off to leave it out of Hylki. "
+"A name left blank is the book's own again."
 msgstr ""
 
 msgid "Sign-in"
@@ -4578,9 +4881,6 @@ msgstr "άγνωστος φάκελος"
 
 msgid "Mark as read"
 msgstr "Σήμανση ως αναγνωσμένο"
-
-msgid "Move to…"
-msgstr "Μετακίνηση σε…"
 
 msgid "Not spam"
 msgstr "Μη ανεπιθύμητο"
@@ -5782,6 +6082,14 @@ msgstr ""
 "Σε ποια πλευρά των Εισερχομένων και των σειρών λογαριασμών εμφανίζονται τα "
 "βέλη ανάπτυξης/σύμπτυξης."
 
+msgid "Fold accounts with one click"
+msgstr ""
+
+msgid ""
+"A click anywhere on an account's name opens or closes its folders. Off, only "
+"its chevron or a double click does."
+msgstr ""
+
 msgid "Attachments in the sidebar"
 msgstr "Συνημμένα στην πλευρική στήλη"
 
@@ -5791,15 +6099,6 @@ msgid ""
 msgstr ""
 "Μια συντόμευση για περιήγηση στα συνημμένα όλων των λογαριασμών, "
 "καρφιτσωμένη στο κάτω μέρος της πλευρικής στήλης."
-
-msgid "Contacts in the sidebar"
-msgstr "Επαφές στην πλευρική στήλη"
-
-msgid ""
-"A shortcut that opens your contacts, pinned at the bottom of the sidebar."
-msgstr ""
-"Μια συντόμευση που ανοίγει τις επαφές σας, καρφιτσωμένη στο κάτω μέρος της "
-"πλευρικής στήλης."
 
 msgid "Expand the sidebar on hover"
 msgstr "Ανάπτυξη πλευρικής στήλης κατά την αιώρηση"
@@ -5857,60 +6156,6 @@ msgstr ""
 msgid "Inboxes"
 msgstr "Εισερχόμενα"
 
-msgid ""
-"A unified inbox combining every account, at the top of the sidebar. Only "
-"shown with more than one account."
-msgstr ""
-"Ενοποιημένα εισερχόμενα που συνδυάζουν όλους τους λογαριασμούς, στην κορυφή "
-"της πλευρικής στήλης. Εμφανίζονται μόνο με περισσότερους από έναν "
-"λογαριασμούς."
-
-msgid ""
-"Every account's starred folder as one list, opening to each account's own."
-msgstr ""
-"Οι φάκελοι με αστέρι όλων των λογαριασμών σε μία λίστα, με άνοιγμα στον "
-"αντίστοιχο φάκελο κάθε λογαριασμού."
-
-msgid "Every account's sent mail as one list, opening to each account's own."
-msgstr ""
-"Τα απεσταλμένα όλων των λογαριασμών σε μία λίστα, με άνοιγμα στα απεσταλμένα "
-"κάθε λογαριασμού."
-
-msgid "Every account's drafts as one list, opening to each account's own."
-msgstr ""
-"Τα πρόχειρα όλων των λογαριασμών σε μία λίστα, με άνοιγμα στα πρόχειρα κάθε "
-"λογαριασμού."
-
-msgid "Every account's archive as one list, opening to each account's own."
-msgstr ""
-"Το αρχείο όλων των λογαριασμών σε μία λίστα, με άνοιγμα στο αρχείο κάθε "
-"λογαριασμού."
-
-msgid "Every account's junk mail as one list, opening to each account's own."
-msgstr ""
-"Τα ανεπιθύμητα όλων των λογαριασμών ως μία λίστα, με άνοιγμα στα ανεπιθύμητα "
-"κάθε λογαριασμού."
-
-msgid "Every account's trash as one list, opening to each account's own."
-msgstr ""
-"Ο κάδος όλων των λογαριασμών ως μία λίστα, με άνοιγμα στον κάδο κάθε "
-"λογαριασμού."
-
-msgid ""
-"List every folder your filter rules file into in a collapsible section of "
-"the unified view."
-msgstr ""
-"Εμφάνιση κάθε φακέλου στον οποίο αρχειοθετούν μηνύματα οι κανόνες φίλτρων "
-"σας, σε μια πτυσσόμενη ενότητα της ενοποιημένης προβολής."
-
-msgid ""
-"The tags, each showing every account's mail with it. Each account keeps its "
-"own Tags section either way."
-msgstr ""
-"Οι ετικέτες, καθεμία από τις οποίες εμφανίζει τα μηνύματα όλων των "
-"λογαριασμών που τη φέρουν. Κάθε λογαριασμός διατηρεί τη δική του ενότητα "
-"Ετικέτες ούτως ή άλλως."
-
 msgid "Unread counts"
 msgstr "Πλήθος μη αναγνωσμένων"
 
@@ -5922,17 +6167,26 @@ msgstr ""
 "όταν είναι συμπτυγμένες. Όταν αναπτυχθούν, οι υποκείμενες σειρές εμφανίζουν "
 "τα πλήθη. Τα Απεσταλμένα δεν εμφανίζουν ποτέ ένδειξη."
 
+#, fuzzy
+msgid "Sections"
+msgstr "Ενέργειες"
+
+#, fuzzy
+msgid "Section style"
+msgstr "Ενέργειες"
+
 msgid "Filters placement"
 msgstr "Τοποθέτηση φίλτρων"
 
-msgid ""
-"Choose between appearing in a unified section, or a list above or below the "
-"accounts."
-msgstr ""
-"Επιλέξτε αν θα εμφανίζονται σε ενοποιημένη ενότητα ή σε λίστα πάνω ή κάτω "
-"από τους λογαριασμούς."
-
 msgid "Tags placement"
+msgstr "Τοποθέτηση ετικετών"
+
+#, fuzzy
+msgid "Favorites placement"
+msgstr "Τοποθέτηση φίλτρων"
+
+#, fuzzy
+msgid "Contacts placement"
 msgstr "Τοποθέτηση ετικετών"
 
 msgid "Icon rail"
@@ -6980,8 +7234,13 @@ msgstr ""
 msgid "Software"
 msgstr "Λογισμικό"
 
-msgid "In the unified section"
-msgstr "Στην ενοποιημένη ενότητα"
+#, fuzzy
+msgid "Unified style"
+msgstr "Ενοποιημένα"
+
+#, fuzzy
+msgid "Tree style"
+msgstr "Ενέργειες"
 
 msgid "Above the accounts"
 msgstr "Πάνω από τους λογαριασμούς"
@@ -7330,6 +7589,22 @@ msgstr "Εισαγωγή συνδέσμου"
 msgid "Insert"
 msgstr "Εισαγωγή"
 
+#, fuzzy
+msgid "Hylki, on this computer"
+msgstr "Σε αυτόν τον υπολογιστή"
+
+#, fuzzy
+msgid "Rename…"
+msgstr "Μετονομασία"
+
+#, fuzzy
+msgid "Delete Group…"
+msgstr "Διαγραφή του κλειδιού σας;"
+
+#, fuzzy
+msgid "Show or hide"
+msgstr "Εμφάνιση ή απόκρυψη ετικετών"
+
 msgid "Favorites"
 msgstr "Αγαπημένα"
 
@@ -7347,6 +7622,9 @@ msgstr "Δεν υπάρχουν ακόμη λογαριασμοί"
 
 msgid "New Message from Template…"
 msgstr "Νέο μήνυμα από πρότυπο…"
+
+msgid "Show or hide folders"
+msgstr "Εμφάνιση ή απόκρυψη φακέλων"
 
 msgid "Mark Inbox as Read"
 msgstr "Σήμανση Εισερχομένων ως αναγνωσμένων"
@@ -7371,9 +7649,6 @@ msgstr "Εμφάνιση ή απόκρυψη υποφακέλων"
 
 msgid "Show or hide labels"
 msgstr "Εμφάνιση ή απόκρυψη ετικετών"
-
-msgid "Show or hide folders"
-msgstr "Εμφάνιση ή απόκρυψη φακέλων"
 
 msgid "Labels ({len})"
 msgstr "Ετικέτες ({len})"
@@ -7405,6 +7680,10 @@ msgstr "Εμφάνιση κάθε ετικέτας"
 msgid "Show each smart folder"
 msgstr "Εμφάνιση κάθε έξυπνου φακέλου"
 
+#, fuzzy
+msgid "Show each address book"
+msgstr "Αποθήκευση του καταλόγου;"
+
 msgid "Long-press to expand or collapse"
 msgstr "Παρατεταμένο πάτημα για ανάπτυξη ή σύμπτυξη"
 
@@ -7419,9 +7698,6 @@ msgstr "Επεξεργασία έξυπνου φακέλου…"
 
 msgid "Delete Smart Folder…"
 msgstr "Διαγραφή έξυπνου φακέλου…"
-
-msgid "Show or hide filters"
-msgstr "Εμφάνιση ή απόκρυψη φίλτρων"
 
 msgid "Show or hide tags"
 msgstr "Εμφάνιση ή απόκρυψη ετικετών"
@@ -8102,6 +8378,115 @@ msgstr "Τα ενοποιημένα εισερχόμενα σε φωτεινή �
 
 msgid "Hyprlab"
 msgstr "Hyprlab"
+
+#, fuzzy
+#~ msgid "Like the accounts"
+#~ msgstr "Πάνω από τους λογαριασμούς"
+
+#~ msgid "Show or hide filters"
+#~ msgstr "Εμφάνιση ή απόκρυψη φίλτρων"
+
+#~ msgid ""
+#~ "A unified inbox combining every account, at the top of the sidebar. Only "
+#~ "shown with more than one account."
+#~ msgstr ""
+#~ "Ενοποιημένα εισερχόμενα που συνδυάζουν όλους τους λογαριασμούς, στην "
+#~ "κορυφή της πλευρικής στήλης. Εμφανίζονται μόνο με περισσότερους από έναν "
+#~ "λογαριασμούς."
+
+#~ msgid ""
+#~ "Every account's starred folder as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Οι φάκελοι με αστέρι όλων των λογαριασμών σε μία λίστα, με άνοιγμα στον "
+#~ "αντίστοιχο φάκελο κάθε λογαριασμού."
+
+#~ msgid ""
+#~ "Every account's sent mail as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Τα απεσταλμένα όλων των λογαριασμών σε μία λίστα, με άνοιγμα στα "
+#~ "απεσταλμένα κάθε λογαριασμού."
+
+#~ msgid "Every account's drafts as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Τα πρόχειρα όλων των λογαριασμών σε μία λίστα, με άνοιγμα στα πρόχειρα "
+#~ "κάθε λογαριασμού."
+
+#~ msgid "Every account's archive as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Το αρχείο όλων των λογαριασμών σε μία λίστα, με άνοιγμα στο αρχείο κάθε "
+#~ "λογαριασμού."
+
+#~ msgid ""
+#~ "Every account's junk mail as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Τα ανεπιθύμητα όλων των λογαριασμών ως μία λίστα, με άνοιγμα στα "
+#~ "ανεπιθύμητα κάθε λογαριασμού."
+
+#~ msgid "Every account's trash as one list, opening to each account's own."
+#~ msgstr ""
+#~ "Ο κάδος όλων των λογαριασμών ως μία λίστα, με άνοιγμα στον κάδο κάθε "
+#~ "λογαριασμού."
+
+#~ msgid ""
+#~ "List every folder your filter rules file into in a collapsible section of "
+#~ "the unified view."
+#~ msgstr ""
+#~ "Εμφάνιση κάθε φακέλου στον οποίο αρχειοθετούν μηνύματα οι κανόνες φίλτρων "
+#~ "σας, σε μια πτυσσόμενη ενότητα της ενοποιημένης προβολής."
+
+#~ msgid ""
+#~ "The tags, each showing every account's mail with it. Each account keeps "
+#~ "its own Tags section either way."
+#~ msgstr ""
+#~ "Οι ετικέτες, καθεμία από τις οποίες εμφανίζει τα μηνύματα όλων των "
+#~ "λογαριασμών που τη φέρουν. Κάθε λογαριασμός διατηρεί τη δική του ενότητα "
+#~ "Ετικέτες ούτως ή άλλως."
+
+#, fuzzy
+#~ msgid ""
+#~ "In the unified section, in a list above or below the accounts, or Off, "
+#~ "out of the sidebar."
+#~ msgstr ""
+#~ "Επιλέξτε αν θα εμφανίζονται σε ενοποιημένη ενότητα ή σε λίστα πάνω ή κάτω "
+#~ "από τους λογαριασμούς."
+
+#~ msgid "In the unified section"
+#~ msgstr "Στην ενοποιημένη ενότητα"
+
+#~ msgid "Contacts in the sidebar"
+#~ msgstr "Επαφές στην πλευρική στήλη"
+
+#~ msgid ""
+#~ "A shortcut that opens your contacts, pinned at the bottom of the sidebar."
+#~ msgstr ""
+#~ "Μια συντόμευση που ανοίγει τις επαφές σας, καρφιτσωμένη στο κάτω μέρος "
+#~ "της πλευρικής στήλης."
+
+#, fuzzy
+#~ msgid "All Contacts"
+#~ msgstr "Επαφές"
+
+#, fuzzy
+#~ msgid "Groups"
+#~ msgstr "Αριστερή ομάδα"
+
+#, fuzzy
+#~ msgid "Search groups"
+#~ msgstr "Αναζήτηση φίλτρων"
+
+#, fuzzy
+#~ msgid "Choose which address book to search"
+#~ msgstr "Επιλέξτε τους φακέλους αναζήτησης"
+
+#~ msgid "All Address Books"
+#~ msgstr "Όλα τα βιβλία διευθύνσεων"
+
+#~ msgid ""
+#~ "{name} is removed from your address book, and for a synced book, from the "
+#~ "server too."
+#~ msgstr ""
+#~ "Το {name} αφαιρείται από το βιβλίο διευθύνσεών σας και, για συγχρονισμένο "
+#~ "βιβλίο, και από τον διακομιστή."
 
 #, fuzzy
 #~ msgid "From your mail accounts"

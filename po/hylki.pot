@@ -275,6 +275,19 @@ msgstr ""
 msgid "No address book available"
 msgstr ""
 
+msgid "Could not rename the address book: {e}"
+msgstr ""
+
+msgid "{n} contact was not copied: {e}"
+msgid_plural "{n} contacts were not copied: {e}"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "{n} contact was not moved: {e}"
+msgid_plural "{n} contacts were not moved: {e}"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "Could not update contact: {e}"
 msgstr ""
 
@@ -1339,6 +1352,9 @@ msgstr[1] ""
 msgid "CardDAV Address Book"
 msgstr ""
 
+msgid "Hylki cannot change this kind of group"
+msgstr ""
+
 msgid "{date} at {time}"
 msgstr ""
 
@@ -1378,7 +1394,7 @@ msgstr ""
 msgid "{name} did not answer: {error}"
 msgstr ""
 
-msgid "A contact needs a name or an email address"
+msgid "A contact needs a name, an email address or a phone number"
 msgstr ""
 
 msgid "The contact is too large"
@@ -3498,25 +3514,40 @@ msgstr ""
 msgid "Not found"
 msgstr ""
 
-msgid "Open in GNOME Contacts"
-msgstr ""
-
 msgid "Search contacts"
 msgstr ""
 
 msgid "No Contacts"
 msgstr ""
 
-msgid "Add contacts in GNOME Contacts to see them here."
+msgid "Add contacts in the Contacts view to see them here."
 msgstr ""
 
-msgid "Open GNOME Contacts"
+msgid "Has Photo"
 msgstr ""
 
-msgid "New contact or group"
+msgid "Has Email"
+msgstr ""
+
+msgid "Has Phone"
+msgstr ""
+
+msgid "Has Address"
+msgstr ""
+
+msgid "Has Birthday"
+msgstr ""
+
+msgid "Has Company"
+msgstr ""
+
+msgid "Not in a Group"
 msgstr ""
 
 msgid "Import vCard files into the Hylki address book"
+msgstr ""
+
+msgid "New contact or group"
 msgstr ""
 
 msgid "Loading Contacts…"
@@ -3528,53 +3559,163 @@ msgid ""
 "here too."
 msgstr ""
 
-msgid "Sort contacts"
+msgid "Search contacts (Ctrl+F)"
+msgstr ""
+
+msgid "Sort and filter contacts"
 msgstr ""
 
 msgid "Edit contact"
 msgstr ""
 
-msgid "First name"
+msgid "Delete {n} Group?"
+msgid_plural "Delete {n} Groups?"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"This will remove {n} group from your address books locally and on the "
+"server. The contacts are not removed."
+msgid_plural ""
+"This will remove {n} groups from your address books locally and on the "
+"server. The contacts are not removed."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"This will remove {n} group from your address book. The contacts are not "
+"removed."
+msgid_plural ""
+"This will remove {n} groups from your address books. The contacts are not "
+"removed."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Delete {n} Contact?"
+msgid_plural "Delete {n} Contacts?"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"This will remove {n} contact from your address books locally and on the "
+"server."
+msgid_plural ""
+"This will remove {n} contacts from your address books locally and on the "
+"server."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "This will remove {n} contact from your address book."
+msgid_plural "This will remove {n} contacts from your address books."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"This will remove the group {name} from your address book locally and on the "
+"server. The contacts are not removed."
 msgstr ""
 
-msgid "Last name"
-msgstr ""
-
-msgid "In Directories"
+msgid ""
+"This will remove the group {name} from your address book. The contacts are "
+"not removed."
 msgstr ""
 
 msgid "Delete Group?"
 msgstr ""
 
 msgid ""
-"{name} is removed from your address book, and for a synced book, from the "
-"server too. The people in it are not."
+"This will remove the contact {name} from your address book locally and on "
+"the server."
+msgstr ""
+
+msgid "This will remove the contact {name} from your address book."
 msgstr ""
 
 msgid "Delete Contact?"
 msgstr ""
 
+msgid "Rename Address Book"
+msgstr ""
+
 msgid ""
-"{name} is removed from your address book, and for a synced book, from the "
-"server too."
+"The name is used in Hylki only; GNOME Contacts and Evolution keep the book's "
+"own."
 msgstr ""
 
-msgid "All Address Books"
+msgid "Use Its Own Name"
 msgstr ""
 
-msgid "Edit"
+msgid "Move Contact?"
 msgstr ""
 
-msgid "Add to Group"
+msgid ""
+"This will move {name} out of {from} and into {to}, locally and on the "
+"server. A group in {from} that holds the contact will no longer have it."
 msgstr ""
 
-msgid "Delete…"
+msgid "Move {n} Contact?"
+msgid_plural "Move {n} Contacts?"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid ""
+"This will move {n} contact out of the address book it is in and into {to}, "
+"locally and on the server. A group there that holds it will no longer have "
+"it."
+msgid_plural ""
+"This will move {n} contacts out of the address books they are in and into "
+"{to}, locally and on the server. Groups there that hold them will no longer "
+"have them."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Move"
+msgstr ""
+
+msgid "In Directories"
 msgstr ""
 
 msgid "Type three letters or more to search the directory."
 msgstr ""
 
 msgid "Nobody in the directory matches."
+msgstr ""
+
+msgid "Remove from Group"
+msgstr ""
+
+msgid "Add to Group"
+msgstr ""
+
+msgid "Move to Address Book"
+msgstr ""
+
+msgid "Delete…"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Open in GNOME Contacts"
+msgstr ""
+
+msgid "{n} Group Selected"
+msgid_plural "{n} Groups Selected"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "{n} Contact Selected"
+msgid_plural "{n} Contacts Selected"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Move to…"
+msgstr ""
+
+msgid "Move to another address book"
+msgstr ""
+
+msgid "Selected"
 msgstr ""
 
 msgid "View photo"
@@ -3617,6 +3758,21 @@ msgstr ""
 msgid "Members do not see each other's addresses."
 msgstr ""
 
+#. An Apple group (iCloud's) holds cards of its own book.
+msgid ""
+"Groups in this address book hold its own contacts: anyone added who is not "
+"in it yet is added to it."
+msgstr ""
+
+msgid ""
+"Saving moves the group to this address book, with its people, and removes it "
+"from {book}."
+msgstr ""
+
+msgid ""
+"Groups here hold addresses, so people with no email address are left out."
+msgstr ""
+
 msgid "Edit Contact"
 msgstr ""
 
@@ -3636,6 +3792,9 @@ msgstr ""
 msgid "Title"
 msgstr ""
 
+msgid "Another book moves the contact there when saved."
+msgstr ""
+
 msgid "Add email"
 msgstr ""
 
@@ -3648,6 +3807,9 @@ msgstr ""
 msgid "Members"
 msgstr ""
 
+msgid "No email address"
+msgstr ""
+
 msgid "No one is in this group yet."
 msgstr ""
 
@@ -3655,6 +3817,12 @@ msgid "Changed in the app it came from"
 msgstr ""
 
 msgid "This group names its members by contact, which Hylki does not edit."
+msgstr ""
+
+msgid "First name"
+msgstr ""
+
+msgid "Last name"
 msgstr ""
 
 msgid "Import Contacts"
@@ -3667,6 +3835,63 @@ msgid "All files"
 msgstr ""
 
 msgid "Add a person by name or address"
+msgstr ""
+
+msgid "No email address · {book}"
+msgstr ""
+
+msgid "No label"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "Work"
+msgstr ""
+
+msgid "Mobile"
+msgstr ""
+
+msgid "Fax"
+msgstr ""
+
+msgid "Label"
+msgstr ""
+
+msgid "Add address"
+msgstr ""
+
+msgid "Street"
+msgstr ""
+
+msgid "City"
+msgstr ""
+
+msgid "State or region"
+msgstr ""
+
+msgid "Postal code"
+msgstr ""
+
+msgid "Country"
+msgstr ""
+
+msgid "No birthday"
+msgstr ""
+
+msgid "Year"
+msgstr ""
+
+msgid "Change Photo…"
+msgstr ""
+
+msgid "Remove Photo"
+msgstr ""
+
+msgid "Choose a Photo"
+msgstr ""
+
+msgid "Directories"
 msgstr ""
 
 msgid "Use an app-specific password, not your usual one."
@@ -3765,6 +3990,9 @@ msgid ""
 "are changed there, and in Hylki's Contacts."
 msgstr ""
 
+msgid "Open GNOME Contacts"
+msgstr ""
+
 msgid "Set up in GNOME Online Accounts"
 msgstr ""
 
@@ -3832,10 +4060,21 @@ msgstr ""
 msgid "Use in Hylki"
 msgstr ""
 
+msgid ""
+"The name Hylki lists it by, here and in Contacts. Left blank, it is {own}."
+msgstr ""
+
+msgid ""
+"The name Hylki lists it by, here and under its address books in Contacts; "
+"GNOME Contacts and Evolution keep their own. Left blank, it is {own}."
+msgstr ""
+
 msgid "Address books"
 msgstr ""
 
-msgid "Switch off an address book to leave it out of Hylki."
+msgid ""
+"Rename an address book for Hylki, or switch it off to leave it out of Hylki. "
+"A name left blank is the book's own again."
 msgstr ""
 
 msgid "Sign-in"
@@ -4101,9 +4340,6 @@ msgid "In {folder}"
 msgstr ""
 
 msgid "Mark as read"
-msgstr ""
-
-msgid "Move to…"
 msgstr ""
 
 msgid "Not spam"
@@ -5181,19 +5417,20 @@ msgid ""
 "sit on."
 msgstr ""
 
+msgid "Fold accounts with one click"
+msgstr ""
+
+msgid ""
+"A click anywhere on an account's name opens or closes its folders. Off, only "
+"its chevron or a double click does."
+msgstr ""
+
 msgid "Attachments in the sidebar"
 msgstr ""
 
 msgid ""
 "A shortcut for browsing every account's attachments, pinned at the bottom of "
 "the sidebar."
-msgstr ""
-
-msgid "Contacts in the sidebar"
-msgstr ""
-
-msgid ""
-"A shortcut that opens your contacts, pinned at the bottom of the sidebar."
 msgstr ""
 
 msgid "Expand the sidebar on hover"
@@ -5239,40 +5476,6 @@ msgstr ""
 msgid "Inboxes"
 msgstr ""
 
-msgid ""
-"A unified inbox combining every account, at the top of the sidebar. Only "
-"shown with more than one account."
-msgstr ""
-
-msgid ""
-"Every account's starred folder as one list, opening to each account's own."
-msgstr ""
-
-msgid "Every account's sent mail as one list, opening to each account's own."
-msgstr ""
-
-msgid "Every account's drafts as one list, opening to each account's own."
-msgstr ""
-
-msgid "Every account's archive as one list, opening to each account's own."
-msgstr ""
-
-msgid "Every account's junk mail as one list, opening to each account's own."
-msgstr ""
-
-msgid "Every account's trash as one list, opening to each account's own."
-msgstr ""
-
-msgid ""
-"List every folder your filter rules file into in a collapsible section of "
-"the unified view."
-msgstr ""
-
-msgid ""
-"The tags, each showing every account's mail with it. Each account keeps its "
-"own Tags section either way."
-msgstr ""
-
 msgid "Unread counts"
 msgstr ""
 
@@ -5281,15 +5484,22 @@ msgid ""
 "Expanded, the rows beneath carry the counts. Sent never shows one."
 msgstr ""
 
+msgid "Sections"
+msgstr ""
+
+msgid "Section style"
+msgstr ""
+
 msgid "Filters placement"
 msgstr ""
 
-msgid ""
-"Choose between appearing in a unified section, or a list above or below the "
-"accounts."
+msgid "Tags placement"
 msgstr ""
 
-msgid "Tags placement"
+msgid "Favorites placement"
+msgstr ""
+
+msgid "Contacts placement"
 msgstr ""
 
 msgid "Icon rail"
@@ -6105,7 +6315,10 @@ msgstr ""
 msgid "Software"
 msgstr ""
 
-msgid "In the unified section"
+msgid "Unified style"
+msgstr ""
+
+msgid "Tree style"
 msgstr ""
 
 msgid "Above the accounts"
@@ -6449,6 +6662,18 @@ msgstr ""
 msgid "Insert"
 msgstr ""
 
+msgid "Hylki, on this computer"
+msgstr ""
+
+msgid "Rename…"
+msgstr ""
+
+msgid "Delete Group…"
+msgstr ""
+
+msgid "Show or hide"
+msgstr ""
+
 msgid "Favorites"
 msgstr ""
 
@@ -6465,6 +6690,9 @@ msgid "No accounts yet"
 msgstr ""
 
 msgid "New Message from Template…"
+msgstr ""
+
+msgid "Show or hide folders"
 msgstr ""
 
 msgid "Mark Inbox as Read"
@@ -6489,9 +6717,6 @@ msgid "Show or hide sub-folders"
 msgstr ""
 
 msgid "Show or hide labels"
-msgstr ""
-
-msgid "Show or hide folders"
 msgstr ""
 
 msgid "Labels ({len})"
@@ -6524,6 +6749,9 @@ msgstr ""
 msgid "Show each smart folder"
 msgstr ""
 
+msgid "Show each address book"
+msgstr ""
+
 msgid "Long-press to expand or collapse"
 msgstr ""
 
@@ -6537,9 +6765,6 @@ msgid "Edit Smart Folder…"
 msgstr ""
 
 msgid "Delete Smart Folder…"
-msgstr ""
-
-msgid "Show or hide filters"
 msgstr ""
 
 msgid "Show or hide tags"
