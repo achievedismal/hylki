@@ -2,6 +2,40 @@
 
 Hylki (formerly Vireo) is a clean, fast, GNOME-native email client built with Rust and libadwaita for Wayland desktops. Privacy-first: no telemetry, remote content blocked by default, and credentials kept in the system keyring.
 
+## What's new in 1.45.0-beta.2
+
+New features:
+
+- Contacts is a sidebar row, with each address book and its groups under it
+- Contacts without an email address are listed, saved and edited
+- Groups in CardDAV books, iCloud's among them
+- Several contacts selected at once, to group, move or delete
+- Moving contacts to another address book
+- Search and filters in Contacts
+- Favorites, Filters, Tags and Contacts placed above or below the accounts, or off
+- Favorites shows the mail of every favorite folder
+- A double click opens or closes a unified row
+- Accounts open and close with their chevron or a double click
+
+Fixes:
+
+- Reply and New Message freezing when the contact service hangs, by @aheinze - (#484)
+- closing a message window just after it opened crashing Hylki - (#488)
+- a no-break space crashing the Markdown composer - (#479)
+- a message body staying blank until the window was resized, by @XRayAdams - (#487)
+- the unified Starred view being empty - (#482)
+- a star or tag key missing selected messages in Filters - (#481)
+- single-key shortcuts doing nothing in a message window - (#392)
+- Delete doing nothing in the reader - (#486)
+- the unified views being slow to open
+- Contacts being slow to open - (#477)
+
+Translations:
+
+- French by @frenchy82
+- German by @samuel-edlmeier
+- Catalan by @jolupa
+
 ## What's new in 1.45.0-beta.1
 
 New features:

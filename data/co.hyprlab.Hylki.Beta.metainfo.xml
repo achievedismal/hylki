@@ -63,6 +63,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.45.0-beta.2" date="2026-10-19" type="development">
+      <description>
+        <p>Second preview of 1.45.0: Contacts as a sidebar row with its address books and groups, contacts without an email address, groups in CardDAV and iCloud books, several contacts at once, Favorites, Filters, Tags and Contacts placed anywhere in the sidebar, Reply and New Message no longer freezing on a stuck contact service, the unified Starred view and quicker unified views, and the French, German and Catalan translations brought up to date.</p>
+      </description>
+    </release>
     <release version="1.45.0-beta.1" date="2026-10-18" type="development">
       <description>
         <p>First preview of 1.45.0: CardDAV accounts and one Contacts page in Settings, contact groups, Undo Send, replied and forwarded arrows, replies filed beside the message they answer, waiting for the network, Shift+Delete, composer zoom and Ctrl+scroll zoom, Bcc recipients shown on sent mail, and the German translation brought up to date.</p>
