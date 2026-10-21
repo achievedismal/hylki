@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.45.0-beta.2 — 2026-10-19
+## 1.45.0-beta.3 — 2026-10-21
 
-The second beta previewing 1.45.0.
+The third beta previewing 1.45.0.
 
 - **Changed: shorter text in Settings.** Subtitles that repeated their
   title are gone, and the descriptions, setup steps and dialogs left say
@@ -31,6 +31,13 @@ The second beta previewing 1.45.0.
   (RFC 9788). Bcc stays out of the encrypted part, which every recipient can
   read. **Hide the subject of encrypted mail**, under an account's OpenPGP
   settings, turns it off for that account.
+
+- **Translations:** Spanish (PR #495 by Daniel Miguel), French (PR #500 by
+  frenchy82) and German (PR #501 by Samuel Edlmeier) brought up to date.
+
+## 1.45.0-beta.2 — 2026-10-19
+
+The second beta previewing 1.45.0.
 
 - **Fixed: Reply and New Message froze when the contact service stopped
   answering** (PR #484 by Artur Heinze). The composer opens before loading

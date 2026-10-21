@@ -63,6 +63,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.45.0-beta.3" date="2026-10-21" type="development">
+      <description>
+        <p>Third preview of 1.45.0: the search field and the selection bar at the top or bottom of the list, subjects shown and hidden in encrypted mail, shorter text in Settings, and the Spanish, French and German translations brought up to date.</p>
+      </description>
+    </release>
     <release version="1.45.0-beta.2" date="2026-10-19" type="development">
       <description>
         <p>Second preview of 1.45.0: Contacts as a sidebar row with its address books and groups, contacts without an email address, groups in CardDAV and iCloud books, several contacts at once, Favorites, Filters, Tags and Contacts placed anywhere in the sidebar, Reply and New Message no longer freezing on a stuck contact service, the unified Starred view and quicker unified views, and the French, German and Catalan translations brought up to date.</p>

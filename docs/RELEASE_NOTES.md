@@ -2,9 +2,27 @@
 
 Hylki (formerly Vireo) is a clean, fast, GNOME-native email client built with Rust and libadwaita for Wayland desktops. Privacy-first: no telemetry, remote content blocked by default, and credentials kept in the system keyring.
 
+## What's new in 1.45.0-beta.3
+
+### New features:
+
+- The search field and the selection bar can open at the bottom of the list - (#496)
+- Encrypted mail hides its subject - (#493)
+- Shorter text in Settings
+
+### Fixes:
+
+- an encrypted message's subject staying "..." after decrypting - (#493)
+
+### Translations:
+
+- Spanish by @danielmigueltejedor
+- French by @frenchy82
+- German by @samuel-edlmeier
+
 ## What's new in 1.45.0-beta.2
 
-New features:
+### New features:
 
 - Contacts is a sidebar row, with each address book and its groups under it
 - Contacts without an email address are listed, saved and edited
@@ -17,7 +35,7 @@ New features:
 - A double click opens or closes a unified row
 - Accounts open and close with their chevron or a double click
 
-Fixes:
+### Fixes:
 
 - Reply and New Message freezing when the contact service hangs, by @aheinze - (#484)
 - closing a message window just after it opened crashing Hylki - (#488)
@@ -30,7 +48,7 @@ Fixes:
 - the unified views being slow to open
 - Contacts being slow to open - (#477)
 
-Translations:
+### Translations:
 
 - French by @frenchy82
 - German by @samuel-edlmeier
@@ -38,7 +56,7 @@ Translations:
 
 ## What's new in 1.45.0-beta.1
 
-New features:
+### New features:
 
 - CardDAV accounts in Settings - (#408)
 - One Contacts page in Settings for every address book
@@ -52,7 +70,7 @@ New features:
 - Zoom in the Markdown, HTML and plain text composer
 - Ctrl and the scroll wheel zoom messages and the composer
 
-Fixes:
+### Fixes:
 
 - a message sent while the server was out of reach being lost - (#442)
 - the Outbox of a JMAP, Microsoft 365 or POP3 account waiting for Retry - (#442)
@@ -70,7 +88,7 @@ Fixes:
 - a photo in a message running off the side of its card
 - a zoomed attachment staying inside the lightbox's frame
 
-Translations:
+### Translations:
 
 - German by @samuel-edlmeier
 
@@ -148,21 +166,21 @@ Translations:
 
 ## What's new in 1.44.0-beta.9
 
-New features:
+### New features:
 
 - Search results say which folder they are in - (#374)
 - A search scope that leaves out Trash and Junk, and one that takes them in - (#374)
 - Gmail labels in colors - (#374)
 - Tags and labels on a line of their own under the message text - (#374)
 
-Fixes:
+### Fixes:
 
 - an LDAP directory finding nobody by surname - (#307)
 - directory suggestions showing the mail history icon - (#307)
 
 ## What's new in 1.44.0-beta.8
 
-New features:
+### New features:
 
 - A reply sent from the reading pane becomes its card in the conversation
 - Several signatures per account - (#445)
@@ -177,7 +195,7 @@ New features:
 - A signature's HTML edited in place
 - Animations follow GNOME's Reduce Animation switch
 
-Fixes:
+### Fixes:
 
 - Reply All putting your own address back in Cc, by @Dandiccf - (#448)
 - an LDAP directory that failed going quiet after its first error - (#307)
@@ -189,7 +207,7 @@ Fixes:
 - empty space above a message written as Markdown or HTML
 - rows staying tinted after a search was cleared
 
-Translations:
+### Translations:
 
 - Spanish by @danielmigueltejedor
 - Greek by @yioannides
@@ -198,7 +216,7 @@ Translations:
 
 ## What's new in 1.44.0-beta.7
 
-New features:
+### New features:
 
 - A font and size for new messages, set in Settings → Composing - (#358)
 - The last five fonts picked with Other Font… in the composer's font menu - (#358)
@@ -214,7 +232,7 @@ New features:
 - Swipe actions in the card layout only - (#443)
 - The status bar at the foot of the window, or at the top in Settings - (#433)
 
-Fixes:
+### Fixes:
 
 - Hylki closing at launch when the session's locale is missing from the runtime - (#437)
 - Microsoft 365 and JMAP folders showing only their newest 300 messages - (#429)
@@ -229,20 +247,20 @@ Fixes:
 - single-line columns after Tags falling out of line - (#443)
 - a narrow composer cut off at the right
 
-Translations:
+### Translations:
 
 - Italian, new, by @amivaleo
 - Catalan by @jolupa
 
 ## What's new in 1.44.0-beta.6
 
-Fixes:
+### Fixes:
 
 - on-premise Exchange support removed, added in 1.44.0-beta.5 - (#391)
 
 ## What's new in 1.44.0-beta.5
 
-New features:
+### New features:
 
 - On-premise Exchange servers - (#391)
 - Smart folders - (#417)
@@ -253,25 +271,25 @@ New features:
 - `>` in the command palette lists actions only - (#399)
 - Sensitivity labels shown in the reader - (#411)
 
-Fixes:
+### Fixes:
 
 - an open account folding up in the sidebar by itself
 - the main menu button showing a gear
 
 ## What's new in 1.44.0-beta.4
 
-New features:
+### New features:
 
 - Hylki's own icons on every desktop, with a switch back to the desktop's
 
-Fixes:
+### Fixes:
 
 - a crash at startup on some folder names, by @Elliot-32 - (#409)
 - LDAP directories connecting without the encryption chosen for them - (#307)
 - the number keys tagging the wrong message while arrowing down the list - (#416)
 - the search field and about 40 other strings not translatable - (#419)
 
-Translations:
+### Translations:
 
 - Catalan, new, by @jolupa
 - French by @frenchy82
@@ -287,7 +305,7 @@ Translations:
 
 ## What's new in 1.44.0-beta.3
 
-New features:
+### New features:
 
 - Gmail keyboard shortcuts, switched on in Settings → System - (#392)
 - A command palette on Ctrl+K - (#399)
@@ -299,7 +317,7 @@ New features:
 - Insert Signature in the composer, at the cursor or before or after the text - (#385)
 - A refresh button for GNOME Online Accounts in Settings → Accounts
 
-Fixes:
+### Fixes:
 
 - an MP3 new-mail sound crashing Hylki - (#397)
 - docks on X11 showing Hylki twice - (#402)
@@ -313,7 +331,7 @@ Fixes:
 
 ## What's new in 1.44.0-beta.2
 
-New features:
+### New features:
 
 - A Hylki address book, with vCard import and export - (#379)
 - Settings → Contacts to manage the Hylki address book - (#379)
@@ -323,7 +341,7 @@ New features:
 - A switch to draw one message light or dark - (#386)
 - Account circles ringed in the account's color
 
-Fixes:
+### Fixes:
 
 - switching folders pausing the window - (#401)
 - an empty search closing when its folder scope was clicked - (#383)
@@ -332,7 +350,7 @@ Fixes:
 - the open folder not coming back after an account was saved
 - confirming a contact's deletion deleting another contact
 
-Translations:
+### Translations:
 
 - Portuguese and Brazilian Portuguese by @somepaulo
 - Spanish by @danielmigueltejedor
