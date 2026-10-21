@@ -1261,6 +1261,17 @@ recipient has no key in your keyring, or your address has no key of its own,
 Hylki says so before anything is sent. Replying to an encrypted message starts
 with Encrypt on.
 
+An encrypted message carries its subject inside, where only the recipients
+can read it, and "..." as the subject anyone else sees, as Thunderbird does.
+Hylki and other mail programs that read subjects from there show the real one
+once the message is decrypted. For recipients whose mail program shows only
+"...", turn off **Hide the subject of encrypted mail** under the account's
+*OpenPGP* group; that account's encrypted mail then goes with its subject
+readable outside. Stored on the account as `plain_subject = true` in
+`accounts.toml`. The message list shows "..." for encrypted
+mail, because nothing decrypted is kept between visits; the reader, a message
+window and a printout show the subject inside.
+
 Each account uses the key whose address matches. To use another key for an
 account, open the account in *Settings → Mail Accounts* and choose it under
 *OpenPGP*.
@@ -1562,10 +1573,17 @@ message's text, so the subject keeps the row's full width. It is off unless
 switched on; a single-line list keeps them in its Tags column.
 
 **Settings → Message List → Keep the search field open** shows the search
-field above the list all the time, instead of only after the search button,
+field with the list all the time, instead of only after the search button,
 <kbd>Ctrl+F</kbd> or <kbd>/</kbd>. One click in it starts a search.
 <kbd>Esc</kbd> clears it and returns to the list, and it stays where it is.
 It is off unless switched on.
+
+**Settings → Message List → Search field position** and **Selection bar
+position** set where the search field and the bar for several selected
+messages open: at the top of the list, the default, or at the bottom. At the top, each one pushes the
+messages down when it opens; at the bottom, the list gets shorter from its
+foot and the messages stay where they are. When both are on the same side,
+the search field is the outer one, so selecting messages never moves it.
 
 The button beside the search field sets where a search looks, and the info
 button beside each choice in its popover says what that choice searches.

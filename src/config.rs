@@ -611,6 +611,12 @@ pub struct AccountConfig {
     /// for one message.
     #[serde(default, skip_serializing_if = "is_false")]
     pub sign_by_default: bool,
+    /// Encrypted mail from this account keeps its subject outside, where
+    /// anyone who handles the message can read it, rather than inside with
+    /// "..." outside (#493). Off by default, as in Thunderbird. Kept the
+    /// negative way round so every account built in code hides it.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub plain_subject: bool,
     /// The composer's recipient suggestions also search the organization's
     /// directory through Microsoft Graph (#410). Only for a Microsoft 365
     /// account signed in within Hylki: the scopes it needs are asked for
@@ -1764,6 +1770,12 @@ pub(crate) struct PrivacyFile {
     /// search button (#446). Off by default.
     #[serde(default)]
     pub(crate) list_search_open: bool,
+    /// The search field and the bulk bar open under the list instead of
+    /// above it (#496). Off by default.
+    #[serde(default)]
+    pub(crate) list_search_bottom: bool,
+    #[serde(default)]
+    pub(crate) list_bulk_bar_bottom: bool,
     /// The widths columns were dragged to, in pixels, by column name.
     #[serde(default)]
     pub(crate) list_column_widths: std::collections::BTreeMap<String, i32>,
@@ -2081,6 +2093,8 @@ impl Default for PrivacyFile {
             list_pills_below: false,
             date_groups_default_applied: true,
             list_search_open: false,
+            list_search_bottom: false,
+            list_bulk_bar_bottom: false,
             list_column_widths: Default::default(),
             single_key_shortcuts: false,
             gmail_keys: false,
@@ -5778,6 +5792,7 @@ dest_path = "Lists"
             in_unified: true,
             folder_sort: None,
             sign_by_default: false,
+            plain_subject: false,
             graph_directory: false,
             graph_directory_only: false,
             graph_label_names: false,
@@ -5838,6 +5853,15 @@ dest_path = "Lists"
         assert!(text.contains("sign_by_default = true"), "{text}");
         let back: SettingsBundle = toml::from_str(&text).unwrap();
         assert!(back.accounts[0].sign_by_default);
+        // Hiding the subject of encrypted mail (#493) is the default, so
+        // only turning it off is written.
+        assert!(!text.contains("plain_subject"), "{text}");
+        let mut plain = signing;
+        plain.accounts[0].plain_subject = true;
+        let text = toml::to_string_pretty(&plain).unwrap();
+        assert!(text.contains("plain_subject = true"), "{text}");
+        let back: SettingsBundle = toml::from_str(&text).unwrap();
+        assert!(back.accounts[0].plain_subject);
     }
 
     #[test]

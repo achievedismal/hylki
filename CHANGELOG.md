@@ -4,6 +4,34 @@
 
 The second beta previewing 1.45.0.
 
+- **Changed: shorter text in Settings.** Subtitles that repeated their
+  title are gone, and the descriptions, setup steps and dialogs left say
+  only what the row doesn't. The Blacklist group under Senders is now
+  Blocked Senders, and the note shown when no spelling dictionary is found
+  can be translated.
+
+- **Added: the search field and the selection bar can open at the bottom of
+  the list** (#496, requested by 3v1n0). **Settings → Message List → Search
+  field position** and **Selection bar position** put each one at the top of the list, as
+  before, or at the bottom, where opening it shortens the list from its foot
+  instead of pushing the messages down.
+
+- **Fixed: an encrypted message's subject stayed "..." after decrypting**
+  (#493, reported by valqk). Thunderbird and other clients that protect
+  headers send the real subject inside the encrypted part and "..." outside.
+  The reader, a message window's title and a printout now show the subject
+  inside once the message is decrypted, and Reply and Forward start from it.
+  The part that repeats it as "Subject: …" for older clients is no longer
+  shown in the body or listed as a file. The decrypted subject is kept in
+  memory only, like the body, so the message list still shows "...".
+
+- **Changed: encrypted mail hides its subject.** A message sent with Encrypt
+  on carries its subject, From, To, Cc and Reply-To inside the encrypted part
+  and "..." as its outer subject, the protected headers Thunderbird sends
+  (RFC 9788). Bcc stays out of the encrypted part, which every recipient can
+  read. **Hide the subject of encrypted mail**, under an account's OpenPGP
+  settings, turns it off for that account.
+
 - **Fixed: Reply and New Message froze when the contact service stopped
   answering** (PR #484 by Artur Heinze). The composer opens before loading
   recipient suggestions. Contact lookups run in the background and give up

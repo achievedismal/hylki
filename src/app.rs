@@ -1016,6 +1016,9 @@ pub struct AppModel {
     list_pills_below: bool,
     /// The list's search field stays open (#446).
     list_search_open: bool,
+    /// The list's search field and bulk bar open under the rows (#496).
+    list_search_bottom: bool,
+    list_bulk_bar_bottom: bool,
     /// The widths columns were dragged to by their headings (#334).
     list_column_widths: std::collections::HashMap<config::ListColumn, i32>,
     /// The list pane is wide enough for one line per message, which
@@ -3698,6 +3701,8 @@ impl SimpleComponent for AppModel {
             list_group_by_date: config::load_privacy().list_group_by_date,
             list_pills_below: config::load_privacy().list_pills_below,
             list_search_open: config::load_privacy().list_search_open,
+            list_search_bottom: config::load_privacy().list_search_bottom,
+            list_bulk_bar_bottom: config::load_privacy().list_bulk_bar_bottom,
             list_column_widths: config::load_list_column_widths(),
             list_wide: config::load_list_pane_width() >= LIST_WIDE_ON,
             shortcuts_win: None,
@@ -4020,6 +4025,7 @@ impl SimpleComponent for AppModel {
         model.message_list.emit(MessageListInput::SetHeadings(model.list_headings));
         model.message_list.emit(MessageListInput::SetColumnScroll(model.list_column_scroll));
         model.message_list.emit(MessageListInput::SetSearchPinned(model.list_search_open));
+        model.push_list_bars();
         model.contacts_page.emit(ContactsPageInput::SetSearchPinned(model.list_search_open));
         model.message_list.emit(MessageListInput::SetColumnWidths(model.list_column_widths.clone()));
         model.sidebars_emit(SidebarInput::SetFocus {
@@ -8709,6 +8715,16 @@ impl SimpleComponent for AppModel {
                     self.contacts_page.emit(ContactsPageInput::SetSearchPinned(on));
                 }
             }
+            AppMsg::Pref(PrefOutput::SetListSearchBottom(on)) => {
+                if pref!(self.list_search_bottom = on) {
+                    self.push_list_bars();
+                }
+            }
+            AppMsg::Pref(PrefOutput::SetListBulkBarBottom(on)) => {
+                if pref!(self.list_bulk_bar_bottom = on) {
+                    self.push_list_bars();
+                }
+            }
             AppMsg::Pref(PrefOutput::SetGroupByDate(on)) => {
                 if pref!(self.list_group_by_date = on) {
                     self.message_list.emit(MessageListInput::SetGroupByDate(on));
@@ -13242,6 +13258,8 @@ impl AppModel {
             list_pills_below: self.list_pills_below,
             date_groups_default_applied: true,
             list_search_open: self.list_search_open,
+            list_search_bottom: self.list_search_bottom,
+            list_bulk_bar_bottom: self.list_bulk_bar_bottom,
             list_column_widths: config::list_column_widths_to(&self.list_column_widths),
             single_key_shortcuts: self.single_key.get(),
             gmail_keys: self.gmail_keys.get(),
@@ -16523,6 +16541,14 @@ impl AppModel {
         }
     }
 
+    /// Where the list's search field and bulk bar open (#496).
+    fn push_list_bars(&self) {
+        self.message_list.emit(MessageListInput::SetBarsPlacement {
+            search_bottom: self.list_search_bottom,
+            bulk_bottom: self.list_bulk_bar_bottom,
+        });
+    }
+
     /// Hand the list its look; `animate` slides the avatars away or back
     /// (a Focus Mode toggle) rather than rebuilding the rows outright.
     /// Tell the list whether to lay messages out on one line (#334): the
@@ -17792,6 +17818,11 @@ impl AppModel {
         controller.emit(MessageWindowInput::SetUnsubscribed(self.unsubscribed_map()));
         controller.emit(MessageWindowInput::SetIdentities(self.identities_map()));
         controller.emit(MessageWindowInput::SetInviteAnswers(self.invite_answers_map()));
+        // A verdict already in hand reaches the window now, not only one that
+        // arrives later: its seal, and a decrypted message's subject (#493).
+        if let Some(check) = self.sender_cache.get(&body_key(&m)) {
+            controller.emit(MessageWindowInput::SetSenderCheck(check.clone()));
+        }
 
         self.popouts.insert(key, PopOut { window, controller, message: body_key(&m), members });
     }
@@ -18316,7 +18347,10 @@ impl AppModel {
     /// in `pending_forward`, and the reply re-enters here. `inline` says
     /// the composer opens where a reply does; otherwise in a window.
     fn forward(&mut self, m: Message, inline: bool, sender: &ComponentSender<Self>) {
-        let m = self.with_cached_body(m);
+        let mut m = self.with_cached_body(m);
+        if let Some(subject) = self.decrypted_subject(&m) {
+            m.subject = subject;
+        }
         if m.body.is_empty() {
             if let Some(path) = self.resolve_folder_path(&m) {
                 self.send_to(
@@ -22336,6 +22370,8 @@ impl AppModel {
             list_group_by_date: self.list_group_by_date,
             list_pills_below: self.list_pills_below,
             list_search_open: self.list_search_open,
+            list_search_bottom: self.list_search_bottom,
+            list_bulk_bar_bottom: self.list_bulk_bar_bottom,
             single_key_shortcuts: self.single_key.get(),
             gmail_keys: self.gmail_keys.get(),
             keep_downloads_days: self.keep_downloads_days,
@@ -23918,7 +23954,17 @@ impl AppModel {
             .get(&body_key(m))
             .and_then(|c| c.pgp.as_ref())
             .is_some_and(|p| p.encrypted);
+        if let Some(subject) = self.decrypted_subject(m) {
+            prefill.subject = reply_subject(&subject);
+        }
         self.quoting(m, prefill)
+    }
+
+    /// The subject inside `m` once it has been decrypted (#493), where its
+    /// own is a placeholder. Only answers use it: a reply to an encrypted
+    /// message starts encrypted, and its subject travels inside again.
+    fn decrypted_subject(&self, m: &Message) -> Option<String> {
+        self.sender_cache.get(&body_key(m))?.pgp.as_ref()?.subject.clone()
     }
 
     /// A composer quoting or copying `m` loads its remote pictures only
@@ -25878,6 +25924,7 @@ fn demo_account_configs() -> Vec<AccountConfig> {
         in_unified: true,
         folder_sort: None,
         sign_by_default: false,
+        plain_subject: false,
         graph_directory: false,
         graph_directory_only: false,
         graph_label_names: false,
@@ -27246,12 +27293,17 @@ fn window_drop_target(sender: &ComponentSender<AppModel>, phase: gtk::Propagatio
     drop
 }
 
-fn reply_prefill(m: &Message) -> ComposePrefill {
-    let subject = if m.subject.to_lowercase().starts_with("re:") {
-        m.subject.clone()
+/// A reply's subject: the original's, with one "Re:" in front.
+fn reply_subject(subject: &str) -> String {
+    if subject.to_lowercase().starts_with("re:") {
+        subject.to_string()
     } else {
-        format!("Re: {}", m.subject)
-    };
+        format!("Re: {subject}")
+    }
+}
+
+fn reply_prefill(m: &Message) -> ComposePrefill {
+    let subject = reply_subject(&m.subject);
     let attribution = format!("On {}, {} wrote:", m.date, m.from_name);
     ComposePrefill {
         // A Reply-To header is the sender saying "answer me here instead" —
