@@ -1092,6 +1092,15 @@ msgstr ""
 msgid "Send the message you are writing"
 msgstr ""
 
+#. Save Draft, Save as Template and Delete Draft are not here:
+#. the Save Draft button and its arrow stay in the header at
+#. any width.
+msgid "Attach files"
+msgstr ""
+
+msgid "Go to To, Cc or Bcc, showing the row"
+msgstr ""
+
 msgid "Back out of a reply and return to the list"
 msgstr ""
 
@@ -3202,12 +3211,6 @@ msgstr ""
 msgid "Sign with your OpenPGP key"
 msgstr ""
 
-#. Save Draft, Save as Template and Delete Draft are not here:
-#. the Save Draft button and its arrow stay in the header at
-#. any width.
-msgid "Attach files"
-msgstr ""
-
 msgid "Upload to cloud storage and share a link"
 msgstr ""
 
@@ -3555,6 +3558,9 @@ msgstr ""
 msgid "Use Its Own Name"
 msgstr ""
 
+msgid "All Address Books"
+msgstr ""
+
 msgid "Move Contact?"
 msgstr ""
 
@@ -3852,6 +3858,18 @@ msgid "Save new contacts in"
 msgstr ""
 
 msgid "Unless another is picked when the contact is made."
+msgstr ""
+
+msgid "Layout"
+msgstr ""
+
+msgid "Contacts placement"
+msgstr ""
+
+msgid "'In the footer' disables expand/collapse."
+msgstr ""
+
+msgid "Keep the search field open"
 msgstr ""
 
 msgid ""
@@ -5257,9 +5275,6 @@ msgstr ""
 msgid "Favorites placement"
 msgstr ""
 
-msgid "Contacts placement"
-msgstr ""
-
 msgid "Icon rail"
 msgstr ""
 
@@ -5284,9 +5299,6 @@ msgstr ""
 msgid "The account's picture or emoji, as in the sidebar."
 msgstr ""
 
-msgid "Layout"
-msgstr ""
-
 msgid "Automatic uses single lines in wide windows."
 msgstr ""
 
@@ -5303,9 +5315,6 @@ msgid "Tags and labels under the text"
 msgstr ""
 
 msgid "Gives the subject its full width."
-msgstr ""
-
-msgid "Keep the search field open"
 msgstr ""
 
 msgid "Search field position"
@@ -5986,6 +5995,9 @@ msgstr ""
 msgid "Forget this word"
 msgstr ""
 
+msgid "In the footer"
+msgstr ""
+
 #. GNOME Settings' own names for its alert sounds.
 msgid "Click"
 msgstr ""
@@ -6321,8 +6333,8 @@ msgstr ""
 
 msgid ""
 "Mail accounts signed in under GNOME Settings → Online Accounts can be added "
-"here in one click. Google and Microsoft accounts are only supported through "
-"Online Accounts."
+"here in one click. Google accounts are only supported through GNOME Online "
+"Accounts."
 msgstr ""
 
 msgid "No mail accounts were found in Online Accounts."

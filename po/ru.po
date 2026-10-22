@@ -1248,6 +1248,15 @@ msgstr "Новое сообщение из шаблона"
 msgid "Send the message you are writing"
 msgstr "Отправить создаваемое сообщение"
 
+#. Save Draft, Save as Template and Delete Draft are not here:
+#. the Save Draft button and its arrow stay in the header at
+#. any width.
+msgid "Attach files"
+msgstr "Прикрепить файлы"
+
+msgid "Go to To, Cc or Bcc, showing the row"
+msgstr ""
+
 msgid "Back out of a reply and return to the list"
 msgstr "Отменить ответ и вернуться к списку"
 
@@ -3618,12 +3627,6 @@ msgstr "Зашифровать с помощью OpenPGP для каждого �
 msgid "Sign with your OpenPGP key"
 msgstr "Подписать вашим ключом OpenPGP"
 
-#. Save Draft, Save as Template and Delete Draft are not here:
-#. the Save Draft button and its arrow stay in the header at
-#. any width.
-msgid "Attach files"
-msgstr "Прикрепить файлы"
-
 msgid "Upload to cloud storage and share a link"
 msgstr "Загрузить в облачное хранилище и поделиться ссылкой"
 
@@ -4012,6 +4015,10 @@ msgid "Use Its Own Name"
 msgstr ""
 
 #, fuzzy
+msgid "All Address Books"
+msgstr "Адресная книга"
+
+#, fuzzy
 msgid "Move Contact?"
 msgstr "Открыть «Контакты»"
 
@@ -4344,6 +4351,19 @@ msgid "Save new contacts in"
 msgstr "Новый контакт"
 
 msgid "Unless another is picked when the contact is made."
+msgstr ""
+
+msgid "Layout"
+msgstr "Разметка"
+
+#, fuzzy
+msgid "Contacts placement"
+msgstr "Расположение тегов"
+
+msgid "'In the footer' disables expand/collapse."
+msgstr ""
+
+msgid "Keep the search field open"
 msgstr ""
 
 #, fuzzy
@@ -5897,10 +5917,6 @@ msgstr "Расположение тегов"
 msgid "Favorites placement"
 msgstr "Расположение фильтров"
 
-#, fuzzy
-msgid "Contacts placement"
-msgstr "Расположение тегов"
-
 msgid "Icon rail"
 msgstr "Полоса с иконками"
 
@@ -5929,9 +5945,6 @@ msgstr ""
 "Отправленные вами письма содержат Gravatar, изображение или эмодзи учётной "
 "записи — так же, как и её значок на боковой панели."
 
-msgid "Layout"
-msgstr "Разметка"
-
 msgid "Automatic uses single lines in wide windows."
 msgstr ""
 
@@ -5948,9 +5961,6 @@ msgid "Tags and labels under the text"
 msgstr ""
 
 msgid "Gives the subject its full width."
-msgstr ""
-
-msgid "Keep the search field open"
 msgstr ""
 
 #, fuzzy
@@ -6692,6 +6702,10 @@ msgstr "Звуки"
 msgid "Forget this word"
 msgstr "Удалить это слово"
 
+#, fuzzy
+msgid "In the footer"
+msgstr "Сохранить фильтр?"
+
 #. GNOME Settings' own names for its alert sounds.
 msgid "Click"
 msgstr "Клик"
@@ -7042,12 +7056,12 @@ msgstr "Импортировать сетевые учётные записи"
 
 msgid ""
 "Mail accounts signed in under GNOME Settings → Online Accounts can be added "
-"here in one click. Google and Microsoft accounts are only supported through "
-"Online Accounts."
+"here in one click. Google accounts are only supported through GNOME Online "
+"Accounts."
 msgstr ""
 "Почтовые учётные записи, подключённые в меню «Параметры GNOME → Сетевые "
-"учётные записи», можно добавить отсюда в один клик. Учётные записи Google и "
-"Microsoft поддерживаются только через «Сетевые учётные записи»."
+"учётные записи», можно добавить отсюда в один клик. Учётные записи Google "
+"поддерживаются только через «Сетевые учётные записи GNOME»."
 
 msgid "No mail accounts were found in Online Accounts."
 msgstr "В «Сетевых учётных записях» не найдено почтовых аккаунтов."
@@ -8813,10 +8827,6 @@ msgstr "Hyprlab"
 #, fuzzy
 #~ msgid "Choose which address book to search"
 #~ msgstr "Выберите папки для поиска"
-
-#, fuzzy
-#~ msgid "All Address Books"
-#~ msgstr "Адресная книга"
 
 #~ msgid "Sort contacts"
 #~ msgstr "Сортировка контактов"

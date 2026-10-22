@@ -1229,6 +1229,15 @@ msgstr "Legújabb üzenet elöl"
 msgid "Send the message you are writing"
 msgstr "Küldd el az éppen írt üzenetet"
 
+#. Save Draft, Save as Template and Delete Draft are not here:
+#. the Save Draft button and its arrow stay in the header at
+#. any width.
+msgid "Attach files"
+msgstr "Fájlok csatolása"
+
+msgid "Go to To, Cc or Bcc, showing the row"
+msgstr ""
+
 msgid "Back out of a reply and return to the list"
 msgstr "Kilépés a válaszból és visszatérés a listához"
 
@@ -3610,12 +3619,6 @@ msgstr "Titkosítás OpenPGP-vel minden címzett kulcsára"
 msgid "Sign with your OpenPGP key"
 msgstr "Aláírás a saját OpenPGP-kulccsal"
 
-#. Save Draft, Save as Template and Delete Draft are not here:
-#. the Save Draft button and its arrow stay in the header at
-#. any width.
-msgid "Attach files"
-msgstr "Fájlok csatolása"
-
 msgid "Upload to cloud storage and share a link"
 msgstr "Feltöltés felhőtárhelyre és hivatkozás megosztása"
 
@@ -4009,6 +4012,10 @@ msgid "Use Its Own Name"
 msgstr ""
 
 #, fuzzy
+msgid "All Address Books"
+msgstr "Címjegyzék"
+
+#, fuzzy
 msgid "Move Contact?"
 msgstr "Névjegyek megnyitása"
 
@@ -4336,6 +4343,19 @@ msgid "Save new contacts in"
 msgstr "Új névjegy"
 
 msgid "Unless another is picked when the contact is made."
+msgstr ""
+
+msgid "Layout"
+msgstr ""
+
+#, fuzzy
+msgid "Contacts placement"
+msgstr "Címkék elhelyezése"
+
+msgid "'In the footer' disables expand/collapse."
+msgstr ""
+
+msgid "Keep the search field open"
 msgstr ""
 
 #, fuzzy
@@ -5891,10 +5911,6 @@ msgstr "Címkék elhelyezése"
 msgid "Favorites placement"
 msgstr "A szűrők elhelyezése"
 
-#, fuzzy
-msgid "Contacts placement"
-msgstr "Címkék elhelyezése"
-
 msgid "Icon rail"
 msgstr "Ikonok sora"
 
@@ -5923,9 +5939,6 @@ msgstr ""
 "Az általad elküldött üzenetek a fiók Gravatar-képét, fotóját vagy emojiját "
 "jelenítik meg, ahogyan az oldalsávban található kör is."
 
-msgid "Layout"
-msgstr ""
-
 msgid "Automatic uses single lines in wide windows."
 msgstr ""
 
@@ -5942,9 +5955,6 @@ msgid "Tags and labels under the text"
 msgstr ""
 
 msgid "Gives the subject its full width."
-msgstr ""
-
-msgid "Keep the search field open"
 msgstr ""
 
 #, fuzzy
@@ -6699,6 +6709,10 @@ msgstr "Hangok"
 msgid "Forget this word"
 msgstr "Szó elfelejtése"
 
+#, fuzzy
+msgid "In the footer"
+msgstr "Elmented a szűrőt?"
+
 #. GNOME Settings' own names for its alert sounds.
 msgid "Click"
 msgstr "Kattint"
@@ -7067,12 +7081,12 @@ msgstr "Internetes Fiók importálása"
 
 msgid ""
 "Mail accounts signed in under GNOME Settings → Online Accounts can be added "
-"here in one click. Google and Microsoft accounts are only supported through "
-"Online Accounts."
+"here in one click. Google accounts are only supported through GNOME Online "
+"Accounts."
 msgstr ""
 "A GNOME Beállítások → Internetes Fiókok menüpont alatt bejelentkezett e-mail-"
-"fiókokat itt egy kattintással hozzáadhatja. A Google- és Microsoft fiókok "
-"kizárólag az Internetes Fiókok menüpontból támogatottak."
+"fiókokat itt egy kattintással hozzáadhatja. A Google-fiókok kizárólag a "
+"GNOME Internetes Fiókok menüpontból támogatottak."
 
 msgid "No mail accounts were found in Online Accounts."
 msgstr "Nincs még levélfiók az Internetes Fiókokban beállítva."
@@ -8807,10 +8821,6 @@ msgstr "Hyprlab"
 #, fuzzy
 #~ msgid "Choose which address book to search"
 #~ msgstr "Válassza ki a keresendő mappákat"
-
-#, fuzzy
-#~ msgid "All Address Books"
-#~ msgstr "Címjegyzék"
 
 #~ msgid "Sort contacts"
 #~ msgstr "Névjegyek rendezése"

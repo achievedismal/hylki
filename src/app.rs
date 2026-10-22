@@ -1016,6 +1016,8 @@ pub struct AppModel {
     list_pills_below: bool,
     /// The list's search field stays open (#446).
     list_search_open: bool,
+    /// Contacts' search field stays open.
+    contacts_search_open: bool,
     /// The list's search field and bulk bar open under the rows (#496).
     list_search_bottom: bool,
     list_bulk_bar_bottom: bool,
@@ -1784,6 +1786,10 @@ pub enum AppMsg {
     /// The zoom keys in the main window: the inline composer's while it has
     /// the focus and its format zooms, else the message's.
     ZoomKey(i8),
+    /// Ctrl+Shift+A or Ctrl+Shift+C in the main window: the inline
+    /// composer's while it has the focus, else the accounts switch or the
+    /// console.
+    ComposerKey(gtk::gdk::Key),
     /// Settings → Reading: the zoom every launch starts at.
     SetZoomDefault(u32),
     /// Settings: show the Reader View switch in the reader header.
@@ -3392,7 +3398,7 @@ impl SimpleComponent for AppModel {
             // The sidebar's account sections, for those who work from the
             // unified section alone (also Settings → Sidebar).
             let sidebar = gtk::gio::Menu::new();
-            sidebar.append(Some(i18n("Show Accounts").as_str()), Some("app.show-accounts"));
+            sidebar.append_item(&keyed_item(&i18n("Show Accounts"), "app.show-accounts", "<Ctrl><Shift>a"));
             // Focus Mode: the distraction-free layout (also Ctrl+Shift+F
             // and Settings → Appearance, where its parts are chosen).
             sidebar.append(Some(i18n("Focus Mode").as_str()), Some("app.focus-mode"));
@@ -3701,6 +3707,7 @@ impl SimpleComponent for AppModel {
             list_group_by_date: config::load_privacy().list_group_by_date,
             list_pills_below: config::load_privacy().list_pills_below,
             list_search_open: config::load_privacy().list_search_open,
+            contacts_search_open: config::load_privacy().contacts_search_open,
             list_search_bottom: config::load_privacy().list_search_bottom,
             list_bulk_bar_bottom: config::load_privacy().list_bulk_bar_bottom,
             list_column_widths: config::load_list_column_widths(),
@@ -4026,7 +4033,8 @@ impl SimpleComponent for AppModel {
         model.message_list.emit(MessageListInput::SetColumnScroll(model.list_column_scroll));
         model.message_list.emit(MessageListInput::SetSearchPinned(model.list_search_open));
         model.push_list_bars();
-        model.contacts_page.emit(ContactsPageInput::SetSearchPinned(model.list_search_open));
+        model.contacts_page.emit(ContactsPageInput::SetSearchPinned(model.contacts_search_open));
+        model.contacts_page.emit(ContactsPageInput::SetBookPicker(!model.contacts_placement.shown()));
         model.message_list.emit(MessageListInput::SetColumnWidths(model.list_column_widths.clone()));
         model.sidebars_emit(SidebarInput::SetFocus {
             hide_accounts: model.focus.active(config::FocusPart::HideAccounts),
@@ -4597,14 +4605,24 @@ impl SimpleComponent for AppModel {
             });
             app.add_action(&quit);
             gtk::prelude::GtkApplicationExt::set_accels_for_action(&app, "app.quit", &["<Ctrl>q"]);
-            // Ctrl+Shift+A shows or hides the sidebar's account sections
-            // (the same switch as the main menu's and Settings'): activating
-            // the stateful action without a value toggles it.
-            gtk::prelude::GtkApplicationExt::set_accels_for_action(
-                &app,
-                "app.show-accounts",
-                &["<Ctrl><Shift>a"],
-            );
+            // Ctrl+Shift+A shows or hides the sidebar's account sections and
+            // Ctrl+Shift+C opens the console, but in a composer they are
+            // Thunderbird's Attach and Cc (#490, #491). An application key
+            // reaches the main window before the composer in it, so the two
+            // belong to actions of their own that ask where the focus is
+            // (AppMsg::ComposerKey). The menus keep the real actions, with
+            // the keys shown beside them, so a click there never reaches a
+            // composer that had the focus before.
+            for (name, keyval, accel) in [
+                ("accounts-key", gtk::gdk::Key::a, "<Ctrl><Shift>a"),
+                ("console-key", gtk::gdk::Key::c, "<Ctrl><Shift>c"),
+            ] {
+                let action = gtk::gio::SimpleAction::new(name, None);
+                let s = sender.clone();
+                action.connect_activate(move |_, _| s.input(AppMsg::ComposerKey(keyval)));
+                app.add_action(&action);
+                gtk::prelude::GtkApplicationExt::set_accels_for_action(&app, &format!("app.{name}"), &[accel]);
+            }
             // Ctrl+Shift+F switches Focus Mode on and off.
             gtk::prelude::GtkApplicationExt::set_accels_for_action(
                 &app,
@@ -4717,8 +4735,6 @@ impl SimpleComponent for AppModel {
             .set_accelerators_for_action::<PrintPreviewAction>(&["<Ctrl><Shift>p"]);
         relm4::main_application()
             .set_accelerators_for_action::<StatusBarAction>(&["<Ctrl><Shift>s"]);
-        relm4::main_application()
-            .set_accelerators_for_action::<ConsoleAction>(&["<Ctrl><Shift>c"]);
         relm4::main_application().set_accelerators_for_action::<FindAction>(&["<Ctrl>f"]);
         relm4::main_application().set_accelerators_for_action::<ShortcutsAction>(&[
             "<Ctrl>question",
@@ -4750,6 +4766,7 @@ impl SimpleComponent for AppModel {
             // The first key of a Gmail sequence (g or *) and when it came.
             let pending: std::rc::Rc<std::cell::Cell<Option<(char, std::time::Instant)>>> = Default::default();
             keys.connect_key_pressed(move |_, keyval, _, state| {
+                let keyval = without_caps_lock(keyval, state);
                 let ctrl = state.contains(gtk::gdk::ModifierType::CONTROL_MASK);
                 let shift = state.contains(gtk::gdk::ModifierType::SHIFT_MASK);
                 // Ctrl+? opens the reference whether or not the shortcuts
@@ -8712,6 +8729,10 @@ impl SimpleComponent for AppModel {
             AppMsg::Pref(PrefOutput::SetListSearchOpen(on)) => {
                 if pref!(self.list_search_open = on) {
                     self.message_list.emit(MessageListInput::SetSearchPinned(on));
+                }
+            }
+            AppMsg::Pref(PrefOutput::SetContactsSearchOpen(on)) => {
+                if pref!(self.contacts_search_open = on) {
                     self.contacts_page.emit(ContactsPageInput::SetSearchPinned(on));
                 }
             }
@@ -8859,6 +8880,9 @@ impl SimpleComponent for AppModel {
 
             AppMsg::Pref(PrefOutput::SetContactsPlacement(p)) => {
                 if pref!(self.contacts_placement = p) {
+                    // Without its books under it in the sidebar, Contacts
+                    // picks them itself.
+                    self.contacts_page.emit(ContactsPageInput::SetBookPicker(!p.shown()));
                     self.rebuild_sidebar();
                 }
             }
@@ -9176,6 +9200,16 @@ impl SimpleComponent for AppModel {
                 match compose {
                     Some(r) => r.controller.emit(ComposeInput::Zoom(step)),
                     None => sender.input(AppMsg::ZoomMessage(step)),
+                }
+            }
+            AppMsg::ComposerKey(keyval) => {
+                let compose = self.reader_compose.as_ref().filter(|r| r.window.is_none() && focus_in_compose(&self.window));
+                let shift_ctrl = gtk::gdk::ModifierType::CONTROL_MASK | gtk::gdk::ModifierType::SHIFT_MASK;
+                match compose.zip(crate::ui::compose::composer_key(keyval, shift_ctrl)) {
+                    Some((r, input)) => r.controller.emit(input),
+                    // Activated without a value, the stateful action toggles.
+                    None if keyval == gtk::gdk::Key::a => relm4::main_application().activate_action("show-accounts", None),
+                    None => sender.input(AppMsg::OpenConsole),
                 }
             }
             AppMsg::ZoomMessage(step) => {
@@ -10088,8 +10122,13 @@ impl SimpleComponent for AppModel {
                     let messages = self.apply_pending_answers(account_id, folder_id, messages);
                     let messages = self.apply_pending_tags(account_id, folder_id, messages);
                     if open && self.is_unified_target(account_id, folder_id) {
-                        self.unified_unfilled.remove(&(account_id, folder_id));
-                        self.unified_slices.insert((account_id, folder_id), messages.clone());
+                        if self.unified_reads_through() {
+                            self.unified_slices.remove(&(account_id, folder_id));
+                            self.unified_unfilled.insert((account_id, folder_id));
+                        } else {
+                            self.unified_unfilled.remove(&(account_id, folder_id));
+                            self.unified_slices.insert((account_id, folder_id), messages.clone());
+                        }
                         landed = true;
                     } else if !open
                         && self.selected.as_ref().is_some_and(|s| (s.account_id, s.folder_id) == (account_id, folder_id))
@@ -10099,6 +10138,8 @@ impl SimpleComponent for AppModel {
                     }
                     self.message_cache.insert((account_id, folder_id), messages);
                 }
+                // A view left before its folders landed.
+                self.shed_large_folders();
                 if landed {
                     self.emit_unified();
                     self.push_index_complete();
@@ -11891,8 +11932,21 @@ impl SimpleComponent for AppModel {
                         crate::notify::withdraw_mail(account_id);
                     }
                 }
-                self.message_cache
-                    .insert((account_id, folder_id), messages.clone());
+                // An Archive answers each visit with the same tens of
+                // thousands of messages: copying them over themselves only
+                // churned the heap (#504).
+                if !unchanged {
+                    // Nor is a large folder off screen taken in: the worker
+                    // lists a folder again after every move into it.
+                    let key = (account_id, folder_id);
+                    let on_show = self.folders_on_show();
+                    if self.message_cache.contains_key(&key)
+                        || !self.too_large_off_screen(key, messages.len(), &on_show)
+                    {
+                        self.message_cache.insert(key, messages.clone());
+                    }
+                    self.shed_large_folders();
+                }
                 // A draft picker waiting on this folder's list (Send with
                 // Hylki → Continue a Draft…) opens once every Drafts folder
                 // has answered.
@@ -11958,14 +12012,22 @@ impl SimpleComponent for AppModel {
                 if self.unified {
                     // Accept only the folders the view merges, by recency.
                     if self.is_unified_target(account_id, folder_id) {
+                        let key = (account_id, folder_id);
+                        let through = self.unified_reads_through();
                         let same_slice = unchanged
-                            && self
-                                .unified_slices
-                                .get(&(account_id, folder_id))
-                                .is_some_and(|s| *s == messages);
+                            && if through {
+                                self.unified_unfilled.contains(&key)
+                            } else {
+                                self.unified_slices.get(&key).is_some_and(|s| *s == messages)
+                            };
                         if !same_slice {
-                            self.unified_unfilled.remove(&(account_id, folder_id));
-                            self.unified_slices.insert((account_id, folder_id), messages);
+                            if through {
+                                self.unified_slices.remove(&key);
+                                self.unified_unfilled.insert(key);
+                            } else {
+                                self.unified_unfilled.remove(&key);
+                                self.unified_slices.insert(key, messages);
+                            }
                             // Accounts answer one after another, a large or
                             // slow one in several goes: one merge for the lot
                             // that lands together, not one each.
@@ -12067,10 +12129,13 @@ impl SimpleComponent for AppModel {
                 // Feed the visible list so search covers the new messages live.
                 if self.unified {
                     if self.is_unified_target(account_id, folder_id) {
-                        self.unified_slices
-                            .entry((account_id, folder_id))
-                            .or_default()
-                            .extend(fresh.iter().cloned());
+                        // A folder read where it is has them already.
+                        if !self.unified_unfilled.contains(&(account_id, folder_id)) {
+                            self.unified_slices
+                                .entry((account_id, folder_id))
+                                .or_default()
+                                .extend(fresh.iter().cloned());
+                        }
                         self.message_list
                             .emit(MessageListInput::AppendMessages { messages: fresh });
                     }
@@ -13029,6 +13094,13 @@ impl AppModel {
             count(shown),
             count(pool)
         ));
+        let (views, kept, maps) = self.message_list.model().kept_view_stats();
+        out.push_str(&format!(
+            "  list views kept as built ({views} of {}): {}, conversations {}\n",
+            crate::ui::message_list::KEPT_VIEWS,
+            count(kept),
+            human_bytes(maps as u64)
+        ));
 
         out.push_str("Session caches (follow use; each is bounded unless noted):\n");
         out.push_str(&format!(
@@ -13101,6 +13173,16 @@ impl AppModel {
             human_count(gravatars),
             human_bytes(gravatar_bytes)
         ));
+        let (entries, entry_bytes, photo_bytes) = self.contacts_page.model().memory_stats();
+        let (thumbs, thumb_bytes) = crate::avatar::photo_thumb_stats();
+        out.push_str(&format!(
+            "  Contacts list: {} entries, {} (of which photos {}); list photos {} ({} of pixels)\n",
+            human_count(entries),
+            human_bytes(entry_bytes as u64),
+            human_bytes(photo_bytes as u64),
+            human_count(thumbs),
+            human_bytes(thumb_bytes)
+        ));
         let (pictures, picture_bytes, circles, circle_bytes) = crate::ui::initials::cache_stats();
         out.push_str(&format!(
             "  account pictures: {} ({} of pixels); rendered circles: {} ({}) (unbounded)\n",
@@ -13135,7 +13217,7 @@ impl AppModel {
         let status_bar = if self.status_bar_shown { i18n("Hide Status Bar") } else { i18n("Reveal Status Bar") };
         self.help_menu.append(Some(status_bar.as_str()), Some("win.status-bar"));
         if self.console_mode {
-            self.help_menu.append(Some(i18n("Console").as_str()), Some("win.console"));
+            self.help_menu.append_item(&keyed_item(&i18n("Console"), "win.console", "<Ctrl><Shift>c"));
         }
         self.help_menu.append(Some(i18n("Keyboard Shortcuts").as_str()), Some("win.shortcuts"));
         self.help_menu
@@ -13258,6 +13340,7 @@ impl AppModel {
             list_pills_below: self.list_pills_below,
             date_groups_default_applied: true,
             list_search_open: self.list_search_open,
+            contacts_search_open: self.contacts_search_open,
             list_search_bottom: self.list_search_bottom,
             list_bulk_bar_bottom: self.list_bulk_bar_bottom,
             list_column_widths: config::list_column_widths_to(&self.list_column_widths),
@@ -13292,6 +13375,7 @@ impl AppModel {
             tags_placement: self.tags_placement,
             favorites_placement: self.favorites_placement,
             contacts_placement: self.contacts_placement,
+            contacts_footer_default_applied: true,
             chevrons_left: self.chevrons_left,
             account_click_folds: self.account_click_folds,
             console_mode: self.console_mode,
@@ -17048,6 +17132,7 @@ impl AppModel {
             });
         }
         self.push_index_complete();
+        self.shed_large_folders();
         tracing::info!(
             "unified {view:?}: opened in {:?} with {} cached messages",
             t_open.elapsed(),
@@ -17414,6 +17499,7 @@ impl AppModel {
             }
         }
         self.push_index_complete();
+        self.shed_large_folders();
         self.send_to(account_id, MailRequest::LoadMessages { folder_id, path });
     }
 
@@ -21386,10 +21472,15 @@ impl AppModel {
         // put every message's reply headers here, to be cloned on each sync and
         // walked on each rebuild. A conversation is joined by mail near it in
         // time, so the newest links are the ones that do the joining.
+        // Not from the folders of a view too large to keep, held only while
+        // it is on show: they would change every list's links as they come
+        // and go, and every row kept as built with them (#504).
+        let nowhere = HashSet::new();
         let mut recent: Vec<&Message> = self
             .message_cache
-            .values()
-            .flatten()
+            .iter()
+            .filter(|(k, l)| !self.too_large_off_screen(**k, l.len(), &nowhere))
+            .flat_map(|(_, l)| l)
             .filter(|m| !(m.message_id.is_empty() && m.references.is_empty()))
             .collect();
         // The newest few, picked without sorting the lot: across every
@@ -21448,7 +21539,7 @@ impl AppModel {
         // account that keeps sending batches (a large folder catching up)
         // must not keep the window busy regrouping. A second for a small
         // view, up to five for one of tens of thousands of messages.
-        let size: usize = self.unified_slices.values().map(Vec::len).sum();
+        let size = self.unified_content().count();
         let gap = std::time::Duration::from_millis((size as u64 / 16).clamp(1000, 5000));
         let since = self.unified_emitted_at.get().elapsed();
         let wait = std::time::Duration::from_millis(150).max(gap.saturating_sub(since));
@@ -21490,13 +21581,16 @@ impl AppModel {
                 continue;
             }
             let content = || targets.iter().filter_map(|k| self.message_cache.get(k)).flatten();
+            if content().count() > crate::ui::message_list::KEEP_AT_MOST {
+                continue;
+            }
             let fp = content_fp(content());
             if self.message_list.model().has_view(key, fp) {
                 continue;
             }
             let mut messages: Vec<Message> = content().cloned().collect();
             messages.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-            tracing::debug!("prebuild: {view:?}, {} messages", messages.len());
+            tracing::debug!("prebuild: {view:?}, {} messages ({})", messages.len(), self.message_list.model().view_miss(key, fp));
             self.message_list.emit(MessageListInput::Prebuild { key, fp, messages });
             let s = sender.input_sender().clone();
             gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(300), move || {
@@ -21529,14 +21623,14 @@ impl AppModel {
         }
         let mut kinds = self.unified_kinds.listed();
         kinds.push(FolderKind::Inbox);
-        let wanted: Vec<(u32, u32, String)> = self
+        let wanted: Vec<(u32, u32, String, FolderKind)> = self
             .accounts
             .iter()
             .filter(|a| self.in_unified(a.id))
             .flat_map(|a| self.folders.get(&a.id).into_iter().flatten())
             .filter(|f| kinds.contains(&f.kind))
             .filter(|f| !self.message_cache.contains_key(&(f.account_id, f.id)))
-            .map(|f| (f.account_id, f.id, f.path.clone()))
+            .map(|f| (f.account_id, f.id, f.path.clone(), f.kind))
             .collect();
         if wanted.is_empty() {
             self.schedule_prebuild(sender);
@@ -21546,7 +21640,19 @@ impl AppModel {
         std::thread::spawn(move || {
             let t = std::time::Instant::now();
             let lists: Vec<((u32, u32), Vec<Message>)> = match crate::cache::Cache::open() {
-                Ok(cache) => wanted.into_iter().map(|(a, f, path)| ((a, f), cache.load_messages(a, &path, f))).collect(),
+                Ok(cache) => {
+                    // A row too large to be built ahead is not read ahead
+                    // either: it is read at its visit, as any folder is (#504).
+                    let mut sizes: HashMap<FolderKind, usize> = HashMap::new();
+                    for (a, _, path, kind) in &wanted {
+                        *sizes.entry(*kind).or_default() += cache.count_messages(*a, path);
+                    }
+                    wanted
+                        .into_iter()
+                        .filter(|(.., kind)| sizes[kind] <= crate::ui::message_list::KEEP_AT_MOST)
+                        .map(|(a, f, path, _)| ((a, f), cache.load_messages(a, &path, f)))
+                        .collect()
+                }
                 Err(_) => Vec::new(),
             };
             tracing::debug!(
@@ -21585,10 +21691,88 @@ impl AppModel {
         filled.chain(unfilled)
     }
 
+    /// Whether the open unified view reads its folders from the folder
+    /// caches rather than from copies. A row of whole folders has nothing a
+    /// copy would add, and an Archive's copy was tens of megabytes (#504).
+    /// Starred keeps its slices: they are a folder's starred messages, not
+    /// the folder.
+    fn unified_reads_through(&self) -> bool {
+        matches!(self.unified_view, UnifiedView::Kind(kind) if kind != FolderKind::Starred)
+    }
+
+    /// The folders on show: the open unified view's, or the open folder.
+    fn folders_on_show(&self) -> HashSet<(u32, u32)> {
+        if self.unified {
+            self.unified_targets().into_iter().map(|(a, f, _)| (a, f)).collect()
+        } else {
+            self.selected.iter().map(|s| (s.account_id, s.folder_id)).collect()
+        }
+    }
+
+    /// Whether a folder of `len` messages is too large to keep in memory
+    /// off screen: alone, or with the other folders of its unified row,
+    /// more than [`crate::ui::message_list::KEEP_AT_MOST`]. Inboxes and the
+    /// folders whose unread mail is counted are always kept: what arrives
+    /// next is compared with them.
+    fn too_large_off_screen(&self, key: (u32, u32), len: usize, on_show: &HashSet<(u32, u32)>) -> bool {
+        use crate::ui::message_list::KEEP_AT_MOST;
+        let kind_of = |k: &(u32, u32)| self.folder_kind(k.0, k.1).unwrap_or(FolderKind::Custom);
+        let kind = kind_of(&key);
+        if kind == FolderKind::Inbox || on_show.contains(&key) {
+            return false;
+        }
+        let row = match kind {
+            FolderKind::Custom => len,
+            _ => {
+                len + self
+                    .message_cache
+                    .iter()
+                    .filter(|(k, _)| **k != key && kind_of(k) == kind)
+                    .map(|(_, l)| l.len())
+                    .sum::<usize>()
+            }
+        };
+        row > KEEP_AT_MOST && !self.counted_folders(key.0).iter().any(|c| c.id == key.1)
+    }
+
+    /// Let go of the folders [`Self::too_large_off_screen`] picks out, once
+    /// their view is left. Read for one visit, an Archive of 81,000 messages
+    /// stayed for the rest of the session, with the heap it was copied
+    /// through (#504). Its next visit reads the index, as its first did.
+    fn shed_large_folders(&mut self) {
+        let on_show = self.folders_on_show();
+        let shed: Vec<(u32, u32)> = self
+            .message_cache
+            .iter()
+            .filter(|(k, l)| self.too_large_off_screen(**k, l.len(), &on_show))
+            .map(|(k, _)| *k)
+            .collect();
+        if shed.is_empty() {
+            return;
+        }
+        let n: usize = shed.iter().filter_map(|k| self.message_cache.remove(k)).map(|l| l.len()).sum();
+        tracing::debug!("let go of {} folders off screen, {n} messages", shed.len());
+        // Handed back once the list has let go of its rows too, a frame or
+        // so on, rather than at the next half-minute trim: a system monitor
+        // watched over the switch should see the memory go.
+        gtk::glib::timeout_add_seconds_local_once(3, || {
+            if let Some(held) = crate::memory_report::trim_if_worthwhile() {
+                tracing::debug!(target: "hylki::memory", "trimmed the heap: {} was freed but held", crate::memory_report::human_bytes(held as u64));
+            }
+        });
+    }
+
     /// Copy the folders `open_unified_in` left to the folder caches into
     /// the unified slices.
     fn fill_unified_slices(&mut self) {
         let t = std::time::Instant::now();
+        if self.unified_reads_through() {
+            // Read where they are; only a newest-first slice goes.
+            for key in &self.unified_unfilled {
+                self.unified_slices.remove(key);
+            }
+            return;
+        }
         for key in std::mem::take(&mut self.unified_unfilled) {
             match self.message_cache.get(&key) {
                 Some(c) if !c.is_empty() => {
@@ -22370,6 +22554,7 @@ impl AppModel {
             list_group_by_date: self.list_group_by_date,
             list_pills_below: self.list_pills_below,
             list_search_open: self.list_search_open,
+            contacts_search_open: self.contacts_search_open,
             list_search_bottom: self.list_search_bottom,
             list_bulk_bar_bottom: self.list_bulk_bar_bottom,
             single_key_shortcuts: self.single_key.get(),
@@ -25487,6 +25672,16 @@ pub(crate) fn reader_keeps(key: gtk::gdk::Key) -> bool {
     )
 }
 
+/// The key as it would read with Caps Lock off. Caps Lock capitalises the
+/// letters, so `j` arrived as `J` and no single key worked while it was on
+/// (#392). Shift alone decides the case of a letter here.
+pub(crate) fn without_caps_lock(key: gtk::gdk::Key, state: gtk::gdk::ModifierType) -> gtk::gdk::Key {
+    if !state.contains(gtk::gdk::ModifierType::LOCK_MASK) || key.is_upper() == key.is_lower() {
+        return key;
+    }
+    if state.contains(gtk::gdk::ModifierType::SHIFT_MASK) { key.to_upper() } else { key.to_lower() }
+}
+
 /// The shortcut for a key press, if any. `shift` distinguishes `r` from `R`.
 pub(crate) fn shortcut_for(key: gtk::gdk::Key, shift: bool) -> Option<Shortcut> {
     use gtk::gdk::Key;
@@ -25558,6 +25753,14 @@ fn palette_key(sender: &ComponentSender<AppModel>) -> gtk::EventControllerKey {
 }
 
 /// The Ctrl shortcuts that work whether or not single-key ones are on (#328).
+/// A menu entry that shows its keys even though they belong to another
+/// action (see `accounts-key`).
+fn keyed_item(label: &str, action: &str, accel: &str) -> gtk::gio::MenuItem {
+    let item = gtk::gio::MenuItem::new(Some(label), Some(action));
+    item.set_attribute_value("accel", Some(&accel.to_variant()));
+    item
+}
+
 fn ctrl_shortcut_for(key: gtk::gdk::Key, shift: bool) -> Option<AppMsg> {
     use gtk::gdk::Key;
     match key {
@@ -25663,6 +25866,8 @@ const SHORTCUT_HELP: &[(&str, &[(&str, &str)])] = &[
             ("c  or  Ctrl+N", i18n_noop("Compose")),
             ("Ctrl+Shift+N", i18n_noop("New message from a template")),
             ("Ctrl+Enter", i18n_noop("Send the message you are writing")),
+            ("Ctrl+Shift+A", i18n_noop("Attach files")),
+            ("Ctrl+Shift+T  /  C  /  B", i18n_noop("Go to To, Cc or Bcc, showing the row")),
             ("Esc", i18n_noop("Back out of a reply and return to the list")),
             ("Ctrl+.  or  Ctrl+;", i18n_noop("Emoji chooser, at the cursor")),
             ("Shift+Return", i18n_noop("New paragraph (Return starts a new line, unless Settings swaps them)")),
@@ -28734,6 +28939,18 @@ mod tests {
         // The reader keeps what scrolls it, and only that.
         assert!(reader_keeps(Key::space) && reader_keeps(Key::Down));
         assert!(!reader_keeps(Key::r) && !reader_keeps(Key::j));
+    }
+
+    #[test]
+    fn caps_lock_leaves_the_keys_alone() {
+        use gtk::gdk::{Key, ModifierType as M};
+        assert_eq!(without_caps_lock(Key::J, M::LOCK_MASK), Key::j);
+        assert_eq!(without_caps_lock(Key::r, M::LOCK_MASK | M::SHIFT_MASK), Key::R);
+        assert_eq!(without_caps_lock(Key::R, M::LOCK_MASK | M::SHIFT_MASK), Key::R);
+        assert_eq!(without_caps_lock(Key::numbersign, M::LOCK_MASK | M::SHIFT_MASK), Key::numbersign);
+        assert_eq!(without_caps_lock(Key::_3, M::LOCK_MASK), Key::_3);
+        // Without Caps Lock the key is as typed.
+        assert_eq!(without_caps_lock(Key::J, M::empty()), Key::J);
     }
 
     #[test]

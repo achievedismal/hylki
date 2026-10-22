@@ -4,6 +4,67 @@
 
 The third beta previewing 1.45.0.
 
+- **Added: a Debian package** (#503, requested by valqk; the build is adapted
+  from PR #310 by Christian Lauinger). Debian 13 and Ubuntu 25.10 and later
+  install Hylki from a signed apt repository on hylki.hyprlab.co, or from the
+  `.deb` attached to each release, and it updates with the rest of the
+  system. The package adds the repository itself, and the beta suite
+  switched off, as the RPM does. It is built in a Debian 13 container by
+  `tools/build-packages.sh deb`. See
+  [docs/INSTALLING.md](docs/INSTALLING.md#debian-and-ubuntu).
+
+- **Changed: Contacts is back in the sidebar's footer** by default, above
+  Attachments, for new and existing installs; one placed Off stays off.
+  **Settings → Sidebar → Sections → Contacts placement** has **In the
+  footer** beside Above the accounts, Below the accounts and Off, and
+  Settings → Contacts has the same choice. Without
+  its books in the sidebar, Contacts has its address book dropdown over the
+  list again, and the footer row's right-click menu opens GNOME Contacts.
+  **Settings → Contacts → Keep the search field open** keeps the Contacts
+  search shown; it no longer follows the message list's setting.
+
+- **Added: recipient pills move between To, Cc and Bcc** (#492, requested by
+  warpedwood). Pills are selected as files are, with a click, Ctrl+click and
+  Shift+click, across To, Cc and Bcc, or by dragging the pointer over them
+  from beside them, as over text. The selection drags to another place
+  in its field or into another field, with a line marking where it will go;
+  Cc and Bcc show during the drag if they were hidden. The right-click menu
+  moves the selection to another field, edits a single pill or removes the
+  selection. From the keyboard, **Left** at the start of a field or
+  **Ctrl+A** on an empty one selects pills, the arrow keys select the next
+  one (**Shift** extends the selection), **Delete** removes the selection,
+  **Return** edits a pill, and **Menu** or **Shift+F10** opens the menu.
+
+- **Added: Thunderbird's composer keys** (#490, #491, requested by
+  warpedwood). In a composer, **Ctrl+Shift+A** attaches files, and
+  **Ctrl+Shift+T**, **Ctrl+Shift+C** and **Ctrl+Shift+B** put the cursor in
+  To, Cc and Bcc, showing the row, and a compact reply's folded fields, if
+  they are hidden. Elsewhere Ctrl+Shift+A still shows or hides the accounts
+  and Ctrl+Shift+C still opens the console.
+
+- **Fixed: the beta used about 300 MB more memory than 1.44.0 at idle**
+  (#504). The unified rows built ahead at a start held a second copy of
+  every message in them, the Archive's included, and the Contacts list held
+  every contact's full-size photo. A unified row of more than 20,000
+  messages is no longer read or built ahead: it shows its newest messages at
+  once and the rest a moment later, as any large folder does. The Contacts
+  list keeps only its small photos and reads a full one when a contact is
+  opened. On a mailbox of 92,000 messages and 1,150 contacts the app went
+  from 936 MB to 655 MB. The exported log's memory section now counts the
+  views kept as built and the Contacts list.
+  A visit to such a row also kept its messages for the rest of the session,
+  and so did a move into its folders: they are now let go when the row is
+  left, and the freed memory is handed back a few seconds later. While it is
+  open the row reads the folders where they are rather than from a copy,
+  and the other rows kept as built are no longer built again on each visit.
+  Four visits to an 81,000-message Archive used to leave the app at about
+  1 GB; it now comes back to about 730 MB.
+
+- **Fixed: the first-run wizard said Microsoft accounts need GNOME Online
+  Accounts** (#506). They have had their own sign-in since 1.43.2; the
+  Online Accounts page now says only Google accounts need GNOME Online
+  Accounts.
+
 - **Changed: shorter text in Settings.** Subtitles that repeated their
   title are gone, and the descriptions, setup steps and dialogs left say
   only what the row doesn't. The Blacklist group under Senders is now

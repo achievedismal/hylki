@@ -657,6 +657,9 @@ pub enum ComposeInput {
     SaveDraftIfDirty,
     AccountChanged,
     AttachFiles,
+    /// Show a recipient row, with the field rows if a compact reply has
+    /// them folded away, and put the cursor in it (#491).
+    FocusField(Field),
     AddAttachments(Vec<std::path::PathBuf>),
     RemoveAttachment(usize),
     OpenContacts,
@@ -1751,6 +1754,31 @@ impl Component for Compose {
             focus.connect_leave(move |_| s.input_sender().emit(ComposeInput::CompletionClose));
             row.add_controller(focus);
         }
+        // Pills are selected across these and move between them by drag
+        // or by their menu (#492). While some are dragged, the hidden Cc and
+        // Bcc show, to be dropped on; those still empty after hide again.
+        {
+            let rows = [widgets.to_row.clone(), widgets.cc_row.clone(), widgets.bcc_row.clone()];
+            let shown: std::rc::Rc<std::cell::RefCell<Vec<RecipientRow>>> = Default::default();
+            for row in &rows {
+                row.set_fields(&[&rows[0], &rows[1], &rows[2]]);
+                let (cc, bcc, shown) = (rows[1].clone(), rows[2].clone(), shown.clone());
+                row.connect_pill_drag(move |_, on| {
+                    if on {
+                        for r in [&cc, &bcc].into_iter().filter(|r| !r.is_visible()) {
+                            r.set_visible(true);
+                            shown.borrow_mut().push(r.clone());
+                        }
+                    } else {
+                        for r in shown.take() {
+                            if r.text().is_empty() {
+                                r.set_visible(false);
+                            }
+                        }
+                    }
+                });
+            }
+        }
         widgets.reply_to_row.connect_changed(|row| row.remove_css_class("error"));
         // Subject edits also count as dirtying the draft.
         let s = sender.clone();
@@ -1863,6 +1891,14 @@ impl Component for Compose {
                 s.input_sender().emit(ComposeInput::Send);
                 return Propagation::Stop;
             }
+            // Thunderbird's keys (#490, #491): Ctrl+Shift+A attaches files,
+            // Ctrl+Shift+T, C and B go to To, Cc and Bcc. A composer window
+            // gets them here; inline, the same keys are the main window's
+            // first, and app.rs passes them on.
+            if let Some(input) = composer_key(keyval, state) {
+                s.input_sender().emit(input);
+                return Propagation::Stop;
+            }
             if !open.get() {
                 // Escape backs out of the whole composer, the same as Cancel:
                 // an untouched reply goes at once, an edited one asks first
@@ -1963,6 +1999,21 @@ impl Component for Compose {
 
             ComposeInput::ClearSendAt => {
                 self.send_at = None;
+            }
+
+            ComposeInput::FocusField(field) => {
+                if !widgets.fields_list.is_visible() {
+                    // The chevron's toggle sends ShowFields, which records it.
+                    widgets.fields_btn.set_active(true);
+                    widgets.fields_list.set_visible(true);
+                }
+                let row = match field {
+                    Field::To => &widgets.to_row,
+                    Field::Cc => &widgets.cc_row,
+                    Field::Bcc => &widgets.bcc_row,
+                };
+                row.set_visible(true);
+                row.grab_focus();
             }
 
             ComposeInput::ShowFields(on) => {
@@ -4458,6 +4509,21 @@ fn pick_send_time(parent: Option<&gtk::Window>, current: Option<i64>, sender: re
         }
     });
     dialog.present();
+}
+
+/// Ctrl+Shift+A, T, C or B as what it asks the composer for.
+pub(crate) fn composer_key(keyval: gtk::gdk::Key, state: gtk::gdk::ModifierType) -> Option<ComposeInput> {
+    use gtk::gdk::{Key, ModifierType as M};
+    if state & (M::CONTROL_MASK | M::SHIFT_MASK | M::ALT_MASK | M::SUPER_MASK) != M::CONTROL_MASK | M::SHIFT_MASK {
+        return None;
+    }
+    match keyval.to_lower() {
+        Key::a => Some(ComposeInput::AttachFiles),
+        Key::t => Some(ComposeInput::FocusField(Field::To)),
+        Key::c => Some(ComposeInput::FocusField(Field::Cc)),
+        Key::b => Some(ComposeInput::FocusField(Field::Bcc)),
+        _ => None,
+    }
 }
 
 /// Ctrl+ (or Ctrl+=, for layouts where + needs Shift), Ctrl- and Ctrl+0,

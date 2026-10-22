@@ -1163,6 +1163,15 @@ msgstr "Missatge nou a partir d'una plantilla"
 msgid "Send the message you are writing"
 msgstr "Envia el missatge que estàs escrivint"
 
+#. Save Draft, Save as Template and Delete Draft are not here:
+#. the Save Draft button and its arrow stay in the header at
+#. any width.
+msgid "Attach files"
+msgstr "Adjunta fitxers"
+
+msgid "Go to To, Cc or Bcc, showing the row"
+msgstr ""
+
 msgid "Back out of a reply and return to the list"
 msgstr "Surt d'una resposta i torna a la llista"
 
@@ -3506,12 +3515,6 @@ msgstr "Xifra amb OpenPGP amb la clau de cada destinatari"
 msgid "Sign with your OpenPGP key"
 msgstr "Signa amb la teva clau OpenPGP"
 
-#. Save Draft, Save as Template and Delete Draft are not here:
-#. the Save Draft button and its arrow stay in the header at
-#. any width.
-msgid "Attach files"
-msgstr "Adjunta fitxers"
-
 msgid "Upload to cloud storage and share a link"
 msgstr "Puja a l'emmagatzematge al núvol i comparteix un enllaç"
 
@@ -3873,6 +3876,9 @@ msgstr ""
 msgid "Use Its Own Name"
 msgstr ""
 
+msgid "All Address Books"
+msgstr "Totes les llibretes d'adreces"
+
 msgid "Move Contact?"
 msgstr ""
 
@@ -4188,6 +4194,18 @@ msgstr "Desa els contactes nous a"
 
 msgid "Unless another is picked when the contact is made."
 msgstr ""
+
+msgid "Layout"
+msgstr "Disposició"
+
+msgid "Contacts placement"
+msgstr ""
+
+msgid "'In the footer' disables expand/collapse."
+msgstr ""
+
+msgid "Keep the search field open"
+msgstr "Mantén obert el camp de cerca"
 
 #, fuzzy
 msgid ""
@@ -5705,9 +5723,6 @@ msgstr "Col·locació de les etiquetes"
 msgid "Favorites placement"
 msgstr ""
 
-msgid "Contacts placement"
-msgstr ""
-
 msgid "Icon rail"
 msgstr "Barra d'icones"
 
@@ -5736,9 +5751,6 @@ msgstr ""
 "Els missatges que has enviat porten el Gravatar, la imatge o l'emoji del "
 "compte, com fa el seu cercle a la barra lateral."
 
-msgid "Layout"
-msgstr "Disposició"
-
 msgid "Automatic uses single lines in wide windows."
 msgstr ""
 
@@ -5756,9 +5768,6 @@ msgstr "Etiquetes i etiquetes del servidor sota el text"
 
 msgid "Gives the subject its full width."
 msgstr ""
-
-msgid "Keep the search field open"
-msgstr "Mantén obert el camp de cerca"
 
 #, fuzzy
 msgid "Search field position"
@@ -6488,6 +6497,10 @@ msgstr "Sons"
 msgid "Forget this word"
 msgstr "Oblida aquesta paraula"
 
+#, fuzzy
+msgid "In the footer"
+msgstr "Vols desar el filtre?"
+
 #. GNOME Settings' own names for its alert sounds.
 msgid "Click"
 msgstr "Clic"
@@ -6827,12 +6840,12 @@ msgstr "Importa els teus comptes en línia"
 
 msgid ""
 "Mail accounts signed in under GNOME Settings → Online Accounts can be added "
-"here in one click. Google and Microsoft accounts are only supported through "
-"Online Accounts."
+"here in one click. Google accounts are only supported through GNOME Online "
+"Accounts."
 msgstr ""
 "Els comptes de correu amb sessió iniciada a Paràmetres del GNOME → Comptes "
-"en línia es poden afegir aquí amb un clic. Els comptes de Google i Microsoft "
-"només són compatibles a través dels comptes en línia."
+"en línia es poden afegir aquí amb un clic. Els comptes de Google només són "
+"compatibles a través dels comptes en línia del GNOME."
 
 msgid "No mail accounts were found in Online Accounts."
 msgstr "No s'ha trobat cap compte de correu als comptes en línia."
@@ -8665,9 +8678,6 @@ msgstr "Hyprlab"
 #~ msgstr ""
 #~ "{name} s'elimina de la teva llibreta d'adreces, i per a una llibreta "
 #~ "sincronitzada, també del servidor."
-
-#~ msgid "All Address Books"
-#~ msgstr "Totes les llibretes d'adreces"
 
 #~ msgid "Switch off an address book to leave it out of Hylki."
 #~ msgstr "Desactiva una llibreta d'adreces per deixar-la fora de l'Hylki."

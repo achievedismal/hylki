@@ -1238,6 +1238,15 @@ msgstr "Nova mensagem a partir de um modelo"
 msgid "Send the message you are writing"
 msgstr "Enviar a mensagem que está a escrever"
 
+#. Save Draft, Save as Template and Delete Draft are not here:
+#. the Save Draft button and its arrow stay in the header at
+#. any width.
+msgid "Attach files"
+msgstr "Anexar ficheiros"
+
+msgid "Go to To, Cc or Bcc, showing the row"
+msgstr ""
+
 msgid "Back out of a reply and return to the list"
 msgstr "Cancelar uma resposta e voltar à lista"
 
@@ -3626,12 +3635,6 @@ msgstr "Encriptar com a chave OpenPGP de cada destinatário"
 msgid "Sign with your OpenPGP key"
 msgstr "Assinar com a sua chave OpenPGP"
 
-#. Save Draft, Save as Template and Delete Draft are not here:
-#. the Save Draft button and its arrow stay in the header at
-#. any width.
-msgid "Attach files"
-msgstr "Anexar ficheiros"
-
 msgid "Upload to cloud storage and share a link"
 msgstr "Carregar para o armazenamento na nuvem e partilhar uma ligação"
 
@@ -4016,6 +4019,10 @@ msgid "Use Its Own Name"
 msgstr ""
 
 #, fuzzy
+msgid "All Address Books"
+msgstr "Livro de endereços"
+
+#, fuzzy
 msgid "Move Contact?"
 msgstr "Abrir Contactos"
 
@@ -4346,6 +4353,19 @@ msgid "Save new contacts in"
 msgstr "Novo contacto"
 
 msgid "Unless another is picked when the contact is made."
+msgstr ""
+
+msgid "Layout"
+msgstr "Disposição"
+
+#, fuzzy
+msgid "Contacts placement"
+msgstr "Posição das etiquetas"
+
+msgid "'In the footer' disables expand/collapse."
+msgstr ""
+
+msgid "Keep the search field open"
 msgstr ""
 
 #, fuzzy
@@ -5881,10 +5901,6 @@ msgstr "Posição das etiquetas"
 msgid "Favorites placement"
 msgstr "Posição dos filtros"
 
-#, fuzzy
-msgid "Contacts placement"
-msgstr "Posição das etiquetas"
-
 msgid "Icon rail"
 msgstr "Barra de ícones"
 
@@ -5913,9 +5929,6 @@ msgstr ""
 "As mensagens que envia utilizam o Gravatar, a imagem ou o emoji da conta, "
 "tal como o círculo na barra lateral."
 
-msgid "Layout"
-msgstr "Disposição"
-
 msgid "Automatic uses single lines in wide windows."
 msgstr ""
 
@@ -5932,9 +5945,6 @@ msgid "Tags and labels under the text"
 msgstr ""
 
 msgid "Gives the subject its full width."
-msgstr ""
-
-msgid "Keep the search field open"
 msgstr ""
 
 #, fuzzy
@@ -6675,6 +6685,10 @@ msgstr "Sons"
 msgid "Forget this word"
 msgstr "Esquecer esta palavra"
 
+#, fuzzy
+msgid "In the footer"
+msgstr "Guardar o filtro?"
+
 #. GNOME Settings' own names for its alert sounds.
 msgid "Click"
 msgstr "Clique"
@@ -7025,12 +7039,12 @@ msgstr "Importar as suas contas online"
 
 msgid ""
 "Mail accounts signed in under GNOME Settings → Online Accounts can be added "
-"here in one click. Google and Microsoft accounts are only supported through "
-"Online Accounts."
+"here in one click. Google accounts are only supported through GNOME Online "
+"Accounts."
 msgstr ""
 "As contas de correio com sessão iniciada em Definições do GNOME → Contas "
-"online podem ser adicionadas aqui com um clique. As contas Google e "
-"Microsoft só são suportadas através das Contas online."
+"online podem ser adicionadas aqui com um clique. As contas Google só são "
+"suportadas através das Contas online do GNOME."
 
 msgid "No mail accounts were found in Online Accounts."
 msgstr "Não foram encontradas contas de correio nas Contas online."
@@ -8815,10 +8829,6 @@ msgstr "Hyprlab"
 #, fuzzy
 #~ msgid "Choose which address book to search"
 #~ msgstr "Escolher as pastas a pesquisar"
-
-#, fuzzy
-#~ msgid "All Address Books"
-#~ msgstr "Livro de endereços"
 
 #~ msgid "Sort contacts"
 #~ msgstr "Ordenar contactos"
