@@ -2,6 +2,29 @@
 
 Hylki (formerly Vireo) is a clean, fast, GNOME-native email client built with Rust and libadwaita for Wayland desktops. Privacy-first: no telemetry, remote content blocked by default, and credentials kept in the system keyring.
 
+## What's new in 1.45.0-beta.4
+
+### New features:
+
+- A Debian package and signed apt repository, built on work by @ChrisLauinger77 - (#503)
+- Recipient pills move between To, Cc and Bcc by drag, menu or keyboard - (#492)
+- Thunderbird's composer keys for attaching and the To, Cc and Bcc fields - (#490, #491)
+- A dragged message shows as a card
+- Ctrl+C shows beside Copy in the message menu - (#497)
+- Contacts is back in the sidebar's footer by default
+
+### Fixes:
+
+- about 300 MB more memory used than 1.44.0 at idle - (#504)
+- the single-key shortcuts doing nothing with Caps Lock on - (#392)
+- the first-run wizard saying Microsoft accounts need Online Accounts - (#506)
+- the filter editor's Save refusing an incomplete rule without a word
+
+### Translations:
+
+- Greek by @yioannides
+- Spanish by @danielmigueltejedor
+
 ## What's new in 1.45.0-beta.3
 
 ### New features:

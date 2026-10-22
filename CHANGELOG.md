@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.45.0-beta.3 — 2026-10-21
+## 1.45.0-beta.4 — 2026-10-22
 
-The third beta previewing 1.45.0.
+The fourth beta previewing 1.45.0.
 
 - **Added: a Debian package** (#503, requested by valqk; the build is adapted
   from PR #310 by Christian Lauinger). Debian 13 and Ubuntu 25.10 and later
@@ -80,6 +80,13 @@ The third beta previewing 1.45.0.
   Accounts** (#506). They have had their own sign-in since 1.43.2; the
   Online Accounts page now says only Google accounts need GNOME Online
   Accounts.
+
+- **Translations:** Greek completed (PR #507 by Yiannis Ioannides), and
+  Spanish complete again (PR #508 by Daniel Miguel).
+
+## 1.45.0-beta.3 — 2026-10-21
+
+The third beta previewing 1.45.0.
 
 - **Changed: shorter text in Settings.** Subtitles that repeated their
   title are gone, and the descriptions, setup steps and dialogs left say
