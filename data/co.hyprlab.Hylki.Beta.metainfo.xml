@@ -63,6 +63,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="1.46.0-beta.1" date="2026-10-23" type="development">
+      <description>
+        <p>First preview of 1.46.0: the source split into smaller files, with no change in how the app behaves.</p>
+      </description>
+    </release>
     <release version="1.45.0-beta.4" date="2026-10-22" type="development">
       <description>
         <p>Fourth preview of 1.45.0: a Debian package with its own apt repository, recipient pills that move between To, Cc and Bcc, Thunderbird's composer keys, dragged messages shown as cards, Contacts back in the sidebar's footer, less memory used at idle, single-key shortcuts that work with Caps Lock on, and the Greek and Spanish translations completed.</p>

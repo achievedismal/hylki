@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.46.0-beta.1 — 2026-10-23
 
 - **Changed: the source is split into smaller files.** The 102 source
   files, the largest 29,364 lines, are now 608 grouped by area under `src/`,
