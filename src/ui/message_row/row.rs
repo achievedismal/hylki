@@ -298,7 +298,13 @@ impl Row {
         }
         // The ⋯ and the palette.
         {
-            let toggle = on(Row::toggle_palette);
+            let toggle = on(|r| {
+                if r.shared().is_some_and(|s| s.compact.get()) {
+                    r.context_menu(24.0, r.w.host.height() as f64);
+                } else {
+                    r.toggle_palette();
+                }
+            });
             self.w.chevron.connect_clicked(move |_| toggle());
         }
         let palette_motion = gtk::EventControllerMotion::new();

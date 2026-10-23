@@ -81,6 +81,17 @@ impl Preferences {
             adw::LengthUnit::Sp,
         ));
         narrow.add_setter(&widgets.split, "collapsed", Some(&true.to_value()));
+        narrow.add_setter(
+            &widgets.side_header,
+            "show-end-title-buttons",
+            Some(&true.to_value()),
+        );
+        narrow.add_setter(
+            &widgets.side_header,
+            "decoration-layout",
+            Some(&":close".to_value()),
+        );
+        crate::ui::adaptive::stack_group_actions(root, &narrow);
         root.add_breakpoint(narrow);
         self.panels_stack = Some(widgets.panels_stack.clone());
         self.accounts_slot = Some(widgets.accounts_slot.clone());

@@ -255,6 +255,7 @@ impl SimpleComponent for AttachmentDrawer {
                     set_cursor_from_name: Some("ns-resize"),
                 },
 
+                #[name = "controls"]
                 gtk::Box {
                     set_orientation: gtk::Orientation::Horizontal,
                     set_spacing: 8,
@@ -491,6 +492,7 @@ impl SimpleComponent for AttachmentDrawer {
         };
 
         let widgets = view_output!();
+        crate::ui::adaptive::wrap_controls(&widgets.controls);
         model.drawer_body = Some(widgets.drawer_body.clone());
         // The body moves into an overlay of its own, where the previous
         // message's drawer dissolves over it. The overlay comes and goes

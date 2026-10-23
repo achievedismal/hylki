@@ -201,6 +201,13 @@ pub(super) fn add_item_gestures(
         s.input(GalleryInput::ContextMenu { index, x, y });
     });
     widget.add_controller(right);
+    let long = gtk::GestureLongPress::new();
+    let s = sender.clone();
+    long.connect_pressed(move |gesture, x, y| {
+        gesture.set_state(gtk::EventSequenceState::Claimed);
+        s.input(GalleryInput::ContextMenu { index, x, y });
+    });
+    widget.add_controller(long);
 
     let dbl = gtk::GestureClick::new();
     dbl.set_button(gtk::gdk::BUTTON_PRIMARY);

@@ -16,7 +16,6 @@ use relm4::prelude::*;
 /// Which account to upload to, and how the links are made this time:
 /// the expiry and the password, seeded from the account's settings and
 /// changeable for this upload alone.
-#[allow(deprecated)] // adw::MessageDialog: AlertDialog would change how it looks
 fn cloud_upload_dialog(
     parent: Option<&gtk::Window>,
     accounts: &[crate::services::cloud::CloudAccount],
@@ -27,8 +26,7 @@ fn cloud_upload_dialog(
         return;
     }
     let n = paths.len();
-    let dialog = adw::MessageDialog::new(
-        parent,
+    let dialog = adw::AlertDialog::new(
         Some(i18n("Upload to Cloud Storage").as_str()),
         Some(
             crate::i18n::ni18n_f(
@@ -116,7 +114,7 @@ fn cloud_upload_dialog(
     group.add(&protect);
     group.add(&password);
     let bx = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    bx.set_width_request(400);
+    dialog.set_content_width(440);
     bx.append(&group);
     dialog.set_extra_child(Some(&bx));
 
@@ -143,7 +141,7 @@ fn cloud_upload_dialog(
             link_password,
         });
     });
-    dialog.present();
+    dialog.present(parent);
 }
 
 impl Compose {

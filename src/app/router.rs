@@ -16,6 +16,18 @@ impl AppModel {
     /// Hand `msg` to the module that handles it.
     pub(super) fn route(&mut self, msg: AppMsg, sender: ComponentSender<Self>) {
         match msg {
+            AppMsg::SetCompact(on) => self.set_compact(on),
+            AppMsg::ShowReader => {
+                if let Some(panes) = &self.mail_panes {
+                    panes.show_detail(true);
+                }
+            }
+            AppMsg::MobileBack => {
+                if self.compact {
+                    self.message_list
+                        .emit(crate::ui::message_list::MessageListInput::ReclaimFocus);
+                }
+            }
             // Building a composer holds the window a moment, longest the
             // first time in a session: the pointer turns busy, and that is
             // drawn before the build starts, so the key or click is seen to

@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use crate::i18n::i18n;
 use crate::models::{GalleryItem, GallerySort};
 
+mod adaptive;
 mod cell;
 mod items;
 mod labels;
@@ -87,6 +88,7 @@ pub(crate) struct AttachmentsGallery {
     loading: bool,
     /// Show the sortable table instead of the thumbnail grid (persisted).
     view_table: bool,
+    compact: bool,
     /// Grid thumbnail cell width in px, driven by the footer slider (persisted).
     thumb_width: i32,
     /// The footer type dropdown's row: 0 = all, then one bucket per row.
@@ -135,7 +137,10 @@ impl Component for AttachmentsGallery {
     type CommandOutput = ();
 
     view! {
-        gtk::Overlay {
+        adw::BreakpointBin {
+        set_size_request: (crate::ui::adaptive::PANE_MIN_WIDTH, 200),
+        #[wrap(Some)]
+        set_child = &gtk::Overlay {
             add_css_class: "attachments-gallery",
 
             // Base layer: a search/sort toolbar above the scrolling grid.
@@ -161,6 +166,8 @@ impl Component for AttachmentsGallery {
 
                 gtk::Stack {
                     set_vexpand: true,
+                    set_hhomogeneous: false,
+                    set_vhomogeneous: false,
                     #[watch]
                     set_visible_child_name: model.page(),
 
@@ -206,7 +213,7 @@ impl Component for AttachmentsGallery {
                     flow -> gtk::FlowBox {
                         set_valign: gtk::Align::Start,
                         set_max_children_per_line: 8,
-                        set_min_children_per_line: 3,
+                        set_min_children_per_line: 1,
                         set_row_spacing: 14,
                         set_column_spacing: 14,
                         set_homogeneous: true,
@@ -323,11 +330,13 @@ impl Component for AttachmentsGallery {
 
                 // Footer: view toggle, filtering/ordering, size, count — the
                 // gallery's controls in one place, out of the content's way.
+                #[name = "footer"]
                 gtk::ActionBar {
                     add_css_class: "gallery-footer",
                     #[watch]
                     set_revealed: model.show_chrome(),
 
+                    #[name = "view_buttons"]
                     pack_start = &gtk::Box {
                         add_css_class: "linked",
 
@@ -336,7 +345,7 @@ impl Component for AttachmentsGallery {
                             set_tooltip_text: Some(i18n("Thumbnail grid").as_str()),
                             #[watch]
                             #[block_signal(grid_toggle)]
-                            set_active: !model.view_table,
+                            set_active: !model.table_mode(),
                             connect_clicked[sender] => move |_| {
                                 sender.input(GalleryInput::SetViewTable(false));
                             } @grid_toggle,
@@ -346,7 +355,9 @@ impl Component for AttachmentsGallery {
                             set_tooltip_text: Some(i18n("Table").as_str()),
                             #[watch]
                             #[block_signal(table_toggle)]
-                            set_active: model.view_table,
+                            set_active: model.table_mode(),
+                            #[watch]
+                            set_sensitive: !model.compact,
                             connect_clicked[sender] => move |_| {
                                 sender.input(GalleryInput::SetViewTable(true));
                             } @table_toggle,
@@ -380,7 +391,7 @@ impl Component for AttachmentsGallery {
                             gtk::Box {
                                 set_orientation: gtk::Orientation::Vertical,
                                 set_spacing: 10,
-                                set_width_request: 320,
+                                set_width_request: 240,
 
                                 gtk::ListBox {
                                     add_css_class: "boxed-list",
@@ -430,6 +441,7 @@ impl Component for AttachmentsGallery {
                         },
                     },
 
+                    #[name = "type_dropdown"]
                     pack_start = &gtk::DropDown {
                         set_tooltip_text: Some(i18n("Show only this type").as_str()),
                         #[wrap(Some)]
@@ -469,6 +481,7 @@ impl Component for AttachmentsGallery {
                         },
                     },
 
+                    #[name = "count_label"]
                     pack_end = &gtk::Label {
                         add_css_class: "dim-label",
                         #[watch]
@@ -478,6 +491,7 @@ impl Component for AttachmentsGallery {
                     // What the network is doing, in the one place the gallery
                     // keeps its status: a page on its way, or the scan still
                     // working back through the archive.
+                    #[name = "scan_status"]
                     pack_end = &gtk::Box {
                         set_spacing: 6,
                         set_valign: gtk::Align::Center,
@@ -497,6 +511,7 @@ impl Component for AttachmentsGallery {
                         },
                     },
 
+                    #[name = "thumb_scale"]
                     pack_end = &gtk::Scale {
                         set_range: (140.0, 380.0),
                         set_value: model.thumb_width as f64,
@@ -505,7 +520,7 @@ impl Component for AttachmentsGallery {
                         set_draw_value: false,
                         set_tooltip_text: Some(i18n("Thumbnail size").as_str()),
                         #[watch]
-                        set_visible: !model.view_table,
+                        set_visible: !model.compact && !model.view_table,
                         connect_value_changed[sender] => move |s| {
                             sender.input(GalleryInput::SetThumbWidth(s.value()));
                         },
@@ -656,6 +671,7 @@ impl Component for AttachmentsGallery {
                 },
             },
         }
+        }
     }
 
     fn init(
@@ -681,6 +697,7 @@ impl Component for AttachmentsGallery {
             preview_texture: None,
             loading: false,
             view_table,
+            compact: false,
             thumb_width,
             type_filter: 0,
             account_filter: None,
@@ -702,6 +719,7 @@ impl Component for AttachmentsGallery {
         let table = &model.table;
         let folder_list = &model.folder_list;
         let widgets = view_output!();
+        model.init_adaptive(&root, &widgets, &sender);
 
         // Double-clicking the preview opens the document in its external app.
         let dbl = gtk::GestureClick::new();
@@ -739,6 +757,12 @@ impl Component for AttachmentsGallery {
         _root: &Self::Root,
     ) {
         match msg {
+            GalleryInput::SetCompact(on) => {
+                if self.compact != on {
+                    self.compact = on;
+                    self.rebuild_view(&sender);
+                }
+            }
             GalleryInput::Page {
                 items,
                 total,

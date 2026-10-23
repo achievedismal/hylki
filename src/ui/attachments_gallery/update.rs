@@ -91,7 +91,7 @@ impl AttachmentsGallery {
     pub(super) fn on_removed(&mut self, key: FileKey, sender: &ComponentSender<Self>) {
         let at = self.all_items.iter().position(|i| key_of(i) == key);
         let shown: Option<gtk::Widget> = at.and_then(|at| {
-            if self.view_table {
+            if self.table_mode() {
                 self.table.row_at_index(at as i32).map(|r| r.upcast())
             } else {
                 self.flow.child_at_index(at as i32).map(|c| c.upcast())
@@ -181,6 +181,9 @@ impl AttachmentsGallery {
     }
 
     pub(super) fn on_set_view_table(&mut self, table: bool, sender: &ComponentSender<Self>) {
+        if self.compact {
+            return;
+        }
         if self.view_table != table {
             self.view_table = table;
             self.rebuild_view(sender);
@@ -207,7 +210,7 @@ impl AttachmentsGallery {
 
     pub(super) fn on_apply_thumb_width(&mut self, sender: &ComponentSender<Self>) {
         self.resize_timer = None;
-        if !self.view_table {
+        if !self.table_mode() {
             self.rebuild_view(sender);
         }
         crate::config::save_gallery_thumb_width(self.thumb_width);

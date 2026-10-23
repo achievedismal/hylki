@@ -269,6 +269,10 @@ pub(crate) struct AppModel {
     pub(super) transfer_tally: TransferTally,
     /// The account-list split view, narrowed to icon-only width when collapsed.
     pub(super) sidebar_split: Option<adw::OverlaySplitView>,
+    pub(super) mail_panes: Option<crate::ui::adaptive::AdaptivePanes>,
+    /// Presentation state, never a saved desktop preference.
+    pub(super) compact: bool,
+    pub(super) list_header: Option<adw::HeaderBar>,
     /// The "Hylki" title label, hidden while the sidebar is collapsed.
     pub(super) app_title: Option<gtk::Label>,
     /// Sidebar header. In the icon-only rail its window-control buttons are

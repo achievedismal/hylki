@@ -214,6 +214,9 @@ pub(crate) enum AppMsg {
     /// The narrow-window breakpoint applied/unapplied — collapse the sidebar to
     /// its icon rail (and restore it) without touching the user's preference.
     AutoRail(bool),
+    SetCompact(bool),
+    MobileBack,
+    ShowReader,
     /// The message-pane header's sidebar button: flip the sidebar between the
     /// expanded pane and the icon rail. Routed through the sidebar component so
     /// its CollapsedChanged output drives the same peek/pin/persist logic as

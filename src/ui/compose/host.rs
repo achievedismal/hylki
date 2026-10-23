@@ -14,7 +14,7 @@ use adw::prelude::*;
 use relm4::prelude::*;
 
 /// The narrowest the compose pane goes (its `adw::BreakpointBin` floor).
-pub(super) const COMPOSE_MIN_WIDTH: i32 = 360;
+pub(super) const COMPOSE_MIN_WIDTH: i32 = crate::ui::adaptive::PANE_MIN_WIDTH;
 
 /// Fallback fold threshold when the toolbar could not be measured at init.
 const COMPOSE_ACTIONS_BREAKPOINT: f64 = 620.0;
@@ -85,7 +85,6 @@ pub(super) fn set_toggle_icon(btn: &gtk::Button, windowed: bool) {
 /// Save the edited message, discard it, or go back to it. Escape answers
 /// Keep Editing, so a second press never discards what the first one asked
 /// about (#290).
-#[allow(deprecated)] // adw::MessageDialog: AlertDialog would change how it looks
 fn confirm_discard_dialog(
     parent: Option<&gtk::Window>,
     template: bool,
@@ -104,7 +103,7 @@ fn confirm_discard_dialog(
             i18n("Save Draft"),
         )
     };
-    let dialog = adw::MessageDialog::new(parent, Some(heading.as_str()), Some(body.as_str()));
+    let dialog = adw::AlertDialog::new(Some(heading.as_str()), Some(body.as_str()));
     dialog.add_response("keep", &i18n("Keep Editing"));
     dialog.add_response("discard", &i18n("Discard"));
     dialog.add_response("save", &save);
@@ -119,7 +118,7 @@ fn confirm_discard_dialog(
             _ => ComposeInput::KeepEditing,
         });
     });
-    dialog.present();
+    dialog.present(parent);
 }
 
 impl Compose {
@@ -206,31 +205,53 @@ impl Compose {
         row.grab_focus();
     }
 
-    /// Handles [`ComposeInput::SetNarrow`].
-    pub(super) fn on_set_narrow(
+    /// The phone toolbar keeps Send and Back, with other actions in its menu.
+    pub(super) fn on_set_mobile(
         &mut self,
-        narrow: bool,
+        mobile: bool,
         widgets: &ComposeWidgets,
         root: &adw::BreakpointBin,
     ) {
-        self.narrow = narrow;
-        self.dress_format_buttons();
-        // Folded, the header is as narrow as it gets: the pane goes
-        // no narrower, so a small window stops shrinking rather than
-        // cutting Send off at its edge. Unfolded, the floor drops
-        // back, or the pane could never get narrow enough to fold.
-        let (root, header) = (root.clone(), widgets.header.clone());
-        gtk::glib::idle_add_local_once(move || {
-            let floor = if narrow {
-                header
-                    .measure(gtk::Orientation::Horizontal, -1)
-                    .0
-                    .max(COMPOSE_MIN_WIDTH)
-            } else {
-                COMPOSE_MIN_WIDTH
-            };
-            root.set_size_request(floor, 200);
+        self.mobile = mobile;
+        if mobile {
+            widgets.cancel_btn.set_icon_name("go-previous-symbolic");
+        } else {
+            widgets.cancel_btn.set_label(&i18n("Cancel"));
+        }
+        widgets
+            .header
+            .set_decoration_layout(if mobile { Some(":close") } else { None });
+        widgets.from_row.set_factory(if mobile {
+            None
+        } else {
+            Some(&self.from_factory)
         });
+        widgets.from_row.set_use_subtitle(mobile);
+        let label = self
+            .accounts
+            .get(widgets.from_row.selected() as usize)
+            .map(|a| a.label.as_str())
+            .unwrap_or("");
+        widgets
+            .from_row
+            .set_subtitle(if mobile { label } else { "" });
+        if mobile {
+            root.add_css_class("mobile");
+        } else {
+            root.remove_css_class("mobile");
+        }
+        widgets
+            .editor_holder
+            .set_height_request(if mobile { 200 } else { -1 });
+        self.on_set_narrow(mobile || root.current_breakpoint().is_some(), root);
+    }
+
+    /// Handles [`ComposeInput::SetNarrow`].
+    pub(super) fn on_set_narrow(&mut self, narrow: bool, root: &adw::BreakpointBin) {
+        self.narrow = narrow || self.mobile;
+        self.dress_format_buttons();
+        // Folding must not enlarge the window or prevent the next breakpoint.
+        root.set_size_request(COMPOSE_MIN_WIDTH, 200);
     }
 
     /// Handles [`ComposeInput::OverflowMenu`].
@@ -244,12 +265,40 @@ impl Compose {
             MenuEntry::new(&label, move || s.input_sender().emit(msg()))
                 .icon(format!("{icon}-symbolic"))
         };
-        // Save Draft, Save as Template and Delete Draft are not here:
-        // the Save Draft button and its arrow stay in the header at
-        // any width.
+        // On phones, save and scheduling join the other actions here.
         let mut attach = vec![entry(i18n("Attach files"), "mail-attachment", || {
             ComposeInput::AttachFiles
         })];
+        if self.mobile {
+            attach.insert(
+                0,
+                entry(
+                    if self.template {
+                        i18n("Save Template")
+                    } else {
+                        i18n("Save Draft")
+                    },
+                    "document-save",
+                    || ComposeInput::SaveDraft,
+                ),
+            );
+            if !self.template {
+                attach.insert(
+                    1,
+                    entry(i18n("Save as Template"), "document-save-as", || {
+                        ComposeInput::SaveAsTemplate
+                    }),
+                );
+            }
+            attach.push(entry(i18n("Send later"), "alarm", || {
+                ComposeInput::PickSendTime
+            }));
+            if self.draft_origin.is_some() {
+                attach.push(entry(i18n("Delete Draft"), "user-trash", || {
+                    ComposeInput::DeleteDraft
+                }));
+            }
+        }
         if !self.cloud_accounts.is_empty() {
             attach.push(
                 entry(
@@ -444,5 +493,11 @@ pub(super) fn fold_on_first_map(
         let s2 = s.clone();
         bp.connect_unapply(move |_| s2.input_sender().emit(ComposeInput::SetNarrow(false)));
         root.add_breakpoint(bp);
+        let mobile = crate::ui::adaptive::max_width(500.0);
+        let s1 = s.clone();
+        mobile.connect_apply(move |_| s1.input(ComposeInput::SetMobile(true)));
+        let s2 = s.clone();
+        mobile.connect_unapply(move |_| s2.input(ComposeInput::SetMobile(false)));
+        root.add_breakpoint(mobile);
     });
 }

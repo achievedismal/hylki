@@ -77,17 +77,21 @@ impl Component for Compose {
                             set_label: "",
                         },
 
+                        #[name = "cancel_btn"]
                         pack_start = &gtk::Button {
                             set_label: &i18n("Cancel"),
+                            set_tooltip_text: Some(&i18n("Cancel")),
                             connect_clicked => ComposeInput::Cancel,
                         },
-                        // Save Draft stays, label and all, however narrow the
-                        // pane: it is the one action worth a click in a hurry.
+                        // Save Draft stays on the desktop toolbar; the phone's
+                        // overflow menu carries the same save actions.
                         // Save as Template (#360) beside it, as Send Later
                         // is beside Send; a template being edited has the
                         // one way to be saved.
                         pack_start = &gtk::Box {
                             add_css_class: "linked",
+                            #[watch]
+                            set_visible: !model.mobile,
                             gtk::Button {
                                 set_label: &if model.template { i18n("Save Template") } else { i18n("Save Draft") },
                                 set_tooltip_text: Some(
@@ -153,11 +157,15 @@ impl Component for Compose {
                             // accent behind it so the two read as one control.
                             gtk::Separator {
                                 set_orientation: gtk::Orientation::Vertical,
+                                #[watch]
+                                set_visible: !model.mobile,
                             },
                             gtk::MenuButton {
                                 set_icon_name: "pan-down-symbolic",
                                 add_css_class: "suggested-action",
                                 set_tooltip_text: Some(i18n("Send later").as_str()),
+                                #[watch]
+                                set_visible: !model.mobile,
                                 set_can_focus: false,
                                 #[wrap(Some)]
                                 set_popover = &gtk::Popover {
@@ -356,7 +364,12 @@ impl Component for Compose {
                     },
 
                     #[wrap(Some)]
-                    set_content = &gtk::Box {
+                    #[name = "compose_scroll"]
+                    set_content = &gtk::ScrolledWindow {
+                        set_hscrollbar_policy: gtk::PolicyType::Never,
+                        set_vexpand: true,
+                        #[wrap(Some)]
+                        set_child = &gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
                         set_spacing: 12,
                         add_css_class: "compose-pane",
@@ -430,7 +443,9 @@ impl Component for Compose {
                         gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
                             set_vexpand: true,
+                            set_height_request: 200,
                         },
+                    },
                     },
                 },
             },
@@ -611,6 +626,8 @@ impl Component for Compose {
             fields_shown: crate::config::load_privacy().reply_fields,
             custom_from: false,
             narrow: false,
+            mobile: false,
+            from_factory: gtk::SignalListItemFactory::new(),
             // Files handed in from outside are something to lose: closing
             // asks first, as it would once the user had attached them.
             fields_dirty: handed_files,
@@ -662,6 +679,34 @@ impl Component for Compose {
             widgets.sign_btn.set_active(true);
         }
         widgets.editor_holder.append(&model.editor.widget);
+        // The on-screen keyboard changes the viewport height without moving
+        // focus. Reveal the focused field/editor after allocation settles.
+        let scroll = widgets.compose_scroll.downgrade();
+        let page_size = std::cell::Cell::new(0.0);
+        widgets
+            .compose_scroll
+            .vadjustment()
+            .connect_changed(move |adjustment| {
+                if page_size.replace(adjustment.page_size()) == adjustment.page_size() {
+                    return;
+                }
+                let scroll = scroll.clone();
+                gtk::glib::idle_add_local_once(move || {
+                    let Some(scroll) = scroll.upgrade() else {
+                        return;
+                    };
+                    let Some(viewport) = scroll.child().and_downcast::<gtk::Viewport>() else {
+                        return;
+                    };
+                    if let Some(focus) = scroll
+                        .root()
+                        .and_then(|r| r.focus())
+                        .filter(|f| f.is_ancestor(&viewport))
+                    {
+                        viewport.scroll_to(&focus, None);
+                    }
+                });
+            });
 
         // The inline/window toggle: only reply/forward panes can toggle. Its icon
         // reflects the current host (fullscreen = "expand to window", restore =
@@ -758,7 +803,8 @@ impl Component for Compose {
                         .set_visible(!(self.compact && !self.windowed) || on);
                 }
 
-                ComposeInput::SetNarrow(narrow) => self.on_set_narrow(narrow, widgets, root),
+                ComposeInput::SetMobile(mobile) => self.on_set_mobile(mobile, widgets, root),
+                ComposeInput::SetNarrow(narrow) => self.on_set_narrow(narrow, root),
 
                 ComposeInput::OverflowMenu => self.on_overflow_menu(widgets, &sender),
 

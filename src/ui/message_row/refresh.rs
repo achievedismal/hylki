@@ -611,7 +611,7 @@ impl Row {
         // Hover mode: the palette slides open by itself on the row, and arms
         // the usual collapse timeout on leave.
         let Some(shared) = self.shared() else { return };
-        if !shared.palette_hover.get() || self.data().is_none() {
+        if shared.compact.get() || !shared.palette_hover.get() || self.data().is_none() {
             return;
         }
         if over {

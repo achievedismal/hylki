@@ -110,7 +110,8 @@ pub(super) fn widen_combo_value(row: &adw::ComboRow, extra: i32) {
     }
     if let Some(label) = find(row.upcast_ref::<gtk::Widget>(), &want) {
         let (_, natural, _, _) = label.measure(gtk::Orientation::Horizontal, -1);
-        label.set_width_request(natural + extra);
+        // Prefer the natural width without forcing a phone-sized page wider.
+        label.set_max_width_chars(((natural + extra) / 8).max(1));
     }
 }
 

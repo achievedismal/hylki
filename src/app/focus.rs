@@ -92,10 +92,10 @@ impl AppModel {
                 }
             }
             for r in &tb.outbox {
-                focus_reveal(r, shown);
+                focus_reveal(r, shown && !self.compact);
             }
         }
-        let shown = !self.focus.active(F::ListHeader);
+        let shown = !self.compact && !self.focus.active(F::ListHeader);
         if let Some(lh) = self.list_header_widgets.get() {
             for r in &lh.revealers {
                 focus_reveal(r, shown);

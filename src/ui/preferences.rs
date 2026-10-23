@@ -235,6 +235,7 @@ impl Component for Preferences {
 
     view! {
         adw::Window {
+            set_size_request: (crate::ui::adaptive::MIN_WIDTH, crate::ui::adaptive::MIN_HEIGHT),
             set_modal: false,
             set_default_width: 920,
             // The same size every time: the two-pane layout (#141) fits its
@@ -287,6 +288,11 @@ impl Component for Preferences {
                                 add_css_class: "navigation-sidebar",
                                 add_css_class: "settings-side",
                                 set_selection_mode: gtk::SelectionMode::Single,
+                                connect_row_activated[sender] => move |_, row| {
+                                    if let Some(id) = row.widget_name().strip_prefix("page:") {
+                                        sender.input(PrefInput::SelectPage(id.to_string()));
+                                    }
+                                },
                                 connect_row_selected[sender] => move |_, row| {
                                     if let Some(id) = row
                                         .map(|r| r.widget_name().to_string())

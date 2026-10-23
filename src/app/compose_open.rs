@@ -413,7 +413,7 @@ impl AppModel {
             AppMsg::Compose => {
                 let (account, prefill) =
                     self.new_message_from(self.active_account(), ComposePrefill::default());
-                if self.compose_inline {
+                if self.compact || self.compose_inline {
                     // The new-message pane slides down over the reader,
                     // exactly like an inline reply — same composer, same
                     // pop-out-to-window toggle in its header.

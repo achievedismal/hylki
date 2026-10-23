@@ -37,6 +37,7 @@ macro_rules! pref {
 mod about;
 mod accounts;
 mod actions;
+mod adaptive;
 mod attachments;
 mod boot;
 mod card_menu;
@@ -244,6 +245,7 @@ impl SimpleComponent for AppModel {
                     #[wrap(Some)]
                     #[name = "sidebar_split"]
                     set_content = &adw::OverlaySplitView {
+                    set_enable_show_gesture: false,
                     set_vexpand: true,
                     set_max_sidebar_width: 280.0,
                     // Low enough (with the panes' own minimums) that the whole
@@ -282,6 +284,8 @@ impl SimpleComponent for AppModel {
                     #[name = "content_stack"]
                     gtk::Stack {
                         set_hexpand: true,
+                        set_hhomogeneous: false,
+                        set_vhomogeneous: false,
                         // Swap the mail panes for the attachments gallery or
                         // the contacts view, at once: no transition.
                         #[watch]
@@ -293,6 +297,7 @@ impl SimpleComponent for AppModel {
                             "mail"
                         },
 
+                    #[name = "mail_paned"]
                     add_named[Some("mail")] = &gtk::Paned {
                         set_orientation: gtk::Orientation::Horizontal,
                         // Thin handle so the panes sit flush (just a 1px divider),
@@ -317,6 +322,7 @@ impl SimpleComponent for AppModel {
                                 None::<gtk::glib::SourceId>,
                             ))
                         ] => move |p| {
+                            if !p.is_mapped() { return; }
                             let pos = p.position();
                             // Automatic layout follows the width as it is
                             // dragged, not once the drag has settled (#334).
@@ -325,11 +331,14 @@ impl SimpleComponent for AppModel {
                                 id.remove();
                             }
                             let armed = pending.clone();
+                            let pane = p.downgrade();
                             *pending.borrow_mut() = Some(gtk::glib::timeout_add_local_once(
                                 std::time::Duration::from_millis(600),
                                 move || {
                                     *armed.borrow_mut() = None;
-                                    crate::config::save_list_pane_width(pos);
+                                    if pane.upgrade().is_some_and(|p| p.is_mapped()) {
+                                        crate::config::save_list_pane_width(pos);
+                                    }
                                 },
                             ));
                         },
@@ -345,6 +354,7 @@ impl SimpleComponent for AppModel {
 
                         #[wrap(Some)]
                         set_start_child = &adw::ToolbarView {
+                            #[name = "list_header"]
                             add_top_bar = &adw::HeaderBar {
                                 add_css_class: "flat",
                                 // Middle pane: no window controls (the reader pane's
@@ -358,13 +368,20 @@ impl SimpleComponent for AppModel {
                                 set_title_widget = &gtk::Label {
                                     set_label: "",
                                 },
+                                pack_end = &gtk::Button {
+                                    set_icon_name: "document-edit-symbolic",
+                                    set_tooltip_text: Some(&i18n("New Message")),
+                                    #[watch]
+                                    set_visible: model.compact,
+                                    connect_clicked => AppMsg::Compose,
+                                },
                                 // Leftmost, mirroring the pane it acts on: the
                                 // sidebar expand/collapse toggle (moved here from
                                 // the sidebar's own footer).
                                 pack_start = &gtk::Button {
                                     set_icon_name: "sidebar-show-symbolic",
                                     #[watch]
-                                    set_tooltip_text: Some(if model.rail_active { i18n("Expand sidebar") } else { i18n("Collapse sidebar") }.as_str()),
+                                    set_tooltip_text: Some(if model.compact { i18n("Show folders") } else if model.rail_active { i18n("Expand sidebar") } else { i18n("Collapse sidebar") }.as_str()),
                                     add_css_class: "flat",
                                     connect_clicked[sender] => move |_| sender.input(AppMsg::ToggleSidebar),
                                 },
@@ -735,7 +752,7 @@ impl SimpleComponent for AppModel {
                                     gtk::Button {
                                         add_css_class: "flat",
                                         #[watch]
-                                        set_visible: !model.showing_outbox && !model.reader_actions_collapsed
+                                        set_visible: !model.compact && !model.showing_outbox && !model.reader_actions_collapsed
                                             && model.reader_compose.is_none(),
                                         // The icon shows the ACTION (read envelope =
                                         // "mark as read"), matching the menus.
@@ -847,6 +864,7 @@ impl SimpleComponent for AppModel {
         model.init_reader_toolbar_fold(&widgets, &sender);
         model.init_compose_overlay(&widgets);
         model.init_gallery_page(&widgets, &sender);
+        model.init_adaptive_panes(&widgets, &sender);
         model.install_notification_actions(&sender);
         model.init_window_size(&root, &widgets, &sender);
         model.init_hover_peek(&widgets, &sender);

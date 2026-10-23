@@ -20,12 +20,10 @@ pub(super) fn present(
     let mut contacts = crate::contacts::read_contacts();
     contacts.sort_by_key(|c| c.name.to_lowercase());
 
-    let win = adw::Window::builder()
-        .transient_for(parent)
-        .modal(true)
+    let win = adw::Dialog::builder()
         .title(i18n("Contacts"))
-        .default_width(420)
-        .default_height(560)
+        .content_width(420)
+        .content_height(560)
         .build();
 
     let toolbar = adw::ToolbarView::new();
@@ -115,8 +113,8 @@ pub(super) fn present(
 
     content.append(&scroller);
     toolbar.set_content(Some(&content));
-    win.set_content(Some(&toolbar));
-    win.present();
+    win.set_child(Some(&toolbar));
+    win.present(Some(parent.as_ref()));
 }
 
 /// Open GNOME Contacts showing one contact. Best effort: outside a sandbox

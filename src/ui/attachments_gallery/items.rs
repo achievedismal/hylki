@@ -34,7 +34,7 @@ impl AttachmentsGallery {
         if self.loading && self.all_items.is_empty() {
             "loading"
         } else if !self.all_items.is_empty() {
-            if self.view_table {
+            if self.table_mode() {
                 "table"
             } else {
                 "grid"
@@ -181,7 +181,7 @@ impl AttachmentsGallery {
     /// switching to it rebuilds it, so only one view's widgets are ever built
     /// for a given change.
     pub(super) fn rebuild_view(&mut self, sender: &ComponentSender<Self>) {
-        if self.view_table {
+        if self.table_mode() {
             self.rebuild_table(sender);
         } else {
             self.rebuild_grid(sender);
@@ -205,7 +205,7 @@ impl AttachmentsGallery {
                 self.flow.append(&build_cell(
                     display,
                     item,
-                    self.thumb_width,
+                    if self.compact { 140 } else { self.thumb_width },
                     deleting,
                     sender,
                 ));
@@ -318,7 +318,7 @@ impl AttachmentsGallery {
 
         // Anchor on the clicked cell/row itself so the click point (already
         // relative to it) needs no coordinate translation.
-        let source: Option<gtk::Widget> = if self.view_table {
+        let source: Option<gtk::Widget> = if self.table_mode() {
             self.table.row_at_index(index as i32).map(|r| r.upcast())
         } else {
             self.flow.child_at_index(index as i32).map(|c| c.upcast())

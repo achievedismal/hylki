@@ -5,6 +5,7 @@ use relm4::prelude::*;
 
 use crate::config;
 use crate::ui::compose::{Compose, ComposeInput, ComposePrefill};
+use crate::ui::contacts_page::ContactsPageInput;
 use crate::ui::message_view::MessageViewInput;
 
 use super::compose_host::ReaderCompose;
@@ -182,7 +183,7 @@ impl AppModel {
         answering: (u32, u32),
         sender: &ComponentSender<Self>,
     ) {
-        if self.reply_inline {
+        if self.compact || self.reply_inline {
             self.open_inline_reply(account_id, prefill, Some(answering), sender);
         } else {
             self.open_compose(account_id, prefill, sender);
@@ -197,12 +198,22 @@ impl AppModel {
         focus: Option<(u32, u32)>,
         sender: &ComponentSender<Self>,
     ) {
-        let contextual = focus.is_some();
+        if self.compact {
+            self.leave_gallery();
+            self.set_sidebar_peek(false, true);
+        }
+        let contextual = focus.is_some() && !self.compact;
         // A sent reply still settling into the conversation lands at once:
         // the new composer opens over the pane as it really is.
         self.send_morph.finish();
         // Supersede any composer already in the reader slot first.
         self.release_reader_compose();
+        if let Some(panes) = &self.mail_panes {
+            panes.show_detail(true);
+            panes.detail.set_can_pop(false);
+        }
+        self.contacts_page
+            .emit(ContactsPageInput::ComposeActive(self.showing_contacts));
         let (id, mut init) = self.build_compose_init(account_id, prefill, false, true);
         // The split reply is compact: just the editor, fields behind pop-out.
         init.compact = contextual;

@@ -59,10 +59,12 @@ impl AppModel {
         // Palette can't both fit (280 sidebar + 324 list + 492 reader), so the
         // sidebar drops to its icon rail automatically — this is what keeps the
         // palette whole when the window is tiled to half of a 1920px screen.
-        // With a breakpoint present the window no longer derives its minimum
-        // size from its content, so pin an explicit floor: the sidebar rail
-        // (80) + the list's palette floor (324) + the reader header (~492).
-        root.set_size_request(904, 360);
+        // Breakpoints stop the window deriving its minimum from its children.
+        // The compact layout fits one pane at the phone-sized floor.
+        root.set_size_request(
+            crate::ui::adaptive::MIN_WIDTH,
+            crate::ui::adaptive::MIN_HEIGHT,
+        );
         let narrow = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
             adw::BreakpointConditionLengthType::MaxWidth,
             1094.0,
@@ -75,6 +77,14 @@ impl AppModel {
             narrow.connect_unapply(move |_| s.input(AppMsg::AutoRail(false)));
         }
         root.add_breakpoint(narrow);
+        // Only the last matching breakpoint is active. Compact mode restores
+        // the appropriate desktop rail state when it gives the panes back.
+        let compact = crate::ui::adaptive::max_width(crate::ui::adaptive::COMPACT_WIDTH);
+        let s = sender.clone();
+        compact.connect_apply(move |_| s.input(AppMsg::SetCompact(true)));
+        let s = sender.clone();
+        compact.connect_unapply(move |_| s.input(AppMsg::SetCompact(false)));
+        root.add_breakpoint(compact);
         {
             let s = sender.clone();
             let guard = self.peek_transition.clone();

@@ -7,7 +7,6 @@ use adw::prelude::*;
 use crate::desktop::legacy::Predecessor;
 use crate::i18n::{i18n, i18n_f};
 
-#[allow(deprecated)] // adw::MessageDialog: AlertDialog would change how it looks
 pub(crate) fn show(parent: &impl IsA<gtk::Window>, from: &'static Predecessor) {
     let heading = i18n_f("Welcome to Hylki, formerly {old}", &[("old", from.name)]);
     let mut body = i18n_f(
@@ -27,8 +26,8 @@ pub(crate) fn show(parent: &impl IsA<gtk::Window>, from: &'static Predecessor) {
     // The wordmark sits above the title, so the whole content is one child
     // rather than the dialog's own heading and body (which nothing can go
     // above).
-    let dialog = adw::MessageDialog::new(Some(parent.as_ref()), None, None);
-    dialog.set_size_request(480, -1);
+    let dialog = adw::AlertDialog::new(None, None);
+    dialog.set_content_width(480);
 
     let content = gtk::Box::new(gtk::Orientation::Vertical, 10);
     let wm_pic = crate::ui::welcome::wordmark_picture(120);
@@ -69,7 +68,7 @@ pub(crate) fn show(parent: &impl IsA<gtk::Window>, from: &'static Predecessor) {
     dialog.add_response("ok", &i18n("Got it"));
     dialog.set_default_response(Some("ok"));
     dialog.set_close_response("ok");
-    dialog.present();
+    dialog.present(Some(parent.as_ref()));
 }
 
 /// A command in a monospace field with a Copy button.

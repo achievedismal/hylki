@@ -203,13 +203,24 @@ fn add_double_click_open(
     let dbl = gtk::GestureClick::new();
     dbl.set_button(gtk::gdk::BUTTON_PRIMARY);
     let s = sender.clone();
-    dbl.connect_pressed(move |_, n, _, _| {
-        if n == 2 {
+    dbl.connect_released(move |gesture, n, _, _| {
+        let mobile = gesture
+            .widget()
+            .and_then(|w| w.root())
+            .is_some_and(|root| root.upcast_ref::<gtk::Widget>().has_css_class("mobile"));
+        if n == 2 || mobile {
             s.input_sender()
                 .emit(AttachmentDrawerInput::Activate(index));
         }
     });
     child.add_controller(dbl);
+    let long = gtk::GestureLongPress::new();
+    let s = sender.clone();
+    long.connect_pressed(move |gesture, x, y| {
+        gesture.set_state(gtk::EventSequenceState::Claimed);
+        s.input(AttachmentDrawerInput::ContextMenu { index, x, y });
+    });
+    child.add_controller(long);
 }
 
 /// One row of the drawer's list view: type icon, filename, size, and the same

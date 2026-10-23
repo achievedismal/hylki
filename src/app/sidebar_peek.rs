@@ -43,6 +43,11 @@ impl AppModel {
     /// Close the floating sidebar overlay if it is open — navigation picked in
     /// it is done with it (mirrors how GNOME's own adaptive sidebars behave).
     pub(super) fn close_sidebar_peek(&mut self) {
+        if self.compact {
+            if let Some(panes) = &self.mail_panes {
+                panes.show_detail(false);
+            }
+        }
         if self.sidebar_peek {
             self.rail_active = true;
             self.set_sidebar_peek(false, true);
@@ -66,7 +71,7 @@ impl AppModel {
     /// overlay mode. The docked rail is not involved: it keeps its rows,
     /// header and width throughout and stays clickable beside the panel.
     /// `animate` is advisory — libadwaita animates the overlay itself.
-    fn set_sidebar_peek(&mut self, open: bool, animate: bool) {
+    pub(super) fn set_sidebar_peek(&mut self, open: bool, animate: bool) {
         let Some(peek) = self.peek_split.clone() else {
             return;
         };
@@ -166,6 +171,9 @@ impl AppModel {
     /// Put the rail up or take it down to match [`Self::rail_wanted`],
     /// animating the split the way the toggle does. Persists nothing.
     pub(super) fn sync_rail(&mut self) {
+        if self.compact {
+            return;
+        }
         let want = self.rail_wanted();
         // A floating peek is the expanded sidebar by another name: fold it
         // before the rail goes up under it.
@@ -184,6 +192,10 @@ impl AppModel {
     pub(super) fn on_sidebar_peek(&mut self, msg: AppMsg) {
         match msg {
             AppMsg::SidebarCollapsed(collapsed) => {
+                if self.compact {
+                    self.set_sidebar_peek(false, true);
+                    return;
+                }
                 tracing::info!(
                     "peek: sidebar reports collapsed={collapsed} (peek={} auto_rail={} rail_active={})",
                     self.sidebar_peek, self.auto_rail, self.rail_active
@@ -224,6 +236,9 @@ impl AppModel {
             AppMsg::AutoRail(on) => {
                 tracing::info!("peek: auto-rail {on} (peek={})", self.sidebar_peek);
                 self.auto_rail = on;
+                if self.compact {
+                    return;
+                }
                 if !on && self.sidebar_peek {
                     // Widened with the panel open: fold it back before the
                     // split view returns to side-by-side.
@@ -259,7 +274,7 @@ impl AppModel {
                 // The same peek the expand button opens, dismissed the same
                 // ways (navigation, or a click outside the panel).
                 let rail_up = self.rail_wanted();
-                if self.sidebar_hover_expand && rail_up && !self.sidebar_peek {
+                if !self.compact && self.sidebar_hover_expand && rail_up && !self.sidebar_peek {
                     self.rail_active = false;
                     self.set_sidebar_peek(true, true);
                 }
@@ -273,6 +288,10 @@ impl AppModel {
     /// its CollapsedChanged output drives the same peek/pin/persist logic as
     /// ever (see `SidebarCollapsed`).
     fn toggle_sidebar(&mut self) {
+        if self.compact {
+            self.set_sidebar_peek(!self.sidebar_peek, true);
+            return;
+        }
         tracing::info!(
             "peek: toggle button (peek={} auto_rail={} rail_active={})",
             self.sidebar_peek,

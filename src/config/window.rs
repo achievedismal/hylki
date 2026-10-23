@@ -122,8 +122,16 @@ pub(super) fn window_path() -> Option<PathBuf> {
 pub(crate) fn load_window_state() -> (i32, i32, bool) {
     let file = read_toml::<WindowFile>(window_path()).unwrap_or_default();
     // Guard against absurd/zero sizes from a bad file.
-    let width = if file.width >= 360 { file.width } else { 1280 };
-    let height = if file.height >= 300 { file.height } else { 840 };
+    let width = if file.width >= crate::ui::adaptive::MIN_WIDTH {
+        file.width
+    } else {
+        1280
+    };
+    let height = if file.height >= crate::ui::adaptive::MIN_HEIGHT {
+        file.height
+    } else {
+        840
+    };
     (width, height, file.maximized)
 }
 

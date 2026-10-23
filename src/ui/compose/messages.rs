@@ -27,6 +27,7 @@ pub(crate) enum ComposeInput {
     /// The pane crossed its width breakpoint: fold the toolbar into the ⋯
     /// menu, or spread it out again.
     SetNarrow(bool),
+    SetMobile(bool),
     /// The folded toolbar's ⋯ button: the actions as a menu.
     OverflowMenu,
     /// Cloud attachments (#144): pick files to upload and share.

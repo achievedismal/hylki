@@ -157,6 +157,7 @@ impl SimpleComponent for MessageList {
                         set_propagate_natural_width: true,
                         set_propagate_natural_height: true,
 
+                    #[name = "bulk_controls"]
                     gtk::Box {
                         add_css_class: "bulk-bar",
                         set_spacing: 2,
@@ -264,6 +265,7 @@ impl SimpleComponent for MessageList {
                     #[watch]
                     set_reveal_child: model.search_open || model.search_pinned,
 
+                #[name = "search_controls"]
                 gtk::Box {
                     set_spacing: 6,
                     add_css_class: "list-search-row",
@@ -331,6 +333,8 @@ impl SimpleComponent for MessageList {
         let bulk_tag_btn = model.bulk_tag_btn.clone();
         let headings_bar = model.headings_bar.clone();
         let widgets = view_output!();
+        crate::ui::adaptive::wrap_controls(&widgets.search_controls);
+        crate::ui::adaptive::wrap_controls(&widgets.bulk_controls);
         model.scroller = Some(widgets.scroller.clone());
         link_heading_scroll(&widgets.scroller, &widgets.headings_scroller);
         watch_heading_menu(widgets.headings_area.upcast_ref(), &sender);
@@ -402,6 +406,12 @@ impl SimpleComponent for MessageList {
             MessageListInput::RefreshDates => self.rebuild(),
             MessageListInput::SetSenderLogos(on) => self.on_set_sender_logos(on),
             MessageListInput::SetSingleLine(on) => self.on_set_single_line(on),
+            MessageListInput::SetCompact(on) => {
+                self.shared.compact.set(on);
+                self.list_view.set_single_click_activate(on);
+                self.rebuild();
+                self.shared.refresh_all();
+            }
             MessageListInput::SetColumns(columns) => self.on_set_columns(columns),
             MessageListInput::SetAccountNames { names, graph } => {
                 self.on_set_account_names(names, graph)

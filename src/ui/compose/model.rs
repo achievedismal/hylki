@@ -90,6 +90,8 @@ pub(crate) struct Compose {
     /// Send and the fields chevron folds into the ⋯ menu (like the reader's
     /// header), so the window controls at the end never leave the canvas.
     pub(super) narrow: bool,
+    pub(super) mobile: bool,
+    pub(super) from_factory: gtk::SignalListItemFactory,
     /// A recipient/subject field was edited since open (body edits are tracked
     /// separately by the editor itself). Used for save-if-dirty.
     pub(super) fields_dirty: bool,

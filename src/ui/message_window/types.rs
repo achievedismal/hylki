@@ -105,6 +105,7 @@ pub(crate) enum MessageWindowInput {
     SetCardAttachmentsShown(bool),
     /// The window crossed the width the whole toolbar needs.
     SetCollapsed(bool),
+    SetMobile(bool),
     /// Hand this to the attachment drawer (a deletion's progress, #289).
     Drawer(AttachmentDrawerInput),
     /// Show the lightbox over these previewable attachments.

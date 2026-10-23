@@ -111,6 +111,10 @@ impl Component for Welcome {
     fn init_root() -> Self::Root {
         let win = adw::Window::new();
         win.set_default_size(600, 700);
+        win.set_size_request(
+            crate::ui::adaptive::MIN_WIDTH,
+            crate::ui::adaptive::MIN_HEIGHT,
+        );
         win.add_css_class("welcome-window");
         win.set_title(Some(i18n("Welcome to Hylki").as_str()));
         win
@@ -384,6 +388,22 @@ impl Component for Welcome {
             &widgets.wordmark_frame,
             &widgets.wordmark_box,
         );
+        let compact = crate::ui::adaptive::max_width(500.0);
+        let (win, carousel) = (root.downgrade(), widgets.carousel.clone());
+        compact.connect_apply(move |_| {
+            if let Some(win) = win.upgrade() {
+                win.add_css_class("mobile");
+            }
+            carousel.notify("position");
+        });
+        let (win, carousel) = (root.downgrade(), widgets.carousel.clone());
+        compact.connect_unapply(move |_| {
+            if let Some(win) = win.upgrade() {
+                win.remove_css_class("mobile");
+            }
+            carousel.notify("position");
+        });
+        root.add_breakpoint(compact);
 
         // Screenshot hook, mirroring the main window's: HYLKI_SHOWCASE=path
         // captures the wizard after a beat; HYLKI_SHOWCASE_PAGE=N walks to

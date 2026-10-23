@@ -118,6 +118,7 @@ impl Component for MessageWindow {
             in_junk: init.in_junk,
             restorable: init.restorable,
             collapsed: false,
+            mobile: false,
             window: root.clone(),
             content: gtk::Overlay::new(),
             bar: Toolbar {
@@ -147,6 +148,12 @@ impl Component for MessageWindow {
                 let _ = s.send(MessageWindowInput::SetCollapsed(false));
             });
             root.add_breakpoint(model.bar.breakpoint.clone());
+            let mobile = crate::ui::adaptive::max_width(500.0);
+            let s = sender.clone();
+            mobile.connect_apply(move |_| s.input(MessageWindowInput::SetMobile(true)));
+            let s = sender.clone();
+            mobile.connect_unapply(move |_| s.input(MessageWindowInput::SetMobile(false)));
+            root.add_breakpoint(mobile);
         }
         model.relayout_toolbar();
         model.sync_toolbar();
@@ -277,6 +284,18 @@ impl Component for MessageWindow {
             }
             MessageWindowInput::SetCollapsed(on) => {
                 self.collapsed = on;
+                self.sync_toolbar();
+            }
+            MessageWindowInput::SetMobile(on) => {
+                self.mobile = on;
+                self.bar
+                    .header
+                    .set_decoration_layout(if on { Some(":close") } else { None });
+                if on {
+                    self.window.add_css_class("mobile");
+                } else {
+                    self.window.remove_css_class("mobile");
+                }
                 self.sync_toolbar();
             }
             MessageWindowInput::Drawer(input) => self.drawer.emit(input),

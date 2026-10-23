@@ -54,6 +54,8 @@ impl Component for ContactsPage {
         #[name = "page_stack"]
         gtk::Stack {
             set_transition_type: gtk::StackTransitionType::Crossfade,
+            set_hhomogeneous: false,
+            set_vhomogeneous: false,
 
             // No contacts at all (or still loading the first read).
             add_named[Some("none")] = &adw::ToolbarView {
@@ -104,6 +106,7 @@ impl Component for ContactsPage {
             // divider between them runs the full height of the window; the
             // paned handle lets the list grow, with its launch width as the
             // floor.
+            #[name = "browser_paned"]
             add_named[Some("browser")] = &gtk::Paned {
                 set_orientation: gtk::Orientation::Horizontal,
                 set_wide_handle: false,
@@ -119,22 +122,27 @@ impl Component for ContactsPage {
                         None::<gtk::glib::SourceId>,
                     ))
                 ] => move |p| {
+                    if !p.is_mapped() { return; }
                     let pos = p.position();
                     if let Some(id) = pending.borrow_mut().take() {
                         id.remove();
                     }
                     let armed = pending.clone();
+                    let pane = p.downgrade();
                     *pending.borrow_mut() = Some(gtk::glib::timeout_add_local_once(
                         std::time::Duration::from_millis(600),
                         move || {
                             *armed.borrow_mut() = None;
-                            crate::config::save_contacts_pane_width(pos);
+                            if pane.upgrade().is_some_and(|p| p.is_mapped()) {
+                                crate::config::save_contacts_pane_width(pos);
+                            }
                         },
                     ));
                 },
 
                 #[wrap(Some)]
                 set_start_child = &adw::ToolbarView {
+                    #[name = "list_header"]
                     add_top_bar = &adw::HeaderBar {
                         add_css_class: "flat",
                         // Left pane: no window controls (the detail pane's
@@ -174,6 +182,8 @@ impl Component for ContactsPage {
                         },
                         #[name = "count_label"]
                         pack_end = &gtk::Label {
+                            #[watch]
+                            set_visible: !model.compact,
                             set_valign: gtk::Align::Center,
                             add_css_class: "list-count",
                         },
@@ -253,6 +263,8 @@ impl Component for ContactsPage {
                             gtk::ListView {
                                 add_css_class: "navigation-sidebar",
                                 add_css_class: "contacts-listbox",
+                                set_single_click_activate: true,
+                                connect_activate[sender] => move |_, position| sender.input(ContactsPageInput::OpenDetail(position)),
                             },
                         },
                     },
@@ -318,6 +330,8 @@ impl Component for ContactsPage {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let mut model = ContactsPage {
+            panes: None,
+            compact: false,
             contacts: Vec::new(),
             query: String::new(),
             sort: ContactSort::FirstName,
@@ -355,6 +369,15 @@ impl Component for ContactsPage {
         };
         let widgets = view_output!();
         widgets.detail_overlay.add_overlay(&compose_slot);
+        root.remove(&widgets.browser_paned);
+        let panes = crate::ui::adaptive::AdaptivePanes::new(
+            &widgets.browser_paned,
+            &i18n("Contacts"),
+            &i18n("Contact"),
+            crate::ui::adaptive::COMPACT_WIDTH,
+        );
+        root.add_named(&panes.view, Some("browser"));
+        model.panes = Some(panes);
 
         // Delete on the list asks to remove the contact being looked at. The
         // controller sits on the list, not the page, so Delete inside the
@@ -417,6 +440,35 @@ impl Component for ContactsPage {
         _root: &Self::Root,
     ) {
         let flow = match message {
+            ContactsPageInput::SetCompact(on) => {
+                self.compact = on;
+                if let Some(panes) = &self.panes {
+                    panes.set_compact(on);
+                }
+                widgets.list_header.set_show_start_title_buttons(on);
+                widgets.list_header.set_show_end_title_buttons(on);
+                widgets
+                    .list_header
+                    .set_decoration_layout(if on { Some(":close") } else { None });
+                Flow::Continue(())
+            }
+            ContactsPageInput::OpenDetail(position) => {
+                self.selection.select_item(position, true);
+                let flow = self.on_selection_changed(widgets, sender.clone());
+                if let Some(panes) = &self.panes {
+                    panes.show_detail(true);
+                }
+                flow
+            }
+            ContactsPageInput::ComposeActive(on) => {
+                if let Some(panes) = &self.panes {
+                    panes.detail.set_can_pop(!on);
+                    if on {
+                        panes.show_detail(true);
+                    }
+                }
+                Flow::Continue(())
+            }
             ContactsPageInput::SetLoading => self.on_set_loading(widgets, sender.clone()),
             // A read that comes in while a form is open waits in `pending`
             // until the form closes.

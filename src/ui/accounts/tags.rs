@@ -64,7 +64,6 @@ impl AccountsWindow {
     /// The tag finder's report: every keyword found that is not a tag here
     /// yet, each with a proposed name and color, ticked to be imported.
     /// "Import All" takes the lot; "Import Selected" only the ticked ones.
-    #[allow(deprecated)] // adw::MessageDialog: AlertDialog would change how it looks
     fn show_tag_findings(
         &self,
         parent: Option<&gtk::Window>,
@@ -72,21 +71,19 @@ impl AccountsWindow {
         sender: &ComponentSender<Self>,
     ) {
         if found.is_empty() {
-            let dialog = adw::MessageDialog::new(
-                parent,
+            let dialog = adw::AlertDialog::new(
                 Some(i18n("No New Tags").as_str()),
                 Some(i18n("Every tag in your mailboxes is already set up here.").as_str()),
             );
             dialog.add_response("ok", &i18n("OK"));
             dialog.set_default_response(Some("ok"));
             dialog.set_close_response("ok");
-            dialog.present();
+            dialog.present(parent);
             return;
         }
 
         let n = found.len();
-        let dialog = adw::MessageDialog::new(
-            parent,
+        let dialog = adw::AlertDialog::new(
             Some(i18n("Tags Found").as_str()),
             Some(
                 i18n_f(
@@ -131,7 +128,7 @@ impl AccountsWindow {
         scroller.set_max_content_height(360);
         // Wider than the dialog's default column, so a row's keyword, count
         // and folders read on a line or two.
-        scroller.set_size_request(520, -1);
+        dialog.set_content_width(560);
         scroller.set_child(Some(&list));
         dialog.set_extra_child(Some(&scroller));
 
@@ -160,7 +157,7 @@ impl AccountsWindow {
                 s.input_sender().emit(AccountsInput::ImportTags(tags));
             }
         });
-        dialog.present();
+        dialog.present(parent);
     }
 
     /// The Tags list (#71): a row per tag — its color as a disc, its name,

@@ -29,7 +29,7 @@ pub(super) struct ReaderToolbarWidgets {
     /// The Outbox's own buttons' revealers (Edit, Send, Send all).
     pub(super) outbox: Vec<gtk::Revealer>,
     spinner: gtk::Widget,
-    bin: adw::BreakpointBin,
+    pub(super) bin: adw::BreakpointBin,
     breakpoint: adw::Breakpoint,
     /// The row's cost with every action button gone (padding, spacing…).
     base: i32,
@@ -109,7 +109,7 @@ impl AppModel {
     /// enabled under the same conditions. The left group never folds.
     fn show_reader_overflow_menu(&self, sender: &ComponentSender<Self>) {
         let has_current = self.current.is_some();
-        let focus = self.focus.active(config::FocusPart::ReaderToolbar);
+        let focus = self.compact || self.focus.active(config::FocusPart::ReaderToolbar);
         let sections = if self.showing_outbox {
             self.outbox_overflow_sections(has_current, focus, sender)
         } else {
@@ -278,6 +278,7 @@ impl AppModel {
     pub(super) fn toolbar_visible(&self, item: config::ToolbarItem) -> bool {
         use config::ToolbarSide;
         self.reader_compose.is_none()
+            && (!self.compact || item == config::ToolbarItem::Reply)
             && (item == config::ToolbarItem::Delete || !self.showing_outbox)
             && match self.reader_toolbar.side(item) {
                 Some(ToolbarSide::Left) => true,
@@ -291,7 +292,7 @@ impl AppModel {
     /// Outbox keeps View Source there regardless).
     pub(super) fn reader_overflow_wanted(&self) -> bool {
         // Focus Mode folds the whole row in, so the ⋯ is the toolbar.
-        if self.focus.active(config::FocusPart::ReaderToolbar) {
+        if self.compact || self.focus.active(config::FocusPart::ReaderToolbar) {
             return true;
         }
         self.reader_actions_collapsed

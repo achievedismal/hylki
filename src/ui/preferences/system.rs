@@ -73,12 +73,11 @@ pub(super) fn storage_text(storage: Option<(u64, u64, u64)>) -> String {
 }
 
 /// A plain error alert over the settings window.
-#[allow(deprecated)] // adw::MessageDialog: AlertDialog would change how it looks
 fn report(parent: &adw::Window, heading: &str, body: &str) {
-    let dialog = adw::MessageDialog::new(Some(parent), Some(heading), Some(body));
+    let dialog = adw::AlertDialog::new(Some(heading), Some(body));
     dialog.add_response("ok", &i18n("OK"));
     dialog.set_close_response("ok");
-    dialog.present();
+    dialog.present(Some(parent));
 }
 
 impl Preferences {

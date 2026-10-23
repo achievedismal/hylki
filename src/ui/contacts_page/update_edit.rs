@@ -36,6 +36,9 @@ impl ContactsPage {
         widgets: &mut ContactsPageWidgets,
         sender: ComponentSender<Self>,
     ) -> Flow {
+        if let Some(panes) = &self.panes {
+            panes.show_detail(true);
+        }
         if let Some(idx) = self.selected.filter(|&i| i < DIRECTORY) {
             self.edit(widgets, &sender, idx);
         }
@@ -48,6 +51,9 @@ impl ContactsPage {
         sender: ComponentSender<Self>,
         idx: usize,
     ) -> Flow {
+        if let Some(panes) = &self.panes {
+            panes.show_detail(true);
+        }
         if idx < self.contacts.len() {
             self.selected = Some(idx);
             self.select_row_for(idx);
@@ -61,6 +67,9 @@ impl ContactsPage {
         widgets: &mut ContactsPageWidgets,
         sender: ComponentSender<Self>,
     ) -> Flow {
+        if let Some(panes) = &self.panes {
+            panes.show_detail(true);
+        }
         self.new_form(widgets);
         self.render_editor(widgets, &sender);
         Flow::Continue(())
@@ -71,6 +80,9 @@ impl ContactsPage {
         widgets: &mut ContactsPageWidgets,
         sender: ComponentSender<Self>,
     ) -> Flow {
+        if let Some(panes) = &self.panes {
+            panes.show_detail(true);
+        }
         self.new_form(widgets);
         self.render_group_editor(widgets, &sender);
         Flow::Continue(())

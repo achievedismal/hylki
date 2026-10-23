@@ -164,6 +164,7 @@ pub(crate) enum MessageListInput {
     LookSettled,
     /// Lay the rows out on one line, or as cards (#334).
     SetSingleLine(bool),
+    SetCompact(bool),
     /// The single-line columns, in order (#334).
     SetColumns(Vec<crate::config::ListColumn>),
     /// Show the column headings over a single-line list, or not (#334).
@@ -414,6 +415,8 @@ pub(crate) enum MessageListInput {
 
 #[derive(Debug)]
 pub(crate) enum MessageListOutput {
+    /// Deliberate navigation, separate from selection restored by a rebuild.
+    OpenReader,
     /// The view the app asked to be shown as kept was not: send its
     /// messages.
     ViewMissed,

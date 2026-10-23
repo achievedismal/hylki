@@ -75,6 +75,7 @@ pub(crate) enum GalleryInput {
     SortColumn(u8),
     /// Switch between the thumbnail grid and the table.
     SetViewTable(bool),
+    SetCompact(bool),
     /// The footer size slider moved (grid thumbnail width, px).
     SetThumbWidth(f64),
     /// The size slider settled — rebuild the grid at the new width.

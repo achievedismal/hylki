@@ -90,18 +90,13 @@ pub(super) fn build_toolbar(
 }
 
 impl MessageWindow {
-    /// With breakpoints a window's minimum width is its own size request,
-    /// not its content's, and narrower content is cut off at the right. The
-    /// toolbar folds to fit, but the reader and the drawer's header cannot,
-    /// so the window is kept at least as wide as they need. Measured once
-    /// the drawer has taken in its files.
+    /// Toolbars fold and attachment controls wrap; loading an attachment must
+    /// not raise a phone window's minimum width to the desktop header's width.
     pub(super) fn fit_min_width(&self) {
-        let window = self.window.clone();
-        let content = self.content.clone();
-        gtk::glib::idle_add_local_once(move || {
-            let need = content.measure(gtk::Orientation::Horizontal, -1).0;
-            window.set_size_request(need.max(360), 294);
-        });
+        self.window.set_size_request(
+            crate::ui::adaptive::MIN_WIDTH,
+            crate::ui::adaptive::MIN_HEIGHT,
+        );
     }
 
     pub(super) fn button(&self, item: ToolbarItem) -> Option<&gtk::Button> {
@@ -173,6 +168,9 @@ impl MessageWindow {
         for (item, b) in &self.bar.buttons {
             let right = self.toolbar.right.contains(item);
             let mut visible = !(right && self.collapsed);
+            if self.mobile {
+                visible = *item == ToolbarItem::Reply;
+            }
             if *item == ToolbarItem::Tags {
                 visible &= !self.tags.is_empty();
             }
@@ -221,7 +219,7 @@ impl MessageWindow {
         }
         self.bar
             .overflow
-            .set_visible(self.collapsed && !self.toolbar.right.is_empty());
+            .set_visible(self.mobile || (self.collapsed && !self.toolbar.right.is_empty()));
         let loading = !self.attachments_loading.is_empty();
         self.bar.spinner.set_spinning(loading);
         self.bar.spinner.set_visible(loading);
@@ -270,7 +268,16 @@ impl MessageWindow {
             .icon(format!("{}-symbolic", action.icon()))
         };
         let mut section = Vec::new();
-        for item in &self.toolbar.right {
+        let items: Vec<_> = if self.mobile {
+            self.toolbar
+                .left
+                .iter()
+                .chain(&self.toolbar.right)
+                .collect()
+        } else {
+            self.toolbar.right.iter().collect()
+        };
+        for item in items {
             match item {
                 ToolbarItem::Reply => section.push(entry(A::Reply, || MessageWindowInput::Reply)),
                 ToolbarItem::ReplyAll => {

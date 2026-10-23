@@ -24,6 +24,7 @@ use super::types::UnifiedView;
 /// What the message list reports, as the message it means here.
 fn message_list_output_msg(out: MessageListOutput) -> AppMsg {
     match out {
+        MessageListOutput::OpenReader => AppMsg::ShowReader,
         MessageListOutput::Selected {
             message,
             thread,

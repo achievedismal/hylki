@@ -76,6 +76,7 @@ impl Component for MessageView {
                     #[watch]
                     set_reveal_child: model.blocked && model.show_banner,
 
+                    #[name = "remote_controls"]
                     gtk::Box {
                         add_css_class: "remote-alert",
                         set_spacing: 8,
@@ -115,6 +116,7 @@ impl Component for MessageView {
                     #[watch]
                     set_reveal_child: model.find_open,
 
+                    #[name = "find_controls"]
                     gtk::Box {
                         add_css_class: "reader-find",
                         set_spacing: 6,
@@ -194,6 +196,7 @@ impl Component for MessageView {
                     set_orientation: gtk::Orientation::Vertical,
                     set_spacing: 12,
 
+                    #[name = "message_controls"]
                     gtk::Box {
                         set_orientation: gtk::Orientation::Horizontal,
                         set_spacing: 12,
@@ -389,6 +392,9 @@ impl Component for MessageView {
 
         let header_tags = gtk::Box::new(gtk::Orientation::Horizontal, 4);
         let widgets = view_output!();
+        crate::ui::adaptive::wrap_controls(&widgets.remote_controls);
+        crate::ui::adaptive::wrap_controls(&widgets.find_controls);
+        crate::ui::adaptive::wrap_controls(&widgets.message_controls);
         model.find_entry = Some(widgets.find_entry.clone());
         model.loading_page = Some(widgets.loading_page.clone());
         model.account_chip = Some(widgets.account_chip.clone());

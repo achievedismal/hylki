@@ -75,7 +75,14 @@ impl AppModel {
                 message: m,
                 thread,
                 solo,
-            } => self.on_message_selected(m, thread, solo, sender),
+            } => {
+                if !self.compact {
+                    if let Some(panes) = &self.mail_panes {
+                        panes.show_detail(true);
+                    }
+                }
+                self.on_message_selected(m, thread, solo, sender);
+            }
 
             AppMsg::ThreadGrew { message: m, thread } => self.on_thread_grew(m, thread),
 
@@ -164,7 +171,13 @@ impl AppModel {
                     .current
                     .as_ref()
                     .is_some_and(|c| c.id == message.id && c.account_id == message.account_id);
-                if still_current {
+                if still_current
+                    && (!self.compact
+                        || self
+                            .mail_panes
+                            .as_ref()
+                            .is_some_and(|p| p.navigation.shows_content()))
+                {
                     self.mark_opened_read(&message);
                 }
             }

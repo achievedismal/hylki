@@ -89,6 +89,7 @@ impl Default for RowLook {
 
 /// What every row shares with the list.
 pub(crate) struct RowShared {
+    pub(crate) compact: Cell<bool>,
     pub(crate) look: RefCell<RowLook>,
     /// The tags (#71): the chips a row shows are the message's keywords that
     /// name one of these.
@@ -134,6 +135,7 @@ impl RowShared {
         let selection = gtk::MultiSelection::new(Some(model.clone()));
         let privacy = crate::config::load_privacy();
         Rc::new(RowShared {
+            compact: Cell::new(false),
             look: RefCell::new(RowLook::default()),
             tags: RefCell::new(Vec::new()),
             account_names: RefCell::new(HashMap::new()),

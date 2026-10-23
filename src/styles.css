@@ -1393,6 +1393,38 @@ flowbox.attach-flow > flowboxchild {
 
 /* ---- Reader ---- */
 
+/* Compact layouts use touch-sized controls rather than the desktop's dense
+   icon palettes. The breakpoint class follows space, including text scaling. */
+.mobile headerbar.reader-toolbar button.image-button,
+.mobile headerbar.compose-toolbar button.image-button,
+.mobile .palette-toggle {
+  min-width: 36px;
+  min-height: 36px;
+}
+.mobile .reader-header {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.mobile .palette-toggle {
+  opacity: 1;
+}
+.mobile-menu button.context-menu-item {
+  min-height: 32px;
+}
+.mobile .compose-toolbar .send-split,
+.mobile .compose-toolbar .send-split > button:dir(ltr):first-child,
+.mobile .compose-toolbar .send-split > button:dir(rtl):first-child {
+  border-radius: 6px;
+}
+.welcome-page {
+  margin-left: 48px;
+  margin-right: 48px;
+}
+.mobile .welcome-page {
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
 /* The reader pane's toolbar: tighter than stock between the action icons —
    narrower buttons and less gap in the packed start/end groups — so the full
    row fits down to READER_ACTIONS_BREAKPOINT before folding into the ⋯ menu. */

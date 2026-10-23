@@ -248,11 +248,12 @@ impl AppModel {
     /// Tell the list whether to lay messages out on one line (#334): the
     /// Layout setting, or for Automatic, the width of the pane.
     pub(super) fn push_single_line(&self) {
-        let on = match self.list_layout {
-            config::ListLayout::Cards => false,
-            config::ListLayout::SingleLine => true,
-            config::ListLayout::Automatic => self.list_wide,
-        };
+        let on = !self.compact
+            && match self.list_layout {
+                config::ListLayout::Cards => false,
+                config::ListLayout::SingleLine => true,
+                config::ListLayout::Automatic => self.list_wide,
+            };
         self.message_list.emit(MessageListInput::SetSingleLine(on));
     }
 

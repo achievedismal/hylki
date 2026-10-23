@@ -361,6 +361,12 @@ impl MessageList {
     }
 
     pub(super) fn on_row_activated(&mut self, index: i32, sender: &ComponentSender<Self>) {
+        if self.shared.compact.get() {
+            if let Some(m) = self.shown.get(index as usize) {
+                sender.input(MessageListInput::SelectAndLoad((m.account_id, m.id)));
+            }
+            return;
+        }
         // With Gmail's keys, Enter on the row the cursor reached opens
         // it here, as o does, checked or not (#392); a row already
         // open goes to a window.
@@ -459,6 +465,7 @@ impl MessageList {
                 thread,
                 solo,
             });
+            let _ = sender.output(MessageListOutput::OpenReader);
         } else {
             // Not listed yet: mail that has only just arrived, whose
             // notification was clicked before its folder's list was in.

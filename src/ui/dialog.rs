@@ -2,10 +2,7 @@
 //! with only OK, and the question asked before something that cannot be
 //! taken back.
 //!
-//! They are `adw::MessageDialog`, deprecated in libadwaita 1.6 for
-//! `adw::AlertDialog`; that one is a sheet inside the window rather than a
-//! window of its own, which would change how every dialog looks, so the
-//! deprecation is allowed where a dialog is built.
+//! AlertDialog presents inside the parent and fits narrow phone windows.
 
 use std::cell::RefCell;
 
@@ -16,7 +13,6 @@ use crate::i18n::i18n;
 /// Asks before something that cannot be undone: Cancel, which is also the
 /// default and what closing the dialog means, or the destructive
 /// `response` labelled `label`, which runs `on_confirm` once.
-#[allow(deprecated)] // adw::MessageDialog, see the module comment
 pub(crate) fn confirm_destructive(
     parent: Option<&gtk::Window>,
     heading: &str,
@@ -25,7 +21,7 @@ pub(crate) fn confirm_destructive(
     label: &str,
     on_confirm: impl FnOnce() + 'static,
 ) {
-    let dialog = adw::MessageDialog::new(parent, Some(heading), Some(body));
+    let dialog = adw::AlertDialog::new(Some(heading), Some(body));
     dialog.add_response("cancel", &i18n("Cancel"));
     dialog.add_response(response, label);
     dialog.set_default_response(Some("cancel"));
@@ -39,13 +35,12 @@ pub(crate) fn confirm_destructive(
             }
         }
     });
-    dialog.present();
+    dialog.present(parent);
 }
 
 /// A message with only an OK button, over `parent`.
-#[allow(deprecated)] // adw::MessageDialog, see the module comment
 pub(super) fn alert(parent: Option<&gtk::Window>, heading: &str, body: &str) {
-    let dialog = adw::MessageDialog::new(parent, Some(heading), Some(body));
+    let dialog = adw::AlertDialog::new(Some(heading), Some(body));
     dialog.add_response("ok", &i18n("OK"));
-    dialog.present();
+    dialog.present(parent);
 }

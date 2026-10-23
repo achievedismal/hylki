@@ -102,7 +102,6 @@ pub(super) fn next_monday(hour: u32) -> i64 {
 /// The Send Later picker (#145): a calendar and an hour/minute pair, starting
 /// from the scheduled time if there is one, else the next full hour. A time
 /// already past is refused rather than queued to go at once by surprise.
-#[allow(deprecated)] // adw::MessageDialog: AlertDialog would change how it looks
 pub(super) fn pick_send_time(
     parent: Option<&gtk::Window>,
     current: Option<i64>,
@@ -119,7 +118,7 @@ pub(super) fn pick_send_time(
             n.with_minute(0).and_then(|n| n.with_second(0)).unwrap_or(n)
         }
     };
-    let dialog = adw::MessageDialog::new(parent, Some(i18n("Send later").as_str()), None);
+    let dialog = adw::AlertDialog::new(Some(i18n("Send later").as_str()), None);
     dialog.add_response("cancel", &i18n("Cancel"));
     dialog.add_response("ok", &i18n("Schedule"));
     dialog.set_default_response(Some("ok"));
@@ -156,7 +155,8 @@ pub(super) fn pick_send_time(
             .single()
             .map(|t| t.timestamp())
     };
-    dialog.connect_response(None, move |dlg, resp| {
+    let parent_weak = parent.map(|w| w.downgrade());
+    dialog.connect_response(None, move |_, resp| {
         if resp != "ok" {
             return;
         }
@@ -168,14 +168,14 @@ pub(super) fn pick_send_time(
                 // An explicit time in the past is a slip, not a request to
                 // send at once.
                 alert(
-                    dlg.transient_for().as_ref(),
+                    parent_weak.as_ref().and_then(|w| w.upgrade()).as_ref(),
                     i18n("That time has passed").as_str(),
                     i18n("Choose a time later than now.").as_str(),
                 );
             }
         }
     });
-    dialog.present();
+    dialog.present(parent);
 }
 
 impl Compose {
@@ -379,6 +379,14 @@ impl Compose {
     pub(super) fn on_account_changed(&mut self, widgets: &ComposeWidgets) {
         self.follow_account_signing(widgets);
         let idx = widgets.from_row.selected() as usize;
+        if self.mobile {
+            widgets.from_row.set_subtitle(
+                self.accounts
+                    .get(idx)
+                    .map(|a| a.label.as_str())
+                    .unwrap_or(""),
+            );
+        }
         // Another account may suggest from elsewhere: what a
         // directory answered for the last one is not kept.
         let account_changed = self
@@ -755,8 +763,15 @@ impl Compose {
         let labels: Vec<&str> = self.accounts.iter().map(|a| a.label.as_str()).collect();
         let strings = gtk::StringList::new(&labels);
         widgets.from_row.set_model(Some(&strings));
+        widgets
+            .from_row
+            .set_expression(Some(gtk::PropertyExpression::new(
+                gtk::StringObject::static_type(),
+                None::<gtk::Expression>,
+                "string",
+            )));
         // Custom factory so the selected account isn't needlessly ellipsized.
-        let factory = gtk::SignalListItemFactory::new();
+        let factory = self.from_factory.clone();
         factory.connect_setup(|_, item| {
             if let Some(item) = item.downcast_ref::<gtk::ListItem>() {
                 let label = gtk::Label::new(None);

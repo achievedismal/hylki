@@ -5,6 +5,7 @@ use relm4::prelude::*;
 
 use crate::config;
 use crate::ui::compose::{Compose, ComposeInput, ComposePrefill};
+use crate::ui::contacts_page::ContactsPageInput;
 use crate::ui::message_list::MessageListInput;
 use crate::ui::message_view::MessageViewInput;
 
@@ -71,6 +72,10 @@ impl AppModel {
         prefill: ComposePrefill,
         sender: &ComponentSender<Self>,
     ) {
+        if self.compact {
+            self.open_inline_reply(account_id, prefill, None, sender);
+            return;
+        }
         let (id, init) = self.build_compose_init(account_id, prefill, true, false);
         let controller = self.spawn_compose(init, sender);
         let window = self.compose_window_host(controller.widget(), id, sender);
@@ -223,6 +228,11 @@ impl AppModel {
     /// out to a window it lives on independently; if inline, ask it to save-if-
     /// dirty and let it drain closed.
     pub(super) fn release_reader_compose(&mut self) {
+        if let Some(panes) = &self.mail_panes {
+            panes.detail.set_can_pop(true);
+        }
+        self.contacts_page
+            .emit(ContactsPageInput::ComposeActive(false));
         let Some(r) = self.reader_compose.take() else {
             return;
         };
@@ -293,6 +303,12 @@ impl AppModel {
             }
         }
         r.controller.emit(ComposeInput::FocusInitial);
+        if let Some(panes) = &self.mail_panes {
+            panes.detail.set_can_pop(r.window.is_some());
+        }
+        self.contacts_page.emit(ContactsPageInput::ComposeActive(
+            self.showing_contacts && r.window.is_none(),
+        ));
         self.reader_compose = Some(r);
     }
 
@@ -306,6 +322,14 @@ impl AppModel {
             return;
         }
         if let Some(r) = self.reader_compose.take_if(|r| r.id == id) {
+            self.contacts_page
+                .emit(ContactsPageInput::ComposeActive(false));
+            if let Some(panes) = &self.mail_panes {
+                panes.detail.set_can_pop(true);
+                if self.compact && self.current.is_none() {
+                    panes.show_detail(false);
+                }
+            }
             match r.window {
                 Some(window) => {
                     window.set_content(None::<&gtk::Widget>);

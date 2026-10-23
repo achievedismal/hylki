@@ -142,6 +142,14 @@ pub(super) fn show_context_menu_popover(
     popover.set_has_arrow(false);
     popover.set_position(gtk::PositionType::Bottom);
     popover.add_css_class("menu");
+    let mut ancestor = Some(parent.as_ref().clone());
+    while let Some(widget) = ancestor {
+        if widget.has_css_class("mobile") {
+            popover.add_css_class("mobile-menu");
+            break;
+        }
+        ancestor = widget.parent();
+    }
 
     // Pages: the menu itself, and one per submenu, slid between. Each page
     // keeps its own height, so the popover fits whichever is showing, but
@@ -347,6 +355,11 @@ fn build_page(
             img.set_pixel_size(16);
             row.append(&img);
             let lbl = gtk::Label::new(Some(title));
+            if popover.has_css_class("mobile-menu") {
+                lbl.set_wrap(true);
+                lbl.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+                lbl.set_max_width_chars(24);
+            }
             lbl.set_xalign(0.0);
             lbl.set_hexpand(true);
             lbl.add_css_class("heading");
@@ -422,6 +435,11 @@ fn build_page(
             // one entry does not make every page of the menu wide; the
             // whole of it shows on hover.
             let lbl = gtk::Label::new(Some(&label));
+            if popover.has_css_class("mobile-menu") {
+                lbl.set_wrap(true);
+                lbl.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+                lbl.set_max_width_chars(24);
+            }
             lbl.set_xalign(0.0);
             lbl.set_hexpand(true);
             lbl.set_ellipsize(gtk::pango::EllipsizeMode::End);

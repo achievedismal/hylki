@@ -222,6 +222,8 @@ pub(super) enum Editor {
 }
 
 pub(crate) struct ContactsPage {
+    pub(super) panes: Option<crate::ui::adaptive::AdaptivePanes>,
+    pub(super) compact: bool,
     pub(super) contacts: Vec<ContactDetails>,
     pub(super) query: String,
     pub(super) sort: ContactSort,
@@ -315,6 +317,9 @@ pub(crate) struct ContactsPage {
 
 #[derive(Debug)]
 pub(crate) enum ContactsPageInput {
+    SetCompact(bool),
+    OpenDetail(u32),
+    ComposeActive(bool),
     /// Fresh EDS read: replace everything (keeps the selection when possible).
     SetContacts(Vec<ContactDetails>),
     /// The page was just opened; a read is on its way.

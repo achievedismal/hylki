@@ -344,6 +344,10 @@ impl AppModel {
             .transient_for(&self.window)
             .build();
         win.set_content(Some(content));
+        win.set_size_request(
+            crate::ui::adaptive::MIN_WIDTH,
+            crate::ui::adaptive::MIN_HEIGHT,
+        );
         win.add_controller(palette_key(sender));
         win.add_controller(crate::ui::close_key());
         let s = sender.input_sender().clone();

@@ -24,8 +24,7 @@ pub(super) fn page(content: &gtk::Box) -> gtk::Box {
     outer.set_halign(gtk::Align::Center);
     outer.set_margin_top(24);
     outer.set_margin_bottom(24);
-    outer.set_margin_start(48);
-    outer.set_margin_end(48);
+    outer.add_css_class("welcome-page");
     outer.set_hexpand(true);
     outer.set_vexpand(true);
     outer.append(content);
@@ -35,6 +34,9 @@ pub(super) fn page(content: &gtk::Box) -> gtk::Box {
 pub(super) fn title(text: &str) -> gtk::Label {
     let l = gtk::Label::new(Some(text));
     l.add_css_class("welcome-title");
+    l.set_wrap(true);
+    l.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+    l.set_justify(gtk::Justification::Center);
     l.set_halign(gtk::Align::Center);
     l
 }
@@ -278,6 +280,7 @@ pub(super) fn build_goa_page(
     }
     goa_links.append(&open_goa);
     goa_links.append(&rescan);
+    crate::ui::adaptive::wrap_controls(&goa_links);
     goa_pg.append(&goa_links);
     carousel.append(&scrolled(&page(&goa_pg)));
     GoaPage {

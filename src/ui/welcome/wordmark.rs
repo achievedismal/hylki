@@ -127,7 +127,14 @@ pub(super) fn bind_wordmark_to_position(
     let frame = frame.clone();
     let holder = holder.clone();
     carousel.connect_position_notify(move |car| {
-        let p = car.position().clamp(0.0, 1.0);
+        let mobile = frame
+            .root()
+            .is_some_and(|r| r.upcast_ref::<gtk::Widget>().has_css_class("mobile"));
+        let p = if mobile {
+            1.0
+        } else {
+            car.position().clamp(0.0, 1.0)
+        };
         let s = HERO_SIZE + (SMALL_SIZE - HERO_SIZE) * p;
         frame.set_size_request(s as i32, wordmark_height_of(Wordmark::WithIconWhite, s));
         holder.set_margin_top((HERO_TOP as f64 + (SMALL_TOP - HERO_TOP as f64) * p) as i32);

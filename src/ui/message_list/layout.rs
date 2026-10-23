@@ -223,7 +223,8 @@ impl MessageList {
             look.pills_below = self.pills_below;
             // The palette hangs under a card; a single line has no room for
             // it, so actions come from the menu, swipes and keys there.
-            look.show_palette = self.list_palette && !self.single_line;
+            look.show_palette =
+                (self.list_palette || self.shared.compact.get()) && !self.single_line;
             look.single_line = self.single_line;
             look.columns = self
                 .columns
@@ -394,12 +395,16 @@ impl MessageList {
     /// clipped at the right edge (see THREAD_EXPANDED_EXTRA).
     pub(super) fn fit_expanded(&self, any_expanded: bool) {
         if let Some(s) = &self.scroller {
-            let floor = LIST_MIN_WIDTH
-                + if any_expanded {
-                    THREAD_EXPANDED_EXTRA
-                } else {
-                    0
-                };
+            let floor = if self.shared.compact.get() {
+                crate::ui::adaptive::PANE_MIN_WIDTH
+            } else {
+                LIST_MIN_WIDTH
+                    + if any_expanded {
+                        THREAD_EXPANDED_EXTRA
+                    } else {
+                        0
+                    }
+            };
             s.set_size_request(floor, -1);
         }
     }

@@ -44,6 +44,14 @@ impl AppModel {
             Shortcut::PrevMessage => self.message_list.emit(MessageListInput::MoveSelection(-1)),
             Shortcut::ToggleSelect => self.message_list.emit(MessageListInput::ToggleSelection),
             Shortcut::BackToList => {
+                if self.compact {
+                    if let Some(reply) = &self.reader_compose {
+                        reply.controller.emit(ComposeInput::Cancel);
+                    } else if let Some(panes) = &self.mail_panes {
+                        panes.show_detail(false);
+                    }
+                    return;
+                }
                 // Gmail's u and Esc close the conversation, back to the list
                 // with nothing open (#392); the classic keys only move the
                 // keyboard there. A draft being written in the reader stays.

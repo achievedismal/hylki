@@ -163,7 +163,6 @@ impl BulkChoices {
 }
 
 /// Ask before doing something to contacts that cannot be taken back.
-#[allow(deprecated)] // adw::MessageDialog: AlertDialog would change how it looks
 pub(super) fn confirm(
     widgets: &ContactsPageWidgets,
     heading: &str,
@@ -173,7 +172,7 @@ pub(super) fn confirm(
     on_yes: impl Fn() + 'static,
 ) {
     let win = widgets.page_stack.root().and_downcast::<gtk::Window>();
-    let dialog = adw::MessageDialog::new(win.as_ref(), Some(heading), Some(body));
+    let dialog = adw::AlertDialog::new(Some(heading), Some(body));
     dialog.add_response("cancel", &i18n("Cancel"));
     dialog.add_response("yes", action);
     dialog.set_response_appearance(
@@ -191,7 +190,7 @@ pub(super) fn confirm(
             on_yes();
         }
     });
-    dialog.present();
+    dialog.present(win.as_ref());
 }
 
 /// The header's "+": a contact or a group.

@@ -170,7 +170,6 @@ impl Preferences {
 
     /// The sidebar moved away from an open account editor: save, discard,
     /// or stay. Staying puts the selection back on Mail Accounts.
-    #[allow(deprecated)] // adw::MessageDialog: AlertDialog would change how it looks
     pub(super) fn ask_to_leave_editor(&self, id: &str, sender: &ComponentSender<Self>) {
         let parent = relm4::main_application().active_window();
         let (heading, body) = match self.editor_page {
@@ -195,7 +194,7 @@ impl Preferences {
                 i18n("Your changes are lost if you discard them."),
             ),
         };
-        let dialog = adw::MessageDialog::new(parent.as_ref(), Some(&heading), Some(&body));
+        let dialog = adw::AlertDialog::new(Some(&heading), Some(&body));
         dialog.add_response("cancel", &i18n("Cancel"));
         dialog.add_response("discard", &i18n("Discard"));
         dialog.add_response("save", &i18n("Save"));
@@ -249,7 +248,7 @@ impl Preferences {
                 _ => s.input(PrefInput::ShowPageById(editor_page.into())),
             }
         });
-        dialog.present();
+        dialog.present(parent.as_ref());
     }
 
     /// Return the deferred pages to the stack (see `deferred_pages`).
