@@ -7,6 +7,7 @@ use crate::config::ToolbarItem;
 use crate::i18n::i18n;
 use crate::ui::context_menu::{show_context_menu, MenuEntry};
 use crate::ui::message_actions::MessageAction;
+use crate::ui::toolbar_fit::ToolbarFit;
 use adw::prelude::*;
 use relm4::prelude::*;
 
@@ -16,12 +17,13 @@ pub(super) struct Toolbar {
     pub(super) buttons: Vec<(ToolbarItem, gtk::Button)>,
     pub(super) overflow: gtk::Button,
     pub(super) spinner: gtk::Spinner,
-    pub(super) breakpoint: adw::Breakpoint,
+    pub(super) fit: Option<std::rc::Rc<ToolbarFit>>,
 }
 
 /// One flat icon button for each toolbar item, with the main window's icons
 /// and tooltips, and the ⋯ and spinner the row also needs.
 pub(super) fn build_toolbar(
+    bin: &adw::BreakpointBin,
     header: &adw::HeaderBar,
     sender: &ComponentSender<MessageWindow>,
 ) -> Toolbar {
@@ -37,7 +39,7 @@ pub(super) fn build_toolbar(
     };
     // The icons are the main toolbar's own (`ToolbarItem::icon`); the
     // tooltips name the shortcut where the main window's menu would.
-    let buttons = ToolbarItem::ALL
+    let buttons: Vec<_> = ToolbarItem::ALL
         .iter()
         .map(|item| {
             let (tooltip, msg): (String, fn() -> MessageWindowInput) = match item {
@@ -76,16 +78,24 @@ pub(super) fn build_toolbar(
     let spinner = gtk::Spinner::new();
     spinner.set_valign(gtk::Align::Center);
     spinner.set_tooltip_text(Some(&i18n("Downloading attachments…")));
+    let s = sender.clone();
+    let fit = ToolbarFit::new(
+        bin,
+        header,
+        &buttons
+            .iter()
+            .map(|(i, b)| (*i, b.clone().upcast()))
+            .collect::<Vec<_>>(),
+        &overflow,
+        &spinner,
+        move |slots| s.input(MessageWindowInput::SetToolbarSlots(slots)),
+    );
     Toolbar {
         header: header.clone(),
         buttons,
         overflow,
         spinner,
-        breakpoint: adw::Breakpoint::new(adw::BreakpointCondition::new_length(
-            adw::BreakpointConditionLengthType::MaxWidth,
-            0.0,
-            adw::LengthUnit::Px,
-        )),
+        fit: Some(fit),
     }
 }
 
@@ -134,43 +144,15 @@ impl MessageWindow {
         }
         header.pack_end(&self.bar.spinner);
 
-        // The width the whole row needs: every packed button shown, the
-        // folded state's ⋯ hidden, plus a little slack so the fold comes a
-        // step ahead of a squeeze. Tags without any tag counts too.
-        let shown: Vec<(gtk::Button, bool)> = self
-            .bar
-            .buttons
-            .iter()
-            .map(|(_, b)| (b.clone(), b.is_visible()))
-            .collect();
-        for (b, _) in &shown {
-            b.set_visible(b.parent().is_some());
+        if let Some(fit) = &self.bar.fit {
+            fit.set_layout(&self.toolbar);
         }
-        let overflow = self.bar.overflow.is_visible();
-        self.bar.overflow.set_visible(false);
-        let need = header.measure(gtk::Orientation::Horizontal, -1).1;
-        for (b, visible) in shown {
-            b.set_visible(visible);
-        }
-        self.bar.overflow.set_visible(overflow);
-        self.bar
-            .breakpoint
-            .set_condition(Some(&adw::BreakpointCondition::new_length(
-                adw::BreakpointConditionLengthType::MaxWidth,
-                f64::from(need + 24),
-                adw::LengthUnit::Px,
-            )));
     }
 
-    /// The buttons' state: which show (the right group only while the row
-    /// fits), and the ones that say the message's state.
+    /// Fitting buttons and the ones that say the message's state.
     pub(super) fn sync_toolbar(&self) {
         for (item, b) in &self.bar.buttons {
-            let right = self.toolbar.right.contains(item);
-            let mut visible = !(right && self.collapsed);
-            if self.mobile {
-                visible = *item == ToolbarItem::Reply;
-            }
+            let mut visible = self.toolbar.fits(*item, self.toolbar_slots);
             if *item == ToolbarItem::Tags {
                 visible &= !self.tags.is_empty();
             }
@@ -219,7 +201,16 @@ impl MessageWindow {
         }
         self.bar
             .overflow
-            .set_visible(self.mobile || (self.collapsed && !self.toolbar.right.is_empty()));
+            .set_visible(
+                self.toolbar
+                    .left
+                    .iter()
+                    .chain(&self.toolbar.right)
+                    .any(|item| {
+                        (*item != ToolbarItem::Tags || !self.tags.is_empty())
+                            && !self.toolbar.fits(*item, self.toolbar_slots)
+                    }),
+            );
         let loading = !self.attachments_loading.is_empty();
         self.bar.spinner.set_spinning(loading);
         self.bar.spinner.set_visible(loading);
@@ -256,8 +247,7 @@ impl MessageWindow {
         );
     }
 
-    /// The folded toolbar's ⋯ menu: the right group, in its own order, with
-    /// the main window's labels and icons.
+    /// Only folded actions, in saved order, with the main window's labels.
     pub(super) fn show_overflow_menu(&self, sender: &ComponentSender<Self>) {
         use MessageAction as A;
         let entry = |action: MessageAction, msg: fn() -> MessageWindowInput| {
@@ -268,16 +258,11 @@ impl MessageWindow {
             .icon(format!("{}-symbolic", action.icon()))
         };
         let mut section = Vec::new();
-        let items: Vec<_> = if self.mobile {
-            self.toolbar
-                .left
-                .iter()
-                .chain(&self.toolbar.right)
-                .collect()
-        } else {
-            self.toolbar.right.iter().collect()
-        };
+        let items = self.toolbar.left.iter().chain(&self.toolbar.right);
         for item in items {
+            if self.toolbar.fits(*item, self.toolbar_slots) {
+                continue;
+            }
             match item {
                 ToolbarItem::Reply => section.push(entry(A::Reply, || MessageWindowInput::Reply)),
                 ToolbarItem::ReplyAll => {

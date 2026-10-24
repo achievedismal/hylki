@@ -175,7 +175,7 @@ impl AppModel {
             attachments: Vec::new(),
             lightbox,
             attachments_loading: false,
-            reader_actions_collapsed: false,
+            reader_toolbar_slots: usize::MAX,
             reader_toolbar: config::load_reader_toolbar(),
             reader_toolbar_widgets: std::cell::OnceCell::new(),
             reader_overflow_btn: {

@@ -32,25 +32,30 @@ impl Component for MessageWindow {
             },
 
             #[wrap(Some)]
-            set_content = &adw::ToolbarView {
-                // The main window's reader toolbar: its buttons are packed
-                // in `init`, in the order Settings gives them.
-                #[name = "header"]
-                add_top_bar = &adw::HeaderBar {
-                    add_css_class: "flat",
-                    add_css_class: "reader-toolbar",
-                    #[wrap(Some)]
-                    set_title_widget = &gtk::Label {
-                        set_label: "",
-                    },
-                },
-                // The drawer holds the reader above its own footer; the
-                // lightbox covers both.
+            #[name = "toolbar_bin"]
+            set_content = &adw::BreakpointBin {
+                set_size_request: (crate::ui::adaptive::MIN_WIDTH, crate::ui::adaptive::MIN_HEIGHT),
                 #[wrap(Some)]
-                #[name = "content"]
-                set_content = &gtk::Overlay {
-                    set_child: Some(model.drawer.widget()),
-                    add_overlay: model.lightbox.widget(),
+                set_child = &adw::ToolbarView {
+                    // The main window's reader toolbar: its buttons are packed
+                    // in `init`, in the order Settings gives them.
+                    #[name = "header"]
+                    add_top_bar = &adw::HeaderBar {
+                        add_css_class: "flat",
+                        add_css_class: "reader-toolbar",
+                        #[wrap(Some)]
+                        set_title_widget = &gtk::Label {
+                            set_label: "",
+                        },
+                    },
+                    // The drawer holds the reader above its own footer; the
+                    // lightbox covers both.
+                    #[wrap(Some)]
+                    #[name = "content"]
+                    set_content = &gtk::Overlay {
+                        set_child: Some(model.drawer.widget()),
+                        add_overlay: model.lightbox.widget(),
+                    },
                 },
             },
         }
@@ -117,8 +122,7 @@ impl Component for MessageWindow {
             toolbar: init.toolbar,
             in_junk: init.in_junk,
             restorable: init.restorable,
-            collapsed: false,
-            mobile: false,
+            toolbar_slots: usize::MAX,
             window: root.clone(),
             content: gtk::Overlay::new(),
             bar: Toolbar {
@@ -126,28 +130,15 @@ impl Component for MessageWindow {
                 buttons: Vec::new(),
                 overflow: gtk::Button::new(),
                 spinner: gtk::Spinner::new(),
-                breakpoint: adw::Breakpoint::new(adw::BreakpointCondition::new_length(
-                    adw::BreakpointConditionLengthType::MaxWidth,
-                    0.0,
-                    adw::LengthUnit::Px,
-                )),
+                fit: None,
             },
             gmail_keys: init.gmail_keys.clone(),
         };
 
         let widgets = view_output!();
-        model.bar = build_toolbar(&widgets.header, &sender);
+        model.bar = build_toolbar(&widgets.toolbar_bin, &widgets.header, &sender);
         model.content = widgets.content.clone();
         {
-            let s = sender.input_sender().clone();
-            model.bar.breakpoint.connect_apply(move |_| {
-                let _ = s.send(MessageWindowInput::SetCollapsed(true));
-            });
-            let s = sender.input_sender().clone();
-            model.bar.breakpoint.connect_unapply(move |_| {
-                let _ = s.send(MessageWindowInput::SetCollapsed(false));
-            });
-            root.add_breakpoint(model.bar.breakpoint.clone());
             let mobile = crate::ui::adaptive::max_width(500.0);
             let s = sender.clone();
             mobile.connect_apply(move |_| s.input(MessageWindowInput::SetMobile(true)));
@@ -282,12 +273,11 @@ impl Component for MessageWindow {
                 self.view
                     .emit(MessageViewInput::SetCardAttachmentsShown(on));
             }
-            MessageWindowInput::SetCollapsed(on) => {
-                self.collapsed = on;
+            MessageWindowInput::SetToolbarSlots(slots) => {
+                self.toolbar_slots = slots;
                 self.sync_toolbar();
             }
             MessageWindowInput::SetMobile(on) => {
-                self.mobile = on;
                 self.bar
                     .header
                     .set_decoration_layout(if on { Some(":close") } else { None });
@@ -295,6 +285,9 @@ impl Component for MessageWindow {
                     self.window.add_css_class("mobile");
                 } else {
                     self.window.remove_css_class("mobile");
+                }
+                if let Some(fit) = &self.bar.fit {
+                    fit.refresh();
                 }
                 self.sync_toolbar();
             }

@@ -240,8 +240,7 @@ impl AppModel {
             | AppMsg::ListColumnWidths(..)
             | AppMsg::ListSortChanged(..)) => self.on_list_header(msg, sender),
             msg @ AppMsg::OwnGravatarFetched { .. } => self.on_identity(msg),
-            msg @ (AppMsg::SetReaderActionsCollapsed(..)
-            | AppMsg::ReaderControlsChanged(..)
+            msg @ (AppMsg::SetReaderToolbarSlots(..)
             | AppMsg::ReaderOverflowMenu
             | AppMsg::ReaderToolbarMenu { .. }
             | AppMsg::CustomizeToolbar

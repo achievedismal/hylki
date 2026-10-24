@@ -1,9 +1,8 @@
 //! Sizes and budgets the window and its caches are built with.
 
-/// The narrowest the reader pane may be squeezed. The header's right-hand
-/// actions collapse into the overflow menu below READER_ACTIONS_BREAKPOINT
-/// (the left group — Reply … Delete — stays), so the floor only needs a
-/// usable body width plus that left group. Kept modest on purpose: the window's
+/// The narrowest desktop reader pane. Header actions fold into the overflow
+/// menu as space runs out, so the floor only needs a usable body width.
+/// Kept modest on purpose: the window's
 /// total minimum width must stay under half of a 1920px screen, or GNOME
 /// refuses to tile the window to the left/right screen edge (it only offers
 /// the top-edge maximize).

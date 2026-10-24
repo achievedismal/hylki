@@ -1425,9 +1425,8 @@ flowbox.attach-flow > flowboxchild {
   margin-right: 12px;
 }
 
-/* The reader pane's toolbar: tighter than stock between the action icons —
-   narrower buttons and less gap in the packed start/end groups — so the full
-   row fits down to READER_ACTIONS_BREAKPOINT before folding into the ⋯ menu. */
+/* Tighter than stock between action icons, so more fit before folding into
+   the ⋯ menu. Compact layouts still use the touch-sized minimum above. */
 headerbar.reader-toolbar box.start,
 headerbar.reader-toolbar box.end,
 headerbar.compose-toolbar box.start,

@@ -103,8 +103,8 @@ pub(crate) enum MessageWindowInput {
     SetToolbar(ReaderToolbar),
     SetAttachmentDrawer(bool),
     SetCardAttachmentsShown(bool),
-    /// The window crossed the width the whole toolbar needs.
-    SetCollapsed(bool),
+    /// The number of actions that fit the header changed.
+    SetToolbarSlots(usize),
     SetMobile(bool),
     /// Hand this to the attachment drawer (a deletion's progress, #289).
     Drawer(AttachmentDrawerInput),

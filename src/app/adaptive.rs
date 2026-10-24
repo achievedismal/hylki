@@ -81,6 +81,9 @@ impl AppModel {
         } else {
             self.window.remove_css_class("mobile");
         }
+        if let Some(tb) = self.reader_toolbar_widgets.get() {
+            tb.fit.refresh();
+        }
         self.message_list.emit(MessageListInput::SetCompact(on));
         self.contacts_page.emit(ContactsPageInput::SetCompact(on));
         self.push_single_line();

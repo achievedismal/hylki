@@ -47,6 +47,7 @@ pub(crate) mod sidebar;
 mod theme_picker;
 pub(crate) mod thumbnails;
 mod tool_flow;
+pub(crate) mod toolbar_fit;
 mod translation_page;
 mod web_signin;
 pub(crate) mod welcome;

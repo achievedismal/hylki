@@ -4946,13 +4946,10 @@ msgstr ""
 msgid "Left group"
 msgstr ""
 
-msgid "Always shown · up to 6"
+msgid "Folds into ⋯ when narrow · up to 6"
 msgstr ""
 
 msgid "Right group"
-msgstr ""
-
-msgid "Folds into ⋯ when narrow · up to 6"
 msgstr ""
 
 msgid "Not shown"
@@ -5131,9 +5128,7 @@ msgstr ""
 msgid "Toolbar"
 msgstr ""
 
-msgid ""
-"Drag buttons between the groups. The right group folds into ⋯ when the pane "
-"is narrow."
+msgid "Drag buttons between the groups. Buttons that do not fit fold into ⋯."
 msgstr ""
 
 msgid "Restore Defaults"

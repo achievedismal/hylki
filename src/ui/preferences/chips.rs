@@ -215,7 +215,10 @@ const TOOLBAR_ZONES: [Option<ToolbarSide>; 3] =
 impl ToolbarEditor {
     pub(super) fn build(host: &gtk::Box, sender: &ComponentSender<Preferences>) -> Self {
         let heads = [
-            (i18n("Left group"), i18n("Always shown · up to 6")),
+            (
+                i18n("Left group"),
+                i18n("Folds into ⋯ when narrow · up to 6"),
+            ),
             (
                 i18n("Right group"),
                 i18n("Folds into ⋯ when narrow · up to 6"),

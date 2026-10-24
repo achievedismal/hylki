@@ -744,11 +744,8 @@ pub(crate) enum AppMsg {
     },
 
     // ---- on_reader_toolbar (reader_toolbar.rs) ----
-    /// The reader pane crossed the actions breakpoint (true = collapse the
-    /// header's buttons into the overflow menu).
-    SetReaderActionsCollapsed(bool),
-    /// The window controls were re-measured (decoration layout changed).
-    ReaderControlsChanged(i32),
+    /// The number of actions that fit the reader header changed.
+    SetReaderToolbarSlots(usize),
     /// The collapsed header's ⋯ button was clicked — pop its menu.
     ReaderOverflowMenu,
     /// A right-click on the reader header's empty space: the menu that

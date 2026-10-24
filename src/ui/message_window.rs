@@ -45,10 +45,8 @@ pub(crate) struct MessageWindow {
     toolbar: ReaderToolbar,
     in_junk: bool,
     restorable: bool,
-    /// The right group is folded into the ⋯ menu: the window is too narrow
-    /// for the whole row.
-    collapsed: bool,
-    mobile: bool,
+    /// How many actions fit, in retention-priority order.
+    toolbar_slots: usize,
     /// The window and what fills it, for keeping the window's minimum
     /// width at its content's (see [`MessageWindow::fit_min_width`]).
     window: adw::Window,

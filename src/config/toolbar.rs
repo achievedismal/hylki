@@ -11,9 +11,8 @@ use super::{config_file, read_toml, save_plain_toml};
 // which side, in what order (Settings → Appearance → Toolbar).
 // ---------------------------------------------------------------------------
 
-/// One button of the reader header. The left group stays on the bar at every
-/// width; the right group folds into the ⋯ overflow menu when the pane is
-/// narrow.
+/// One button of the reader header. Actions that do not fit the pane fold
+/// into the ⋯ overflow menu, keeping the most-used actions longest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum ToolbarItem {
     Reply,
@@ -146,6 +145,26 @@ impl Default for ReaderToolbar {
 }
 
 impl ReaderToolbar {
+    /// Retention priority, independent of the saved visual order. The reply
+    /// actions and filing controls stay within reach on a phone, even when
+    /// the user has placed them on the right side of the toolbar.
+    pub(crate) fn priority(&self) -> Vec<ToolbarItem> {
+        use ToolbarItem as T;
+        let mut items: Vec<_> = self.left.iter().chain(&self.right).copied().collect();
+        items.sort_by_key(|item| match item {
+            T::Reply => 0,
+            T::ReplyAll => 1,
+            T::Archive => 2,
+            T::Delete => 3,
+            _ => 4,
+        });
+        items
+    }
+
+    pub(crate) fn fits(&self, item: ToolbarItem, slots: usize) -> bool {
+        self.priority().into_iter().take(slots).any(|i| i == item)
+    }
+
     /// The side an item sits on, or None when it is hidden.
     pub(crate) fn side(&self, item: ToolbarItem) -> Option<ToolbarSide> {
         if self.left.contains(&item) {

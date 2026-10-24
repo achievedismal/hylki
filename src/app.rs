@@ -477,9 +477,8 @@ impl SimpleComponent for AppModel {
                                 // action buttons while collapsed.
                                 pack_end: &model.reader_overflow_btn,
                                 add_css_class: "flat",
-                                // Tighter icon spacing than stock so the full
-                                // action row fits a narrower pane (see
-                                // READER_ACTIONS_BREAKPOINT and styles.css).
+                                // Tighter icon spacing so more actions fit
+                                // before moving into the overflow menu.
                                 add_css_class: "reader-toolbar",
                                 // Empty title so the window's "Hylki" title isn't
                                 // shown here; the app title lives above the sidebar.
@@ -493,6 +492,9 @@ impl SimpleComponent for AppModel {
                                 // whether to edit, send or bin it.
                                 #[name = "tb_outbox_edit"]
                                 pack_start = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.showing_outbox && !model.compact
+                                        && model.reader_compose.is_none(),
                                     set_transition_type: gtk::RevealerTransitionType::SlideRight,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -501,15 +503,15 @@ impl SimpleComponent for AppModel {
                                         set_tooltip_text: Some(i18n("Edit this message").as_str()),
                                         add_css_class: "flat",
                                         #[watch]
-                                        set_visible: model.showing_outbox
-                                            && model.reader_compose.is_none(),
-                                        #[watch]
                                         set_sensitive: model.current.is_some(),
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::EditCurrentOutbox),
                                     },
                                 },
                                 #[name = "tb_outbox_send"]
                                 pack_start = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.showing_outbox && !model.compact
+                                        && model.reader_compose.is_none(),
                                     set_transition_type: gtk::RevealerTransitionType::SlideRight,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -518,36 +520,37 @@ impl SimpleComponent for AppModel {
                                         set_tooltip_text: Some(i18n("Try to send this message now").as_str()),
                                         add_css_class: "flat",
                                         #[watch]
-                                        set_visible: model.showing_outbox
-                                            && model.reader_compose.is_none(),
-                                        #[watch]
                                         set_sensitive: model.current.is_some(),
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::SendCurrentOutbox),
                                     },
                                 },
                                 #[name = "tb_outbox_send_all"]
                                 pack_start = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.showing_outbox && !model.compact
+                                        && model.reader_compose.is_none(),
                                     set_transition_type: gtk::RevealerTransitionType::SlideRight,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
                                     gtk::Button {
                                         set_label: &i18n("Send all"),
                                         add_css_class: "flat",
-                                        #[watch]
-                                        set_visible: model.showing_outbox
-                                            && model.reader_compose.is_none(),
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::RetryAllOutbox),
                                     },
                                 },
                                 // ---- The action buttons. Declared here in the
                                 // default order, then re-packed in init (and on
                                 // every change) in the user's saved order — see
-                                // relayout_reader_toolbar. The left group stays
-                                // at every width; the right group folds into
-                                // the ⋯ overflow. Default left group: Reply,
+                                // relayout_reader_toolbar. Actions fold into
+                                // the ⋯ overflow by priority as the pane
+                                // narrows. Default left group: Reply,
                                 // Reply All, Forward, Star, Archive, Delete.
+                                // Hide the whole slot when folded: an empty
+                                // visible revealer still takes header spacing.
                                 #[name = "tb_reply"]
                                 pack_start = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::Reply),
                                     set_transition_type: gtk::RevealerTransitionType::SlideRight,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -555,8 +558,6 @@ impl SimpleComponent for AppModel {
                                         set_icon_name: "mail-reply-sender-symbolic",
                                         set_tooltip_text: Some(i18n("Reply").as_str()),
                                         add_css_class: "flat",
-                                        #[watch]
-                                        set_visible: model.toolbar_visible(config::ToolbarItem::Reply),
                                         // In a conversation these act on the one
                                         // highlighted card; with none (or several)
                                         // highlighted they grey out — no way to say
@@ -568,6 +569,8 @@ impl SimpleComponent for AppModel {
                                 },
                                 #[name = "tb_reply_all"]
                                 pack_start = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::ReplyAll),
                                     set_transition_type: gtk::RevealerTransitionType::SlideRight,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -576,14 +579,14 @@ impl SimpleComponent for AppModel {
                                         set_tooltip_text: Some(i18n("Reply All").as_str()),
                                         add_css_class: "flat",
                                         #[watch]
-                                        set_visible: model.toolbar_visible(config::ToolbarItem::ReplyAll),
-                                        #[watch]
                                         set_sensitive: model.reply_target().is_some(),
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::ReplyAll),
                                     },
                                 },
                                 #[name = "tb_forward"]
                                 pack_start = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::Forward),
                                     set_transition_type: gtk::RevealerTransitionType::SlideRight,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -592,14 +595,14 @@ impl SimpleComponent for AppModel {
                                         set_tooltip_text: Some(i18n("Forward").as_str()),
                                         add_css_class: "flat",
                                         #[watch]
-                                        set_visible: model.toolbar_visible(config::ToolbarItem::Forward),
-                                        #[watch]
                                         set_sensitive: model.reply_target().is_some(),
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::Forward),
                                     },
                                 },
                                 #[name = "tb_star"]
                                 pack_start = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::Star),
                                     set_transition_type: gtk::RevealerTransitionType::SlideRight,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -616,14 +619,14 @@ impl SimpleComponent for AppModel {
                                             &["flat"]
                                         },
                                         #[watch]
-                                        set_visible: model.toolbar_visible(config::ToolbarItem::Star),
-                                        #[watch]
                                         set_sensitive: model.acts_on_selection(),
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::ToggleStar),
                                     },
                                 },
                                 #[name = "tb_archive"]
                                 pack_start = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::Archive),
                                     set_transition_type: gtk::RevealerTransitionType::SlideRight,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -632,14 +635,15 @@ impl SimpleComponent for AppModel {
                                         set_tooltip_text: Some(i18n("Archive").as_str()),
                                         add_css_class: "flat",
                                         #[watch]
-                                        set_visible: model.toolbar_visible(config::ToolbarItem::Archive),
-                                        #[watch]
                                         set_sensitive: model.acts_on_selection(),
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::Archive),
                                     },
                                 },
                                 #[name = "tb_delete"]
                                 pack_start = &gtk::Revealer {
+                                    // Delete also serves queued Outbox messages.
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::Delete),
                                     set_transition_type: gtk::RevealerTransitionType::SlideRight,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -648,10 +652,6 @@ impl SimpleComponent for AppModel {
                                         #[watch]
                                         set_tooltip_text: Some(&model.delete_tooltip()),
                                         add_css_class: "flat",
-                                        // Shown for the Outbox too (a queued message
-                                        // can still be binned) — see toolbar_visible.
-                                        #[watch]
-                                        set_visible: model.toolbar_visible(config::ToolbarItem::Delete),
                                         #[watch]
                                         set_sensitive: model.reply_target().is_some()
                                             || model.many_selected(),
@@ -666,6 +666,8 @@ impl SimpleComponent for AppModel {
                                 // message header.)
                                 #[name = "tb_print"]
                                 pack_end = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::Print),
                                     set_transition_type: gtk::RevealerTransitionType::SlideLeft,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -673,8 +675,6 @@ impl SimpleComponent for AppModel {
                                         set_icon_name: "printer-symbolic",
                                         set_tooltip_text: Some(i18n("Print Preview (Ctrl+Shift+P)").as_str()),
                                         add_css_class: "flat",
-                                        #[watch]
-                                        set_visible: model.toolbar_visible(config::ToolbarItem::Print),
                                         #[watch]
                                         set_sensitive: model.current.is_some(),
                                         // The preview, not the print dialog: the button
@@ -686,6 +686,8 @@ impl SimpleComponent for AppModel {
                                 // In-message find (#103).
                                 #[name = "tb_find"]
                                 pack_end = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::Find),
                                     set_transition_type: gtk::RevealerTransitionType::SlideLeft,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -695,8 +697,6 @@ impl SimpleComponent for AppModel {
                                         add_css_class: "flat",
                                         // Greyed out, not hidden, with no message
                                         // open: the toolbar must not shift.
-                                        #[watch]
-                                        set_visible: model.toolbar_visible(config::ToolbarItem::Find),
                                         #[watch]
                                         set_sensitive: model.current.is_some(),
                                         connect_clicked[sender] => move |_| {
@@ -708,14 +708,14 @@ impl SimpleComponent for AppModel {
                                 // target, or the whole list selection.
                                 #[name = "tb_move"]
                                 pack_end = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::MoveTo),
                                     set_transition_type: gtk::RevealerTransitionType::SlideLeft,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
                                     gtk::Box {
                                         #[local_ref]
                                         reader_move_btn -> gtk::Button {
-                                            #[watch]
-                                            set_visible: model.toolbar_visible(config::ToolbarItem::MoveTo),
                                             #[watch]
                                             set_sensitive: model.reply_target().is_some()
                                                 || model.many_selected(),
@@ -724,6 +724,8 @@ impl SimpleComponent for AppModel {
                                 },
                                 #[name = "tb_spam"]
                                 pack_end = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::Spam),
                                     set_transition_type: gtk::RevealerTransitionType::SlideLeft,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
@@ -738,22 +740,19 @@ impl SimpleComponent for AppModel {
                                         set_tooltip_text: Some(if model.target_in_junk() { i18n("Not Spam") } else { i18n("Mark as Spam") }.as_str()),
                                         add_css_class: "flat",
                                         #[watch]
-                                        set_visible: model.toolbar_visible(config::ToolbarItem::Spam),
-                                        #[watch]
                                         set_sensitive: model.acts_on_selection(),
                                         connect_clicked[sender] => move |_| sender.input(AppMsg::MarkSpam),
                                     },
                                 },
                                 #[name = "tb_read"]
                                 pack_end = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::ReadUnread),
                                     set_transition_type: gtk::RevealerTransitionType::SlideLeft,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
                                     gtk::Button {
                                         add_css_class: "flat",
-                                        #[watch]
-                                        set_visible: !model.compact && !model.showing_outbox && !model.reader_actions_collapsed
-                                            && model.reader_compose.is_none(),
                                         // The icon shows the ACTION (read envelope =
                                         // "mark as read"), matching the menus.
                                         #[watch]
@@ -773,14 +772,14 @@ impl SimpleComponent for AppModel {
                                 // the target carries them. Only once a tag exists.
                                 #[name = "tb_tags"]
                                 pack_end = &gtk::Revealer {
+                                    #[watch]
+                                    set_visible: model.toolbar_visible(config::ToolbarItem::Tags) && !model.tags.is_empty(),
                                     set_transition_type: gtk::RevealerTransitionType::SlideLeft,
                                     set_transition_duration: FOCUS_ANIM_MS,
                                     add_css_class: "focus-fade",
                                     gtk::Box {
                                         #[local_ref]
                                         reader_tag_btn -> gtk::Button {
-                                            #[watch]
-                                            set_visible: model.toolbar_visible(config::ToolbarItem::Tags) && !model.tags.is_empty(),
                                             #[watch]
                                             set_sensitive: model.acts_on_selection(),
                                         },
@@ -912,6 +911,10 @@ impl SimpleComponent for AppModel {
     }
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
-        self.route(msg, sender)
+        self.route(msg, sender);
+        // Tags, folder changes and the composer can change what the menu
+        // offers without changing the toolbar's width.
+        self.reader_overflow_btn
+            .set_visible(self.reader_overflow_wanted());
     }
 }

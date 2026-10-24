@@ -101,7 +101,7 @@ impl AppearancePage {
                 add = &adw::PreferencesGroup {
                     set_title: &i18n("Toolbar"),
                     set_description: Some(
-                        &i18n("Drag buttons between the groups. The right group folds into ⋯ when the pane is narrow."),
+                        &i18n("Drag buttons between the groups. Buttons that do not fit fold into ⋯."),
                     ),
                     #[name = "toolbar_editor_box"]
                     gtk::Box {

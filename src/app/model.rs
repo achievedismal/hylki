@@ -159,9 +159,8 @@ pub(crate) struct AppModel {
     pub(super) attachments: Vec<Attachment>,
     /// True while the current message's attachments are downloading.
     pub(super) attachments_loading: bool,
-    /// The reader header's right-hand actions are collapsed into the overflow menu
-    /// (pane squeezed under READER_ACTIONS_BREAKPOINT).
-    pub(super) reader_actions_collapsed: bool,
+    /// How many actions fit the reader header, in retention-priority order.
+    pub(super) reader_toolbar_slots: usize,
     /// The collapsed header's ⋯ button — the anchor its menu pops from.
     pub(super) reader_overflow_btn: gtk::Button,
     /// The reader header's layout: which buttons, which side, what order
